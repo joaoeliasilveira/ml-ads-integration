@@ -36,17 +36,13 @@ def callback():
     )
 
     token_data = response.json()
-    access_token  = token_data.get("access_token", "Erro")
-    refresh_token = token_data.get("refresh_token", "")
-    user_id       = token_data.get("user_id", "")
 
+    # Mostra a resposta completa para debug
     return f"""
-        <h2>✅ Autorização concluída!</h2>
-        <p><b>User ID:</b> {user_id}</p>
-        <p><b>Access Token:</b> {access_token}</p>
-        <p><b>Refresh Token:</b> {refresh_token}</p>
+        <h2>Resposta completa do ML:</h2>
+        <pre>{token_data}</pre>
     """
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
