@@ -17,7 +17,6 @@
   --text2: #999;
   --text3: #666;
   --yellow: #FFE600;
-  --yellow2: rgba(255,230,0,0.12);
   --green: #1DB97A;
   --green2: rgba(29,185,122,0.12);
   --red: #FF5252;
@@ -31,27 +30,14 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 32px; border-bottom: 1px solid var(--border);
-  background: var(--bg); position: sticky; top: 0; z-index: 100;
-}
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 100; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-icon { width: 36px; height: 36px; background: var(--yellow); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .brand-name { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
 .brand-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
-.period-select {
-  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
-  font-family: 'DM Sans', sans-serif; font-size: 13px;
-  padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; outline: none;
-}
-.btn-connect {
-  background: var(--yellow); color: #000; font-family: 'DM Sans', sans-serif;
-  font-size: 13px; font-weight: 600; padding: 8px 16px;
-  border: none; border-radius: var(--radius-sm); cursor: pointer;
-  display: flex; align-items: center; gap: 6px; transition: opacity 0.15s;
-}
+.period-select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; outline: none; }
+.btn-connect { background: var(--yellow); color: #000; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 16px; border: none; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.15s; }
 .btn-connect:hover { opacity: 0.88; }
 
 .main { padding: 28px 32px; max-width: 1400px; }
@@ -101,6 +87,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 .btn-detail { background: transparent; border: 1px solid var(--border2); color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s; }
 .btn-detail:hover { border-color: var(--yellow); color: var(--yellow); }
+.btn-remove { background: transparent; border: 1px solid rgba(255,82,82,0.3); color: var(--red); font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s; }
+.btn-remove:hover { background: var(--red2); border-color: var(--red); }
 
 .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
 .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
@@ -266,15 +254,33 @@ function renderCharts(data) {
 
 function renderTable(data) {
   document.getElementById('seller-count').textContent = data.length+' sellers conectados';
-  if (!data.length) { document.getElementById('table-container').innerHTML = `<div class="empty-state"><div class="empty-icon">📡</div><div class="empty-title">Nenhum seller conectado</div><div class="empty-sub">Clique em "Conectar Seller" para autorizar o primeiro seller</div></div>`; return; }
+  if (!data.length) {
+    document.getElementById('table-container').innerHTML = `<div class="empty-state"><div class="empty-icon">📡</div><div class="empty-title">Nenhum seller conectado</div><div class="empty-sub">Clique em "Conectar Seller" para autorizar o primeiro seller</div></div>`;
+    return;
+  }
   const rows = data.map(s => {
     const {spend,revenue,clicks,roas,acos} = s.summary;
     const sc = acos<=12?'badge-green':acos<=25?'badge-amber':'badge-red';
     const st = acos<=12?'Ótimo':acos<=25?'Atenção':'Crítico';
     const barW = Math.min((roas/6)*56,56);
-    return `<tr><td><div class="seller-name">${s.nickname||'Seller'}</div><div class="seller-id">${s.seller_id}</div></td><td>${fmt(spend)}</td><td>${fmt(revenue)}</td><td><div class="roas-wrap"><div class="roas-track"><div class="roas-fill" style="width:${barW}px"></div></div>${roas}x</div></td><td>${acos}%</td><td>${fmtK(clicks)}</td><td><span class="badge ${sc}">${st}</span></td><td><button class="btn-detail" onclick="openDetail('${s.seller_id}')">Detalhe →</button></td></tr>`;
+    return `<tr>
+      <td><div class="seller-name">${s.nickname||'Seller'}</div><div class="seller-id">${s.seller_id}</div></td>
+      <td>${fmt(spend)}</td>
+      <td>${fmt(revenue)}</td>
+      <td><div class="roas-wrap"><div class="roas-track"><div class="roas-fill" style="width:${barW}px"></div></div>${roas}x</div></td>
+      <td>${acos}%</td>
+      <td>${fmtK(clicks)}</td>
+      <td><span class="badge ${sc}">${st}</span></td>
+      <td style="display:flex;gap:6px;align-items:center">
+        <button class="btn-detail" onclick="openDetail('${s.seller_id}')">Detalhe →</button>
+        <button class="btn-remove" onclick="removeSeller('${s.seller_id}','${s.nickname||'Seller'}')">✕</button>
+      </td>
+    </tr>`;
   }).join('');
-  document.getElementById('table-container').innerHTML = `<table><thead><tr><th>Seller</th><th>Gasto</th><th>Receita</th><th>ROAS</th><th>ACOS</th><th>Cliques</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('table-container').innerHTML = `<table>
+    <thead><tr><th>Seller</th><th>Gasto</th><th>Receita</th><th>ROAS</th><th>ACOS</th><th>Cliques</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function filterTable(q) {
@@ -286,6 +292,13 @@ function openDetail(sellerId) {
   const s = allSellersData.find(x => String(x.seller_id)===String(sellerId));
   if (!s) return;
   alert(`Seller: ${s.nickname}\nGasto: R$ ${s.summary.spend}\nReceita: R$ ${s.summary.revenue}\nROAS: ${s.summary.roas}x\nACOS: ${s.summary.acos}%\nCliques: ${s.summary.clicks}`);
+}
+
+async function removeSeller(sellerId, name) {
+  if (!confirm(`Remover "${name}" do dashboard?`)) return;
+  await fetch(`/api/sellers/${sellerId}`, { method: 'DELETE' });
+  allSellersData = allSellersData.filter(s => String(s.seller_id) !== String(sellerId));
+  renderAll(allSellersData);
 }
 
 const params = new URLSearchParams(window.location.search);
