@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADS Dashboard · Mercado Livre</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0f0f0f;
+  --bg2: #181818;
+  --bg3: #222222;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --text: #f0f0f0;
+  --text2: #999;
+  --text3: #666;
+  --yellow: #FFE600;
+  --yellow2: rgba(255,230,0,0.12);
+  --green: #1DB97A;
+  --green2: rgba(29,185,122,0.12);
+  --red: #FF5252;
+  --red2: rgba(255,82,82,0.12);
+  --amber: #F5A623;
+  --amber2: rgba(245,166,35,0.12);
+  --blue: #4A9EFF;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px; border-bottom: 1px solid var(--border);
+  background: var(--bg); position: sticky; top: 0; z-index: 100;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon { width: 36px; height: 36px; background: var(--yellow); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.brand-name { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+.brand-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.period-select {
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; outline: none;
+}
+.btn-connect {
+  background: var(--yellow); color: #000; font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; padding: 8px 16px;
+  border: none; border-radius: var(--radius-sm); cursor: pointer;
+  display: flex; align-items: center; gap: 6px; transition: opacity 0.15s;
+}
+.btn-connect:hover { opacity: 0.88; }
+
+.main { padding: 28px 32px; max-width: 1400px; }
+.alert { background: var(--green2); border: 1px solid var(--green); border-radius: var(--radius-sm); padding: 10px 16px; font-size: 13px; color: var(--green); margin-bottom: 24px; display: none; }
+
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.metric-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; transition: border-color 0.15s; }
+.metric-card:hover { border-color: var(--border2); }
+.metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.metric-value { font-size: 26px; font-weight: 500; letter-spacing: -0.5px; color: var(--text); }
+.metric-delta { font-size: 12px; margin-top: 6px; color: var(--text3); }
+.delta-up { color: var(--green); }
+.delta-down { color: var(--red); }
+
+.charts-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; margin-bottom: 28px; }
+.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+.card-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.card-sub { font-size: 12px; color: var(--text3); margin-bottom: 18px; }
+.legend { display: flex; gap: 16px; margin-bottom: 12px; }
+.leg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+.leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+.sellers-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
+.sellers-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.search-wrap { position: relative; }
+.search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: 0.4; }
+.search-input { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 8px 12px 8px 34px; border-radius: var(--radius-sm); width: 220px; outline: none; }
+.search-input::placeholder { color: var(--text3); }
+.search-input:focus { border-color: var(--yellow); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 0 12px 12px; font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+td { padding: 13px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+.seller-name { font-weight: 500; }
+.seller-id { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.badge-green { background: var(--green2); color: var(--green); }
+.badge-amber { background: var(--amber2); color: var(--amber); }
+.badge-red { background: var(--red2); color: var(--red); }
+
+.roas-wrap { display: flex; align-items: center; gap: 8px; }
+.roas-track { height: 4px; background: var(--bg3); border-radius: 2px; width: 60px; flex-shrink: 0; }
+.roas-fill { height: 4px; border-radius: 2px; background: var(--green); }
+
+.btn-detail { background: transparent; border: 1px solid var(--border2); color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s; }
+.btn-detail:hover { border-color: var(--yellow); color: var(--yellow); }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+.empty-title { font-size: 16px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
+.empty-sub { font-size: 13px; }
+
+@media (max-width: 900px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .main { padding: 20px 16px; }
+  .topbar { padding: 12px 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">📊</div>
+    <div>
+      <div class="brand-name">ADS Dashboard</div>
+      <div class="brand-sub">Mercado Livre</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <select class="period-select" id="period" onchange="loadData()">
+      <option value="7">Últimos 7 dias</option>
+      <option value="30" selected>Últimos 30 dias</option>
+      <option value="90">Últimos 90 dias</option>
+    </select>
+    <button class="btn-connect" onclick="window.location='/auth'">+ Conectar Seller</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="alert" id="alert"></div>
+
+  <div class="metrics-grid">
+    <div class="metric-card"><div class="metric-label">Gasto Total</div><div class="metric-value" id="m-gasto">—</div><div class="metric-delta" id="d-gasto">Aguardando dados</div></div>
+    <div class="metric-card"><div class="metric-label">Receita ADS</div><div class="metric-value" id="m-receita">—</div><div class="metric-delta" id="d-receita">Aguardando dados</div></div>
+    <div class="metric-card"><div class="metric-label">ROAS Médio</div><div class="metric-value" id="m-roas">—</div><div class="metric-delta" id="d-roas">Meta: ≥ 3x</div></div>
+    <div class="metric-card"><div class="metric-label">ACOS Médio</div><div class="metric-value" id="m-acos">—</div><div class="metric-delta" id="d-acos">Meta: ≤ 15%</div></div>
+    <div class="metric-card"><div class="metric-label">Impressões</div><div class="metric-value" id="m-imp">—</div><div class="metric-delta">Total do período</div></div>
+    <div class="metric-card"><div class="metric-label">Cliques</div><div class="metric-value" id="m-clicks">—</div><div class="metric-delta" id="m-ctr">CTR: —</div></div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="card-title">Gasto vs Receita por Seller</div>
+      <div class="card-sub">Top sellers do período</div>
+      <div class="legend">
+        <span class="leg"><span class="leg-dot" style="background:#4A9EFF"></span>Receita</span>
+        <span class="leg"><span class="leg-dot" style="background:#FF5252"></span>Gasto</span>
+      </div>
+      <div style="position:relative;height:260px">
+        <canvas id="chart-spend" role="img" aria-label="Gasto e receita por seller">Gasto e receita por seller.</canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">ACOS por Seller</div>
+      <div class="card-sub">Verde &lt; 15% · Amarelo 15–25% · Vermelho &gt; 25%</div>
+      <div style="position:relative;height:300px">
+        <canvas id="chart-acos" role="img" aria-label="ACOS por seller">ACOS por seller.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="sellers-card">
+    <div class="sellers-header">
+      <div>
+        <div class="card-title">Sellers Conectados</div>
+        <div class="card-sub" id="seller-count">Carregando...</div>
+      </div>
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input class="search-input" type="text" placeholder="Buscar seller..." oninput="filterTable(this.value)">
+      </div>
+    </div>
+    <div id="table-container">
+      <div class="empty-state">
+        <div class="empty-icon">📡</div>
+        <div class="empty-title">Nenhum seller conectado</div>
+        <div class="empty-sub">Clique em "Conectar Seller" para autorizar o primeiro seller</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allSellersData = [];
+let chartSpend = null;
+let chartAcos = null;
+
+function fmt(n) { return 'R$ ' + Number(n).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function fmtK(n) { if (n>=1000000) return (n/1000000).toFixed(1)+'M'; if (n>=1000) return (n/1000).toFixed(1)+'k'; return n; }
+function getPeriodDates(days) {
+  const to = new Date(), from = new Date();
+  from.setDate(from.getDate() - days);
+  return { date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0] };
+}
+
+async function loadData() {
+  const days = parseInt(document.getElementById('period').value);
+  const { date_from, date_to } = getPeriodDates(days);
+  const sellersResp = await fetch('/api/sellers');
+  const sellers = await sellersResp.json();
+  if (!sellers.length) { document.getElementById('seller-count').textContent = '0 sellers conectados'; return; }
+  document.getElementById('seller-count').textContent = 'Carregando dados...';
+  const results = await Promise.all(sellers.map(s =>
+    fetch(`/api/ads/${s.user_id}?date_from=${date_from}&date_to=${date_to}`).then(r => r.json()).catch(() => null)
+  ));
+  allSellersData = results.filter(Boolean);
+  renderAll(allSellersData);
+}
+
+function renderAll(data) {
+  let totGasto=0, totReceita=0, totClicks=0, totImp=0;
+  data.forEach(s => { totGasto+=s.summary.spend; totReceita+=s.summary.revenue; totClicks+=s.summary.clicks; totImp+=s.summary.impressions; });
+  const avgRoas = totGasto>0 ? (totReceita/totGasto).toFixed(1) : 0;
+  const avgAcos = totReceita>0 ? ((totGasto/totReceita)*100).toFixed(1) : 0;
+  const ctr = totImp>0 ? ((totClicks/totImp)*100).toFixed(2) : 0;
+  document.getElementById('m-gasto').textContent = fmt(totGasto);
+  document.getElementById('m-receita').textContent = fmt(totReceita);
+  document.getElementById('m-roas').textContent = avgRoas+'x';
+  document.getElementById('m-acos').textContent = avgAcos+'%';
+  document.getElementById('m-imp').textContent = fmtK(totImp);
+  document.getElementById('m-clicks').textContent = fmtK(totClicks);
+  document.getElementById('m-ctr').textContent = 'CTR: '+ctr+'%';
+  const roasEl = document.getElementById('d-roas');
+  roasEl.className = 'metric-delta '+(avgRoas>=3?'delta-up':'delta-down');
+  roasEl.textContent = avgRoas>=3 ? '✓ Acima da meta (3x)' : '⚠ Abaixo da meta (3x)';
+  const acosEl = document.getElementById('d-acos');
+  acosEl.className = 'metric-delta '+(avgAcos<=15?'delta-up':'delta-down');
+  acosEl.textContent = avgAcos<=15 ? '✓ Dentro da meta (15%)' : '⚠ Acima da meta (15%)';
+  renderCharts(data);
+  renderTable(data);
+}
+
+function renderCharts(data) {
+  const top = [...data].sort((a,b)=>b.summary.spend-a.summary.spend).slice(0,10);
+  const labels = top.map(s => s.nickname || s.seller_id);
+  if (chartSpend) chartSpend.destroy();
+  chartSpend = new Chart(document.getElementById('chart-spend'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'Receita', data:top.map(s=>s.summary.revenue), backgroundColor:'#4A9EFF', borderRadius:4, borderSkipped:false },
+      { label:'Gasto',   data:top.map(s=>s.summary.spend),   backgroundColor:'#FF5252', borderRadius:4, borderSkipped:false }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales: { x:{ticks:{font:{size:11},color:'#666',maxRotation:35},grid:{display:false}}, y:{ticks:{font:{size:11},color:'#666',callback:v=>'R$'+fmtK(v)},grid:{color:'rgba(255,255,255,0.05)'}} } }
+  });
+  const sorted = [...data].sort((a,b)=>b.summary.acos-a.summary.acos).slice(0,12);
+  if (chartAcos) chartAcos.destroy();
+  chartAcos = new Chart(document.getElementById('chart-acos'), {
+    type: 'bar',
+    data: { labels:sorted.map(s=>(s.nickname||s.seller_id).slice(0,14)), datasets:[{
+      label:'ACOS %', data:sorted.map(s=>s.summary.acos), borderRadius:3, borderWidth:0,
+      backgroundColor:sorted.map(s=>s.summary.acos>25?'#FF5252':s.summary.acos>15?'#F5A623':'#1DB97A')
+    }]},
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' ACOS: '+c.raw+'%'}}},
+      scales: { x:{ticks:{font:{size:11},color:'#666',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'}}, y:{ticks:{font:{size:11},color:'#666'},grid:{display:false}} } }
+  });
+}
+
+function renderTable(data) {
+  document.getElementById('seller-count').textContent = data.length+' sellers conectados';
+  if (!data.length) { document.getElementById('table-container').innerHTML = `<div class="empty-state"><div class="empty-icon">📡</div><div class="empty-title">Nenhum seller conectado</div><div class="empty-sub">Clique em "Conectar Seller" para autorizar o primeiro seller</div></div>`; return; }
+  const rows = data.map(s => {
+    const {spend,revenue,clicks,roas,acos} = s.summary;
+    const sc = acos<=12?'badge-green':acos<=25?'badge-amber':'badge-red';
+    const st = acos<=12?'Ótimo':acos<=25?'Atenção':'Crítico';
+    const barW = Math.min((roas/6)*56,56);
+    return `<tr><td><div class="seller-name">${s.nickname||'Seller'}</div><div class="seller-id">${s.seller_id}</div></td><td>${fmt(spend)}</td><td>${fmt(revenue)}</td><td><div class="roas-wrap"><div class="roas-track"><div class="roas-fill" style="width:${barW}px"></div></div>${roas}x</div></td><td>${acos}%</td><td>${fmtK(clicks)}</td><td><span class="badge ${sc}">${st}</span></td><td><button class="btn-detail" onclick="openDetail('${s.seller_id}')">Detalhe →</button></td></tr>`;
+  }).join('');
+  document.getElementById('table-container').innerHTML = `<table><thead><tr><th>Seller</th><th>Gasto</th><th>Receita</th><th>ROAS</th><th>ACOS</th><th>Cliques</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function filterTable(q) {
+  const filtered = allSellersData.filter(s => (s.nickname||'').toLowerCase().includes(q.toLowerCase()) || String(s.seller_id).includes(q));
+  renderTable(filtered);
+}
+
+function openDetail(sellerId) {
+  const s = allSellersData.find(x => String(x.seller_id)===String(sellerId));
+  if (!s) return;
+  alert(`Seller: ${s.nickname}\nGasto: R$ ${s.summary.spend}\nReceita: R$ ${s.summary.revenue}\nROAS: ${s.summary.roas}x\nACOS: ${s.summary.acos}%\nCliques: ${s.summary.clicks}`);
+}
+
+const params = new URLSearchParams(window.location.search);
+if (params.get('seller_added')) {
+  const el = document.getElementById('alert');
+  el.textContent = '✓ Seller "'+params.get('seller_added')+'" conectado com sucesso!';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display='none', 5000);
+  history.replaceState({}, '', '/');
+}
+
+loadData();
+</script>
+</body>
+</html>
