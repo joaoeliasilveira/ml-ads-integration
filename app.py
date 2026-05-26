@@ -527,7 +527,7 @@ def debug_advertisers(user_id):
             params={"product_id": product_id},
             headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
         )
-        results[product_id] = {"status": r.status_code, "response": r.json()}
+        results[product_id] = {"status": r.status_code, "response": r.json() if r.text else {}}
 
     r_all = requests.get(
         "https://api.mercadolibre.com/advertising/advertisers",
@@ -559,7 +559,7 @@ def debug_ads(user_id):
     results = {}
     for url in urls:
         r = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
-        results[url] = {"status": r.status_code, "response": r.json()}
+        results[url] = {"status": r.status_code, "response": r.json() if r.text else {}}
 
     return jsonify({
         "user_id": user_id,
@@ -605,9 +605,9 @@ def debug_metrics(user_id):
         "orders":           {"status": r_orders.status_code,  "response": r_orders.json()},
         "visits":           {"status": r_visits.status_code,  "response": r_visits.json()},
         "reputation":       {"status": r_rep.status_code,     "response": r_rep.json()},
-        "promotions_search":{"status": r_promos1.status_code, "response": r_promos1.json()},
-        "seller_promotions":{"status": r_promos2.status_code, "response": r_promos2.json()},
-        "deals":            {"status": r_promos3.status_code, "response": r_promos3.json()}
+        "promotions_search":{"status": r_promos1.status_code, "response": r_promos1.json() if r_promos1.text else {}},
+        "seller_promotions":{"status": r_promos2.status_code, "response": r_promos2.json() if r_promos2.text else {}},
+        "deals":            {"status": r_promos3.status_code, "response": r_promos3.json() if r_promos3.text else {}}
     })
 
 if __name__ == "__main__":
