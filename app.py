@@ -45,12 +45,15 @@ def home():
 
 @app.route("/auth")
 def auth():
+    # FIX 1: Scope corrigido de "read_advertising+write_advertising+read_metrics"
+    # para "read_ads" — o scope correto da API de Advertising do Mercado Livre.
+    # ATENÇÃO: sellers que autorizaram com o scope antigo precisam revogar e reautorizar.
     auth_url = (
         "https://auth.mercadolivre.com.br/authorization"
         "?response_type=code"
         "&client_id=" + CLIENT_ID +
         "&redirect_uri=" + REDIRECT_URI +
-        "&scope=read_advertising+write_advertising+read_metrics+offline_access"
+        "&scope=read_ads+offline_access"
     )
     return redirect(auth_url)
 
@@ -159,19 +162,44 @@ def get_campaigns(user_id, token):
     for url in endpoints:
         resp = requests.get(url, headers={"Authorization": "Bearer " + token})
         data = resp.json()
-        if resp.ok and isinstance(data, list):
+
+        # FIX 2: Log de erro para facilitar diagnóstico de falhas de autorização
+        # (401, 403) ou endpoints incorretos (404) sem silenciar o problema.
+        if not resp.ok:
+            print(f"[ADS][ERRO] GET {url} → HTTP {resp.status_code}: {data}")
+            continue
+
+        if isinstance(data, list):
+            print(f"[ADS] GET {url} → {len(data)} campanhas (lista)")
             return data, url
-        if resp.ok and isinstance(data, dict) and "results" in data:
+        if isinstance(data, dict) and "results" in data:
+            print(f"[ADS] GET {url} → {len(data['results'])} campanhas (results)")
             return data["results"], url
+
+        # Resposta OK mas formato inesperado — loga para diagnóstico
+        print(f"[ADS][AVISO] GET {url} → HTTP 200 mas formato nao reconhecido: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+
     return [], None
 
 def get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url):
+    # FIX 3: Removido "/days" do path — o endpoint correto da API do ML é
+    # /metrics com date_from e date_to como query params (sem subfixo /days).
     if "product_ads" in base_url:
-        url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns/" + str(camp_id) + "/metrics/days"
+        url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns/" + str(camp_id) + "/metrics"
     else:
-        url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns/" + str(camp_id) + "/metrics/days"
-    resp = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token})
-    return resp.json() if resp.ok else []
+        url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns/" + str(camp_id) + "/metrics"
+
+    resp = requests.get(
+        url,
+        params={"date_from": date_from, "date_to": date_to},
+        headers={"Authorization": "Bearer " + token}
+    )
+
+    if not resp.ok:
+        print(f"[METRICS][ERRO] GET {url} → HTTP {resp.status_code}: {resp.json()}")
+        return []
+
+    return resp.json()
 
 @app.route("/api/ads/<user_id>")
 def get_ads(user_id):
