@@ -601,13 +601,19 @@ def debug_metrics(user_id):
         headers={"Authorization": "Bearer " + token}
     )
 
+    def safe_json(r):
+        try:
+            return r.json() if r.text and r.text.strip() else {}
+        except Exception:
+            return {"raw": r.text[:200] if r.text else ""}
+
     return jsonify({
-        "orders":           {"status": r_orders.status_code,  "response": r_orders.json()},
-        "visits":           {"status": r_visits.status_code,  "response": r_visits.json()},
-        "reputation":       {"status": r_rep.status_code,     "response": r_rep.json()},
-        "promotions_search":{"status": r_promos1.status_code, "response": r_promos1.json() if r_promos1.text else {}},
-        "seller_promotions":{"status": r_promos2.status_code, "response": r_promos2.json() if r_promos2.text else {}},
-        "deals":            {"status": r_promos3.status_code, "response": r_promos3.json() if r_promos3.text else {}}
+        "orders":           {"status": r_orders.status_code,  "response": safe_json(r_orders)},
+        "visits":           {"status": r_visits.status_code,  "response": safe_json(r_visits)},
+        "reputation":       {"status": r_rep.status_code,     "response": safe_json(r_rep)},
+        "promotions_search":{"status": r_promos1.status_code, "response": safe_json(r_promos1)},
+        "seller_promotions":{"status": r_promos2.status_code, "response": safe_json(r_promos2)},
+        "deals":            {"status": r_promos3.status_code, "response": safe_json(r_promos3)}
     })
 
 if __name__ == "__main__":
