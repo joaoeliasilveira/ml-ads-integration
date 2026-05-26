@@ -170,7 +170,6 @@ def get_advertiser_id(user_id, token):
         headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
     )
     if not resp.ok:
-        print("[ADS] advertisers endpoint: " + str(resp.status_code) + " " + str(resp.json()))
         return None
     data = resp.json()
     advertisers = data if isinstance(data, list) else data.get("advertisers", data.get("results", []))
@@ -190,7 +189,7 @@ def get_campaigns(user_id, token):
         resp = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
         data = resp.json()
         if not resp.ok:
-            print("[ADS][ERRO] GET " + url + " HTTP " + str(resp.status_code) + ": " + str(data))
+            print("[ADS][ERRO] GET " + url + " HTTP " + str(resp.status_code))
             continue
         if isinstance(data, list):
             return data, url
@@ -391,46 +390,62 @@ def get_promotions(user_id):
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
 
-    promos_resp = requests.get(
-        "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions",
-        params={"status": "active"},
+    # Testa multiplos endpoints de promocoes do ML
+    promotions = []
+    status_info = {}
+
+    # Endpoint 1: promotions/search (mais recente)
+    r1 = requests.get(
+        "https://api.mercadolibre.com/promotions/search",
+        params={"seller_id": user_id, "type": "DEAL", "status": "started"},
         headers={"Authorization": "Bearer " + token}
     )
+    status_info["promotions_search"] = r1.status_code
+    if r1.ok:
+        d = r1.json()
+        promotions = d if isinstance(d, list) else d.get("results", d.get("deals", []))
 
-    if not promos_resp.ok:
-        promos_resp2 = requests.get(
-            "https://api.mercadolibre.com/promotions",
-            params={"seller_id": user_id, "status": "started"},
+    # Endpoint 2: seller-promotions (se o 1 falhar)
+    if not promotions:
+        r2 = requests.get(
+            "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions",
             headers={"Authorization": "Bearer " + token}
         )
-        promos_data = promos_resp2.json() if promos_resp2.ok else {}
-    else:
-        promos_data = promos_resp.json()
+        status_info["seller_promotions"] = r2.status_code
+        if r2.ok:
+            d = r2.json()
+            promotions = d if isinstance(d, list) else d.get("results", d.get("promotions", []))
 
-    promotions = []
-    if isinstance(promos_data, list):
-        promotions = promos_data
-    elif isinstance(promos_data, dict):
-        promotions = promos_data.get("results", promos_data.get("promotions", []))
+    # Endpoint 3: deals (cupons e descontos)
+    if not promotions:
+        r3 = requests.get(
+            "https://api.mercadolibre.com/users/" + user_id + "/deals",
+            headers={"Authorization": "Bearer " + token}
+        )
+        status_info["deals"] = r3.status_code
+        if r3.ok:
+            d = r3.json()
+            promotions = d if isinstance(d, list) else d.get("results", d.get("deals", []))
 
     result = []
     for p in promotions[:20]:
         result.append({
-            "id": p.get("id", ""),
-            "name": p.get("name", p.get("description", "Promocao")),
-            "type": p.get("type", p.get("promotion_type", "")),
+            "id": str(p.get("id", p.get("deal_id", ""))),
+            "name": p.get("name", p.get("description", p.get("deal_print_id", "Promocao"))),
+            "type": p.get("type", p.get("deal_type", p.get("promotion_type", ""))),
             "status": p.get("status", ""),
-            "discount": p.get("discount_meli_amount", p.get("value", 0)),
-            "start_date": str(p.get("start_date", p.get("from", "")))[:10],
-            "end_date": str(p.get("finish_date", p.get("to", "")))[:10],
-            "items_count": p.get("items_count", 0)
+            "discount": p.get("value", p.get("discount_meli_amount", p.get("percent_off", 0))),
+            "start_date": str(p.get("start_date", p.get("from_date", p.get("from", ""))))[:10],
+            "end_date": str(p.get("finish_date", p.get("to_date", p.get("to", ""))))[:10],
+            "items_count": p.get("items_count", p.get("affected_items", 0))
         })
 
     return jsonify({
         "seller_id": user_id,
         "nickname": seller["nickname"],
         "total": len(result),
-        "promotions": result
+        "promotions": result,
+        "status_info": status_info
     })
 
 @app.route("/api/metrics/<user_id>")
@@ -505,7 +520,6 @@ def debug_advertisers(user_id):
     if not seller:
         return jsonify({"error": "Seller nao encontrado"}), 404
 
-    # Testa endpoint de advertisers com diferentes product_ids
     results = {}
     for product_id in ["PADS", "SPA", "PDA", "DISPLAY"]:
         r = requests.get(
@@ -515,7 +529,6 @@ def debug_advertisers(user_id):
         )
         results[product_id] = {"status": r.status_code, "response": r.json()}
 
-    # Testa sem product_id
     r_all = requests.get(
         "https://api.mercadolibre.com/advertising/advertisers",
         headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
@@ -534,18 +547,25 @@ def debug_ads(user_id):
     if not seller:
         return jsonify({"error": "Seller nao encontrado"}), 404
 
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+
     urls = [
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns",
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/campaigns",
         "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns",
         "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns",
-        "https://api.mercadolibre.com/advertising/" + user_id + "/campaigns",
-        "https://api.mercadolibre.com/advertising/advertisers/" + user_id,
     ]
     results = {}
     for url in urls:
         r = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
         results[url] = {"status": r.status_code, "response": r.json()}
 
-    return jsonify({"user_id": user_id, "endpoints_tested": results})
+    return jsonify({
+        "user_id": user_id,
+        "advertiser_id_found": advertiser_id,
+        "endpoints_tested": results
+    })
 
 @app.route("/api/debug-metrics/<user_id>")
 def debug_metrics(user_id):
@@ -567,17 +587,27 @@ def debug_metrics(user_id):
         "https://api.mercadolibre.com/users/" + user_id,
         headers={"Authorization": "Bearer " + token}
     )
-    r_promos = requests.get(
+    r_promos1 = requests.get(
+        "https://api.mercadolibre.com/promotions/search",
+        params={"seller_id": user_id, "type": "DEAL", "status": "started"},
+        headers={"Authorization": "Bearer " + token}
+    )
+    r_promos2 = requests.get(
         "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions",
-        params={"status": "active"},
+        headers={"Authorization": "Bearer " + token}
+    )
+    r_promos3 = requests.get(
+        "https://api.mercadolibre.com/users/" + user_id + "/deals",
         headers={"Authorization": "Bearer " + token}
     )
 
     return jsonify({
-        "orders":     {"status": r_orders.status_code, "response": r_orders.json()},
-        "visits":     {"status": r_visits.status_code, "response": r_visits.json()},
-        "reputation": {"status": r_rep.status_code,    "response": r_rep.json()},
-        "promotions": {"status": r_promos.status_code, "response": r_promos.json()}
+        "orders":           {"status": r_orders.status_code,  "response": r_orders.json()},
+        "visits":           {"status": r_visits.status_code,  "response": r_visits.json()},
+        "reputation":       {"status": r_rep.status_code,     "response": r_rep.json()},
+        "promotions_search":{"status": r_promos1.status_code, "response": r_promos1.json()},
+        "seller_promotions":{"status": r_promos2.status_code, "response": r_promos2.json()},
+        "deals":            {"status": r_promos3.status_code, "response": r_promos3.json()}
     })
 
 if __name__ == "__main__":
