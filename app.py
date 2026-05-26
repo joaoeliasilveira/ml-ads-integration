@@ -228,6 +228,69 @@ def get_ads(user_id):
         "campaigns": result
     })
 
+@app.route("/api/ads/<user_id>/daily")
+def get_ads_daily(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
+    seller = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not seller:
+        return jsonify({"error": "Seller não autorizado"}), 404
+
+    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+
+    date_from = request.args.get("date_from", "2026-05-01")
+    date_to   = request.args.get("date_to",   "2026-05-26")
+
+    # Busca campanhas do seller
+    camps_resp = requests.get(
+        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    campaigns = camps_resp.json() if camps_resp.ok else []
+
+    # Agrega métricas diárias de todas as campanhas
+    daily_map = {}  # { "2026-05-01": { cost, revenue, clicks, impressions } }
+
+    if isinstance(campaigns, list):
+        for camp in campaigns[:10]:
+            camp_id = camp.get("id")
+            metrics_resp = requests.get(
+                f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns/{camp_id}/metrics/days",
+                params={"date_from": date_from, "date_to": date_to},
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            metrics = metrics_resp.json() if metrics_resp.ok else []
+
+            if isinstance(metrics, list):
+                for day in metrics:
+                    date = day.get("date", "")
+                    if not date:
+                        continue
+                    if date not in daily_map:
+                        daily_map[date] = {"date": date, "cost": 0, "revenue": 0, "clicks": 0, "impressions": 0}
+                    daily_map[date]["cost"]        += day.get("cost", 0)
+                    daily_map[date]["revenue"]     += day.get("revenue", 0)
+                    daily_map[date]["clicks"]      += day.get("clicks", 0)
+                    daily_map[date]["impressions"] += day.get("impressions", 0)
+
+    # Ordena por data e arredonda valores
+    days_list = sorted(daily_map.values(), key=lambda x: x["date"])
+    for d in days_list:
+        d["cost"]    = round(d["cost"], 2)
+        d["revenue"] = round(d["revenue"], 2)
+
+    return jsonify({
+        "seller_id": user_id,
+        "nickname": seller["nickname"],
+        "date_from": date_from,
+        "date_to": date_to,
+        "days": days_list
+    })
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
