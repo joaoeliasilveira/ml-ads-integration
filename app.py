@@ -3,6 +3,7 @@ import requests
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from datetime import datetime, timezone, timedelta
 
 app = Flask(__name__)
 
@@ -10,6 +11,8 @@ CLIENT_ID     = os.environ.get("ML_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("ML_CLIENT_SECRET")
 REDIRECT_URI  = os.environ.get("ML_REDIRECT_URI")
 DATABASE_URL  = os.environ.get("DATABASE_URL")
+
+TOKEN_TTL = timedelta(hours=5, minutes=30)
 
 def get_db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -31,7 +34,6 @@ def init_db():
     cur.close()
     conn.close()
 
-# Inicializa tabela ao subir
 try:
     init_db()
 except Exception as e:
@@ -82,7 +84,6 @@ def callback():
     )
     nickname = user_resp.json().get("nickname", f"Seller {user_id}")
 
-    # Salva no banco
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -120,36 +121,37 @@ def delete_seller(user_id):
     conn.close()
     return jsonify({"success": True})
 
-def refresh_token_if_needed(user_id, access_token, refresh_token):
-    test = requests.get(
-        f"https://api.mercadolibre.com/users/{user_id}",
-        headers={"Authorization": f"Bearer {access_token}"}
-    )
-    if test.status_code == 401 and refresh_token:
-        resp = requests.post(
-            "https://api.mercadolibre.com/oauth/token",
-            data={
-                "grant_type": "refresh_token",
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "refresh_token": refresh_token
-            }
-        )
-        new_tokens = resp.json()
-        new_access  = new_tokens.get("access_token", access_token)
-        new_refresh = new_tokens.get("refresh_token", refresh_token)
+def refresh_token_if_needed(user_id, access_token, refresh_token, updated_at):
+    now = datetime.now(timezone.utc)
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
 
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            UPDATE sellers SET access_token=%s, refresh_token=%s, updated_at=NOW()
-            WHERE user_id=%s
-        """, (new_access, new_refresh, user_id))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return new_access
-    return access_token
+    if now - updated_at < TOKEN_TTL:
+        return access_token
+
+    resp = requests.post(
+        "https://api.mercadolibre.com/oauth/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "refresh_token": refresh_token
+        }
+    )
+    new_tokens = resp.json()
+    new_access  = new_tokens.get("access_token", access_token)
+    new_refresh = new_tokens.get("refresh_token", refresh_token)
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE sellers SET access_token=%s, refresh_token=%s, updated_at=NOW()
+        WHERE user_id=%s
+    """, (new_access, new_refresh, user_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return new_access
 
 @app.route("/api/ads/<user_id>")
 def get_ads(user_id):
@@ -163,7 +165,7 @@ def get_ads(user_id):
     if not seller:
         return jsonify({"error": "Seller não autorizado"}), 404
 
-    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"])
+    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
 
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
