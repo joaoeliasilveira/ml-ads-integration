@@ -163,16 +163,34 @@ def get_seller_token(user_id):
     token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
     return token, seller
 
+def get_advertiser_id(user_id, token):
+    resp = requests.get(
+        "https://api.mercadolibre.com/advertising/advertisers",
+        params={"product_id": "PADS"},
+        headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
+    )
+    if not resp.ok:
+        print("[ADS] advertisers endpoint: " + str(resp.status_code) + " " + str(resp.json()))
+        return None
+    data = resp.json()
+    advertisers = data if isinstance(data, list) else data.get("advertisers", data.get("results", []))
+    if advertisers and len(advertisers) > 0:
+        return str(advertisers[0].get("id", advertisers[0].get("advertiser_id", "")))
+    return None
+
 def get_campaigns(user_id, token):
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+
     endpoints = [
-        "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns",
-        "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns",
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns",
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/campaigns",
     ]
     for url in endpoints:
-        resp = requests.get(url, headers={"Authorization": "Bearer " + token})
+        resp = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
         data = resp.json()
         if not resp.ok:
-            print("[ADS][ERRO] GET " + url + " HTTP " + str(resp.status_code))
+            print("[ADS][ERRO] GET " + url + " HTTP " + str(resp.status_code) + ": " + str(data))
             continue
         if isinstance(data, list):
             return data, url
@@ -185,7 +203,7 @@ def get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url):
         url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns/" + str(camp_id) + "/metrics"
     else:
         url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns/" + str(camp_id) + "/metrics"
-    resp = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token})
+    resp = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
     if not resp.ok:
         return []
     return resp.json()
@@ -412,8 +430,7 @@ def get_promotions(user_id):
         "seller_id": user_id,
         "nickname": seller["nickname"],
         "total": len(result),
-        "promotions": result,
-        "raw_status": promos_resp.status_code if promos_resp else None
+        "promotions": result
     })
 
 @app.route("/api/metrics/<user_id>")
@@ -482,6 +499,35 @@ def get_metrics(user_id):
         }
     })
 
+@app.route("/api/debug-advertisers/<user_id>")
+def debug_advertisers(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    # Testa endpoint de advertisers com diferentes product_ids
+    results = {}
+    for product_id in ["PADS", "SPA", "PDA", "DISPLAY"]:
+        r = requests.get(
+            "https://api.mercadolibre.com/advertising/advertisers",
+            params={"product_id": product_id},
+            headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
+        )
+        results[product_id] = {"status": r.status_code, "response": r.json()}
+
+    # Testa sem product_id
+    r_all = requests.get(
+        "https://api.mercadolibre.com/advertising/advertisers",
+        headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
+    )
+    results["sem_product_id"] = {"status": r_all.status_code, "response": r_all.json()}
+
+    return jsonify({
+        "user_id": user_id,
+        "nickname": seller["nickname"],
+        "advertiser_lookup": results
+    })
+
 @app.route("/api/debug/<user_id>")
 def debug_ads(user_id):
     token, seller = get_seller_token(user_id)
@@ -496,7 +542,7 @@ def debug_ads(user_id):
     ]
     results = {}
     for url in urls:
-        r = requests.get(url, headers={"Authorization": "Bearer " + token})
+        r = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
         results[url] = {"status": r.status_code, "response": r.json()}
 
     return jsonify({"user_id": user_id, "endpoints_tested": results})
