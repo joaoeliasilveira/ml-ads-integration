@@ -245,15 +245,13 @@ def get_ads_daily(user_id):
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
 
-    # Busca campanhas do seller
     camps_resp = requests.get(
         f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns",
         headers={"Authorization": f"Bearer {token}"}
     )
     campaigns = camps_resp.json() if camps_resp.ok else []
 
-    # Agrega métricas diárias de todas as campanhas
-    daily_map = {}  # { "2026-05-01": { cost, revenue, clicks, impressions } }
+    daily_map = {}
 
     if isinstance(campaigns, list):
         for camp in campaigns[:10]:
@@ -277,7 +275,6 @@ def get_ads_daily(user_id):
                     daily_map[date]["clicks"]      += day.get("clicks", 0)
                     daily_map[date]["impressions"] += day.get("impressions", 0)
 
-    # Ordena por data e arredonda valores
     days_list = sorted(daily_map.values(), key=lambda x: x["date"])
     for d in days_list:
         d["cost"]    = round(d["cost"], 2)
@@ -289,6 +286,42 @@ def get_ads_daily(user_id):
         "date_from": date_from,
         "date_to": date_to,
         "days": days_list
+    })
+
+@app.route("/api/debug/<user_id>")
+def debug_ads(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
+    seller = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not seller:
+        return jsonify({"error": "Seller não encontrado"}), 404
+
+    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+
+    camps_resp = requests.get(
+        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    metrics_raw = None
+    campaigns = camps_resp.json()
+    if isinstance(campaigns, list) and len(campaigns) > 0:
+        first_camp = campaigns[0]
+        m = requests.get(
+            f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns/{first_camp.get('id')}/metrics/days",
+            params={"date_from": "2026-05-01", "date_to": "2026-05-26"},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        metrics_raw = m.json()
+
+    return jsonify({
+        "campaigns_status": camps_resp.status_code,
+        "campaigns_raw": campaigns,
+        "first_campaign_metrics": metrics_raw
     })
 
 if __name__ == "__main__":
