@@ -125,10 +125,8 @@ def refresh_token_if_needed(user_id, access_token, refresh_token, updated_at):
     now = datetime.now(timezone.utc)
     if updated_at.tzinfo is None:
         updated_at = updated_at.replace(tzinfo=timezone.utc)
-
     if now - updated_at < TOKEN_TTL:
         return access_token
-
     resp = requests.post(
         "https://api.mercadolibre.com/oauth/token",
         data={
@@ -141,7 +139,6 @@ def refresh_token_if_needed(user_id, access_token, refresh_token, updated_at):
     new_tokens = resp.json()
     new_access  = new_tokens.get("access_token", access_token)
     new_refresh = new_tokens.get("refresh_token", refresh_token)
-
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -160,4 +157,163 @@ def get_campaigns(user_id, token):
     ]
     for url in endpoints:
         resp = requests.get(url, headers={"Authorization": f"Bearer {token}"})
-        data =
+        data = resp.json()
+        if resp.ok and isinstance(data, list):
+            return data, url
+        if resp.ok and isinstance(data, dict) and "results" in data:
+            return data["results"], url
+    return [], None
+
+def get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url):
+    if "product_ads" in base_url:
+        url = f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/product_ads/campaigns/{camp_id}/metrics/days"
+    else:
+        url = f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns/{camp_id}/metrics/days"
+    resp = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": f"Bearer {token}"})
+    return resp.json() if resp.ok else []
+
+@app.route("/api/ads/<user_id>")
+def get_ads(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
+    seller = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not seller:
+        return jsonify({"error": "Seller não autorizado"}), 404
+
+    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+    date_from = request.args.get("date_from", "2026-05-01")
+    date_to   = request.args.get("date_to",   "2026-05-26")
+    campaigns, base_url = get_campaigns(user_id, token)
+
+    result = []
+    total_spend = total_revenue = total_clicks = total_impressions = 0
+
+    for camp in campaigns[:10]:
+        camp_id = camp.get("id")
+        metrics = get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url or "")
+        spend   = sum(d.get("cost", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("cost", 0)
+        revenue = sum(d.get("revenue", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("revenue", 0)
+        clicks  = sum(d.get("clicks", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("clicks", 0)
+        imps    = sum(d.get("impressions", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("impressions", 0)
+        roas = round(revenue / spend, 2) if spend > 0 else 0
+        acos = round((spend / revenue) * 100, 1) if revenue > 0 else 0
+        total_spend += spend
+        total_revenue += revenue
+        total_clicks += clicks
+        total_impressions += imps
+        result.append({
+            "id": camp_id,
+            "name": camp.get("name", f"Campanha {camp_id}"),
+            "status": camp.get("status", "unknown"),
+            "spend": round(spend, 2),
+            "revenue": round(revenue, 2),
+            "clicks": clicks,
+            "impressions": imps,
+            "roas": roas,
+            "acos": acos
+        })
+
+    return jsonify({
+        "seller_id": user_id,
+        "nickname": seller["nickname"],
+        "summary": {
+            "spend": round(total_spend, 2),
+            "revenue": round(total_revenue, 2),
+            "clicks": total_clicks,
+            "impressions": total_impressions,
+            "roas": round(total_revenue / total_spend, 2) if total_spend > 0 else 0,
+            "acos": round((total_spend / total_revenue) * 100, 1) if total_revenue > 0 else 0
+        },
+        "campaigns": result
+    })
+
+@app.route("/api/ads/<user_id>/daily")
+def get_ads_daily(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
+    seller = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not seller:
+        return jsonify({"error": "Seller não autorizado"}), 404
+
+    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+    date_from = request.args.get("date_from", "2026-05-01")
+    date_to   = request.args.get("date_to",   "2026-05-26")
+    campaigns, base_url = get_campaigns(user_id, token)
+    daily_map = {}
+
+    for camp in campaigns[:10]:
+        camp_id = camp.get("id")
+        metrics = get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url or "")
+        if isinstance(metrics, list):
+            for day in metrics:
+                date = day.get("date", "")
+                if not date:
+                    continue
+                if date not in daily_map:
+                    daily_map[date] = {"date": date, "cost": 0, "revenue": 0, "clicks": 0, "impressions": 0}
+                daily_map[date]["cost"]        += day.get("cost", 0)
+                daily_map[date]["revenue"]     += day.get("revenue", 0)
+                daily_map[date]["clicks"]      += day.get("clicks", 0)
+                daily_map[date]["impressions"] += day.get("impressions", 0)
+
+    days_list = sorted(daily_map.values(), key=lambda x: x["date"])
+    for d in days_list:
+        d["cost"]    = round(d["cost"], 2)
+        d["revenue"] = round(d["revenue"], 2)
+
+    return jsonify({
+        "seller_id": user_id,
+        "nickname": seller["nickname"],
+        "date_from": date_from,
+        "date_to": date_to,
+        "days": days_list
+    })
+
+@app.route("/api/debug/<user_id>")
+def debug_ads(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
+    seller = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not seller:
+        return jsonify({"error": "Seller não encontrado"}), 404
+
+    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+
+    endpoints_to_test = [
+        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/product_ads/campaigns",
+        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns",
+        f"https://api.mercadolibre.com/advertising/{user_id}/campaigns",
+        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}",
+    ]
+
+    results = {}
+    for url in endpoints_to_test:
+        r = requests.get(url, headers={"Authorization": f"Bearer {token}"})
+        results[url] = {"status": r.status_code, "response": r.json()}
+
+    token_info = requests.get(
+        f"https://api.mercadolibre.com/users/{user_id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    return jsonify({
+        "user_id": user_id,
+        "token_user_check": {"status": token_info.status_code, "response": token_info.json()},
+        "endpoints_tested": results
+    })
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
