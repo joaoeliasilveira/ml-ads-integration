@@ -8,25 +8,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root {
-  --bg: #0f0f0f;
-  --bg2: #181818;
-  --bg3: #222222;
-  --bg4: #2a2a2a;
-  --border: rgba(255,255,255,0.08);
-  --border2: rgba(255,255,255,0.14);
-  --text: #f0f0f0;
-  --text2: #999;
-  --text3: #666;
-  --yellow: #FFE600;
-  --green: #1DB97A;
-  --green2: rgba(29,185,122,0.12);
-  --red: #FF5252;
-  --red2: rgba(255,82,82,0.12);
-  --amber: #F5A623;
-  --amber2: rgba(245,166,35,0.12);
-  --blue: #4A9EFF;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --bg: #0f0f0f; --bg2: #181818; --bg3: #222222; --bg4: #2a2a2a;
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+  --text: #f0f0f0; --text2: #999; --text3: #666;
+  --yellow: #FFE600; --green: #1DB97A; --green2: rgba(29,185,122,0.12);
+  --red: #FF5252; --red2: rgba(255,82,82,0.12);
+  --amber: #F5A623; --amber2: rgba(245,166,35,0.12);
+  --blue: #4A9EFF; --radius: 12px; --radius-sm: 8px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -38,7 +26,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .brand-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 .period-select { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; outline: none; }
-.btn-connect { background: var(--yellow); color: #000; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 16px; border: none; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity 0.15s; }
+.btn-connect { background: var(--yellow); color: #000; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; padding: 8px 16px; border: none; border-radius: var(--radius-sm); cursor: pointer; transition: opacity 0.15s; }
 .btn-connect:hover { opacity: 0.88; }
 
 .main { padding: 28px 32px; max-width: 1400px; }
@@ -48,14 +36,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .metric-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; transition: border-color 0.15s; }
 .metric-card:hover { border-color: var(--border2); }
 .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
-.metric-value { font-size: 26px; font-weight: 500; letter-spacing: -0.5px; color: var(--text); }
+.metric-value { font-size: 26px; font-weight: 500; letter-spacing: -0.5px; }
 .metric-delta { font-size: 12px; margin-top: 6px; color: var(--text3); }
-.delta-up { color: var(--green); }
-.delta-down { color: var(--red); }
+.delta-up { color: var(--green); } .delta-down { color: var(--red); }
+
+.section-title { font-size: 13px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; margin-top: 28px; }
 
 .charts-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; margin-bottom: 28px; }
 .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; }
-.card-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.card-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
 .card-sub { font-size: 12px; color: var(--text3); margin-bottom: 18px; }
 .legend { display: flex; gap: 16px; margin-bottom: 12px; }
 .leg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
@@ -81,6 +70,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .badge-green { background: var(--green2); color: var(--green); }
 .badge-amber { background: var(--amber2); color: var(--amber); }
 .badge-red { background: var(--red2); color: var(--red); }
+.badge-blue { background: rgba(74,158,255,0.12); color: var(--blue); }
 
 .roas-wrap { display: flex; align-items: center; gap: 8px; }
 .roas-track { height: 4px; background: var(--bg3); border-radius: 2px; width: 60px; flex-shrink: 0; }
@@ -96,50 +86,35 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .empty-title { font-size: 16px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
 .empty-sub { font-size: 13px; }
 
-.drawer-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-  z-index: 200; opacity: 0; pointer-events: none;
-  transition: opacity 0.25s ease;
-  backdrop-filter: blur(4px);
-}
+/* DRAWER */
+.drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; backdrop-filter: blur(4px); }
 .drawer-overlay.open { opacity: 1; pointer-events: all; }
-
-.drawer {
-  position: fixed; top: 0; right: 0; bottom: 0;
-  width: min(820px, 100vw);
-  background: var(--bg2);
-  border-left: 1px solid var(--border2);
-  z-index: 201;
-  transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex; flex-direction: column;
-  overflow: hidden;
-}
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(880px, 100vw); background: var(--bg2); border-left: 1px solid var(--border2); z-index: 201; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column; overflow: hidden; }
 .drawer.open { transform: translateX(0); }
-
-.drawer-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 28px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
+.drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 28px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .drawer-seller-name { font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
 .drawer-seller-id { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text3); margin-top: 4px; }
 .drawer-header-right { display: flex; align-items: center; gap: 10px; }
 .drawer-period { background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; outline: none; }
+
+/* Drawer tabs */
+.drawer-tabs { display: flex; gap: 4px; padding: 12px 28px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab-btn { background: transparent; border: 1px solid transparent; color: var(--text3); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s; }
+.tab-btn:hover { color: var(--text2); }
+.tab-btn.active { background: var(--bg3); border-color: var(--border2); color: var(--text); }
+
 .btn-close { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); width: 32px; height: 32px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.15s; }
 .btn-close:hover { color: var(--text); background: var(--bg4); }
-
 .drawer-body { flex: 1; overflow-y: auto; padding: 24px 28px; }
 
-.detail-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.detail-summary { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
 .detail-metric { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
 .detail-metric-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
 .detail-metric-value { font-size: 20px; font-weight: 500; letter-spacing: -0.4px; }
 .detail-metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
 .detail-section { margin-bottom: 24px; }
-.detail-section-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.detail-section-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
 .detail-section-sub { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
 .detail-chart-wrap { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; position: relative; height: 220px; }
 
@@ -154,17 +129,24 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .camp-status.paused { background: var(--amber); }
 .camp-status.stopped { background: var(--red); }
 
+/* Rep bars */
+.rep-bar-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.rep-bar-label { font-size: 12px; color: var(--text2); width: 120px; flex-shrink: 0; }
+.rep-bar-track { flex: 1; height: 6px; background: var(--bg4); border-radius: 3px; }
+.rep-bar-fill { height: 6px; border-radius: 3px; }
+.rep-bar-val { font-size: 12px; color: var(--text2); width: 40px; text-align: right; flex-shrink: 0; }
+
 .drawer-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: var(--text3); gap: 12px; }
 .spinner { width: 28px; height: 28px; border: 2px solid var(--border2); border-top-color: var(--yellow); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.tab-content { display: none; } .tab-content.active { display: block; }
+
 @media (max-width: 900px) {
   .charts-row { grid-template-columns: 1fr; }
-  .main { padding: 20px 16px; }
-  .topbar { padding: 12px 16px; }
-  .detail-summary { grid-template-columns: repeat(2, 1fr); }
-  .drawer-header { padding: 16px 20px; }
-  .drawer-body { padding: 20px; }
+  .main { padding: 20px 16px; } .topbar { padding: 12px 16px; }
+  .detail-summary { grid-template-columns: repeat(2,1fr); }
+  .drawer-header { padding: 16px 20px; } .drawer-body { padding: 20px; }
 }
 </style>
 </head>
@@ -173,10 +155,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <div class="topbar">
   <div class="brand">
     <div class="brand-icon">📊</div>
-    <div>
-      <div class="brand-name">ADS Dashboard</div>
-      <div class="brand-sub">Mercado Livre</div>
-    </div>
+    <div><div class="brand-name">ADS Dashboard</div><div class="brand-sub">Mercado Livre</div></div>
   </div>
   <div class="topbar-right">
     <select class="period-select" id="period" onchange="loadData()">
@@ -191,9 +170,10 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <div class="main">
   <div class="alert" id="alert"></div>
 
+  <div class="section-title">📣 ADS</div>
   <div class="metrics-grid">
     <div class="metric-card"><div class="metric-label">Gasto Total</div><div class="metric-value" id="m-gasto">—</div><div class="metric-delta" id="d-gasto">Aguardando dados</div></div>
-    <div class="metric-card"><div class="metric-label">Receita ADS</div><div class="metric-value" id="m-receita">—</div><div class="metric-delta" id="d-receita">Aguardando dados</div></div>
+    <div class="metric-card"><div class="metric-label">Receita ADS</div><div class="metric-value" id="m-receita">—</div><div class="metric-delta">Aguardando dados</div></div>
     <div class="metric-card"><div class="metric-label">ROAS Médio</div><div class="metric-value" id="m-roas">—</div><div class="metric-delta" id="d-roas">Meta: ≥ 3x</div></div>
     <div class="metric-card"><div class="metric-label">ACOS Médio</div><div class="metric-value" id="m-acos">—</div><div class="metric-delta" id="d-acos">Meta: ≤ 15%</div></div>
     <div class="metric-card"><div class="metric-label">Impressões</div><div class="metric-value" id="m-imp">—</div><div class="metric-delta">Total do período</div></div>
@@ -208,41 +188,30 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <span class="leg"><span class="leg-dot" style="background:#4A9EFF"></span>Receita</span>
         <span class="leg"><span class="leg-dot" style="background:#FF5252"></span>Gasto</span>
       </div>
-      <div style="position:relative;height:260px">
-        <canvas id="chart-spend"></canvas>
-      </div>
+      <div style="position:relative;height:260px"><canvas id="chart-spend"></canvas></div>
     </div>
     <div class="chart-card">
       <div class="card-title">ACOS por Seller</div>
       <div class="card-sub">Verde &lt; 15% · Amarelo 15–25% · Vermelho &gt; 25%</div>
-      <div style="position:relative;height:300px">
-        <canvas id="chart-acos"></canvas>
-      </div>
+      <div style="position:relative;height:300px"><canvas id="chart-acos"></canvas></div>
     </div>
   </div>
 
   <div class="sellers-card">
     <div class="sellers-header">
-      <div>
-        <div class="card-title">Sellers Conectados</div>
-        <div class="card-sub" id="seller-count">Carregando...</div>
-      </div>
+      <div><div class="card-title">Sellers Conectados</div><div class="card-sub" id="seller-count">Carregando...</div></div>
       <div class="search-wrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input class="search-input" type="text" placeholder="Buscar seller..." oninput="filterTable(this.value)">
       </div>
     </div>
     <div id="table-container">
-      <div class="empty-state">
-        <div class="empty-icon">📡</div>
-        <div class="empty-title">Nenhum seller conectado</div>
-        <div class="empty-sub">Clique em "Conectar Seller" para autorizar o primeiro seller</div>
-      </div>
+      <div class="empty-state"><div class="empty-icon">📡</div><div class="empty-title">Nenhum seller conectado</div><div class="empty-sub">Clique em "Conectar Seller" para autorizar o primeiro seller</div></div>
     </div>
   </div>
 </div>
 
-<!-- DETAIL DRAWER -->
+<!-- DRAWER -->
 <div class="drawer-overlay" id="drawer-overlay" onclick="closeDetail()"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-header">
@@ -259,28 +228,39 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <button class="btn-close" onclick="closeDetail()">✕</button>
     </div>
   </div>
+  <div class="drawer-tabs">
+    <button class="tab-btn active" onclick="switchTab('ads')">📣 ADS</button>
+    <button class="tab-btn" onclick="switchTab('negocio')">📦 Negócio</button>
+  </div>
   <div class="drawer-body" id="drawer-body">
-    <div class="drawer-loading">
-      <div class="spinner"></div>
-      <span>Carregando dados...</span>
-    </div>
+    <div class="drawer-loading"><div class="spinner"></div><span>Carregando dados...</span></div>
   </div>
 </div>
 
 <script>
 let allSellersData = [];
-let chartSpend = null;
-let chartAcos = null;
-let chartDetail = null;
+let chartSpend = null, chartAcos = null, chartDetail = null;
 let currentDetailSellerId = null;
+let currentTab = 'ads';
+let cachedAds = null, cachedMetrics = null;
 
 function fmt(n) { return 'R$ ' + Number(n).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0}); }
 function fmtDec(n) { return 'R$ ' + Number(n).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
-function fmtK(n) { if (n>=1000000) return (n/1000000).toFixed(1)+'M'; if (n>=1000) return (n/1000).toFixed(1)+'k'; return n; }
+function fmtK(n) { if(n>=1000000) return (n/1000000).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return n; }
 function getPeriodDates(days) {
   const to = new Date(), from = new Date();
   from.setDate(from.getDate() - days);
   return { date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0] };
+}
+
+function repLevel(level) {
+  const map = { '1_red': ['Vermelho', 'badge-red'], '2_orange': ['Laranja', 'badge-red'], '3_yellow': ['Amarelo', 'badge-amber'], '4_light_green': ['Verde Claro', 'badge-green'], '5_green': ['Verde', 'badge-green'] };
+  return map[level] || [level || '—', 'badge-amber'];
+}
+
+function powerSeller(status) {
+  const map = { 'platinum': ['Platinum', 'badge-blue'], 'gold': ['Gold', 'badge-amber'], 'silver': ['Silver', 'badge-green'], '': ['—', 'badge-amber'] };
+  return map[status] || [status, 'badge-amber'];
 }
 
 async function loadData() {
@@ -304,9 +284,9 @@ async function loadData() {
 function renderAll(data) {
   let totGasto=0, totReceita=0, totClicks=0, totImp=0;
   data.forEach(s => { totGasto+=s.summary.spend; totReceita+=s.summary.revenue; totClicks+=s.summary.clicks; totImp+=s.summary.impressions; });
-  const avgRoas = totGasto>0 ? (totReceita/totGasto).toFixed(1) : 0;
-  const avgAcos = totReceita>0 ? ((totGasto/totReceita)*100).toFixed(1) : 0;
-  const ctr = totImp>0 ? ((totClicks/totImp)*100).toFixed(2) : 0;
+  const avgRoas = totGasto>0?(totReceita/totGasto).toFixed(1):0;
+  const avgAcos = totReceita>0?((totGasto/totReceita)*100).toFixed(1):0;
+  const ctr = totImp>0?((totClicks/totImp)*100).toFixed(2):0;
   document.getElementById('m-gasto').textContent = fmt(totGasto);
   document.getElementById('m-receita').textContent = fmt(totReceita);
   document.getElementById('m-roas').textContent = avgRoas+'x';
@@ -316,46 +296,40 @@ function renderAll(data) {
   document.getElementById('m-ctr').textContent = 'CTR: '+ctr+'%';
   const roasEl = document.getElementById('d-roas');
   roasEl.className = 'metric-delta '+(avgRoas>=3?'delta-up':'delta-down');
-  roasEl.textContent = avgRoas>=3 ? '✓ Acima da meta (3x)' : '⚠ Abaixo da meta (3x)';
+  roasEl.textContent = avgRoas>=3?'✓ Acima da meta (3x)':'⚠ Abaixo da meta (3x)';
   const acosEl = document.getElementById('d-acos');
   acosEl.className = 'metric-delta '+(avgAcos<=15?'delta-up':'delta-down');
-  acosEl.textContent = avgAcos<=15 ? '✓ Dentro da meta (15%)' : '⚠ Acima da meta (15%)';
+  acosEl.textContent = avgAcos<=15?'✓ Dentro da meta (15%)':'⚠ Acima da meta (15%)';
   renderCharts(data);
   renderTable(data);
 }
 
 function renderCharts(data) {
   const top = [...data].sort((a,b)=>b.summary.spend-a.summary.spend).slice(0,10);
-  const labels = top.map(s => s.nickname || s.seller_id);
   if (chartSpend) chartSpend.destroy();
   chartSpend = new Chart(document.getElementById('chart-spend'), {
-    type: 'bar',
-    data: { labels, datasets: [
-      { label:'Receita', data:top.map(s=>s.summary.revenue), backgroundColor:'#4A9EFF', borderRadius:4, borderSkipped:false },
-      { label:'Gasto',   data:top.map(s=>s.summary.spend),   backgroundColor:'#FF5252', borderRadius:4, borderSkipped:false }
+    type:'bar', data:{labels:top.map(s=>s.nickname||s.seller_id), datasets:[
+      {label:'Receita',data:top.map(s=>s.summary.revenue),backgroundColor:'#4A9EFF',borderRadius:4,borderSkipped:false},
+      {label:'Gasto',data:top.map(s=>s.summary.spend),backgroundColor:'#FF5252',borderRadius:4,borderSkipped:false}
     ]},
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales: { x:{ticks:{font:{size:11},color:'#666',maxRotation:35},grid:{display:false}}, y:{ticks:{font:{size:11},color:'#666',callback:v=>'R$'+fmtK(v)},grid:{color:'rgba(255,255,255,0.05)'}} } }
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:11},color:'#666',maxRotation:35},grid:{display:false}},y:{ticks:{font:{size:11},color:'#666',callback:v=>'R$'+fmtK(v)},grid:{color:'rgba(255,255,255,0.05)'}}}}
   });
   const sorted = [...data].sort((a,b)=>b.summary.acos-a.summary.acos).slice(0,12);
   if (chartAcos) chartAcos.destroy();
   chartAcos = new Chart(document.getElementById('chart-acos'), {
-    type: 'bar',
-    data: { labels:sorted.map(s=>(s.nickname||s.seller_id).slice(0,14)), datasets:[{
-      label:'ACOS %', data:sorted.map(s=>s.summary.acos), borderRadius:3, borderWidth:0,
+    type:'bar', data:{labels:sorted.map(s=>(s.nickname||s.seller_id).slice(0,14)),datasets:[{
+      label:'ACOS %',data:sorted.map(s=>s.summary.acos),borderRadius:3,borderWidth:0,
       backgroundColor:sorted.map(s=>s.summary.acos>25?'#FF5252':s.summary.acos>15?'#F5A623':'#1DB97A')
     }]},
-    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' ACOS: '+c.raw+'%'}}},
-      scales: { x:{ticks:{font:{size:11},color:'#666',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'}}, y:{ticks:{font:{size:11},color:'#666'},grid:{display:false}} } }
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' ACOS: '+c.raw+'%'}}},
+      scales:{x:{ticks:{font:{size:11},color:'#666',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{font:{size:11},color:'#666'},grid:{display:false}}}}
   });
 }
 
 function renderTable(data) {
   document.getElementById('seller-count').textContent = data.length+' sellers conectados';
-  if (!data.length) {
-    document.getElementById('table-container').innerHTML = `<div class="empty-state"><div class="empty-icon">📡</div><div class="empty-title">Nenhum seller conectado</div><div class="empty-sub">Clique em "Conectar Seller" para autorizar o primeiro seller</div></div>`;
-    return;
-  }
+  if (!data.length) { document.getElementById('table-container').innerHTML = `<div class="empty-state"><div class="empty-icon">📡</div><div class="empty-title">Nenhum seller conectado</div></div>`; return; }
   const rows = data.map(s => {
     const {spend,revenue,clicks,roas,acos} = s.summary;
     const sc = acos<=12?'badge-green':acos<=25?'badge-amber':'badge-red';
@@ -363,11 +337,9 @@ function renderTable(data) {
     const barW = Math.min((roas/6)*56,56);
     return `<tr>
       <td><div class="seller-name">${s.nickname||'Seller'}</div><div class="seller-id">${s.seller_id}</div></td>
-      <td>${fmt(spend)}</td>
-      <td>${fmt(revenue)}</td>
+      <td>${fmt(spend)}</td><td>${fmt(revenue)}</td>
       <td><div class="roas-wrap"><div class="roas-track"><div class="roas-fill" style="width:${barW}px"></div></div>${roas}x</div></td>
-      <td>${acos}%</td>
-      <td>${fmtK(clicks)}</td>
+      <td>${acos}%</td><td>${fmtK(clicks)}</td>
       <td><span class="badge ${sc}">${st}</span></td>
       <td style="display:flex;gap:6px;align-items:center">
         <button class="btn-detail" onclick="openDetail('${s.seller_id}')">Detalhe →</button>
@@ -377,128 +349,121 @@ function renderTable(data) {
   }).join('');
   document.getElementById('table-container').innerHTML = `<table>
     <thead><tr><th>Seller</th><th>Gasto</th><th>Receita</th><th>ROAS</th><th>ACOS</th><th>Cliques</th><th>Status</th><th></th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+    <tbody>${rows}</tbody></table>`;
 }
 
 function filterTable(q) {
-  const filtered = allSellersData.filter(s => (s.nickname||'').toLowerCase().includes(q.toLowerCase()) || String(s.seller_id).includes(q));
+  const filtered = allSellersData.filter(s=>(s.nickname||'').toLowerCase().includes(q.toLowerCase())||String(s.seller_id).includes(q));
   renderTable(filtered);
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (tab === 'ads' && cachedAds) renderAdsTab(cachedAds, null);
+  if (tab === 'negocio' && cachedMetrics) renderNegocioTab(cachedMetrics);
+  if (tab === 'negocio' && !cachedMetrics) loadNegocioData();
 }
 
 async function openDetail(sellerId) {
   currentDetailSellerId = sellerId;
-  const s = allSellersData.find(x => String(x.seller_id) === String(sellerId));
+  currentTab = 'ads';
+  cachedAds = null; cachedMetrics = null;
+  const s = allSellersData.find(x => String(x.seller_id)===String(sellerId));
   document.getElementById('drawer-overlay').classList.add('open');
   document.getElementById('drawer').classList.add('open');
   document.body.style.overflow = 'hidden';
-  document.getElementById('detail-name').textContent = s ? (s.nickname || 'Seller') : 'Carregando...';
-  document.getElementById('detail-id').textContent = 'ID: ' + sellerId;
-  document.getElementById('drawer-body').innerHTML = `<div class="drawer-loading"><div class="spinner"></div><span>Carregando dados do seller...</span></div>`;
+  document.getElementById('detail-name').textContent = s?(s.nickname||'Seller'):'Carregando...';
+  document.getElementById('detail-id').textContent = 'ID: '+sellerId;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.getElementById('drawer-body').innerHTML = `<div class="drawer-loading"><div class="spinner"></div><span>Carregando dados...</span></div>`;
   await loadDetailData(sellerId);
 }
 
 async function reloadDetail() {
   if (!currentDetailSellerId) return;
+  cachedAds = null; cachedMetrics = null;
   document.getElementById('drawer-body').innerHTML = `<div class="drawer-loading"><div class="spinner"></div><span>Carregando dados...</span></div>`;
-  await loadDetailData(currentDetailSellerId);
+  if (currentTab === 'ads') await loadDetailData(currentDetailSellerId);
+  else await loadNegocioData();
 }
 
 async function loadDetailData(sellerId) {
   const days = parseInt(document.getElementById('detail-period').value);
   const { date_from, date_to } = getPeriodDates(days);
   try {
-    const resp = await fetch(`/api/ads/${sellerId}?date_from=${date_from}&date_to=${date_to}`);
-    const data = await resp.json();
-    const dailyResp = await fetch(`/api/ads/${sellerId}/daily?date_from=${date_from}&date_to=${date_to}`);
-    const dailyData = dailyResp.ok ? await dailyResp.json() : null;
-    renderDetailBody(data, dailyData);
+    const [adsResp, dailyResp] = await Promise.all([
+      fetch(`/api/ads/${sellerId}?date_from=${date_from}&date_to=${date_to}`).then(r=>r.json()),
+      fetch(`/api/ads/${sellerId}/daily?date_from=${date_from}&date_to=${date_to}`).then(r=>r.ok?r.json():null).catch(()=>null)
+    ]);
+    cachedAds = adsResp;
+    document.getElementById('detail-name').textContent = adsResp.nickname || 'Seller';
+    renderAdsTab(adsResp, dailyResp);
   } catch(e) {
-    document.getElementById('drawer-body').innerHTML = `<div class="drawer-loading"><span style="color:var(--red)">Erro ao carregar dados. Tente novamente.</span></div>`;
+    document.getElementById('drawer-body').innerHTML = `<div class="drawer-loading"><span style="color:var(--red)">Erro ao carregar dados.</span></div>`;
   }
 }
 
-function renderDetailBody(data, dailyData) {
-  const { summary, campaigns, nickname, seller_id } = data;
-  document.getElementById('detail-name').textContent = nickname || 'Seller';
+async function loadNegocioData() {
+  const days = parseInt(document.getElementById('detail-period').value);
+  const { date_from, date_to } = getPeriodDates(days);
+  document.getElementById('drawer-body').innerHTML = `<div class="drawer-loading"><div class="spinner"></div><span>Carregando métricas de negócio...</span></div>`;
+  try {
+    const data = await fetch(`/api/metrics/${currentDetailSellerId}?date_from=${date_from}&date_to=${date_to}`).then(r=>r.json());
+    cachedMetrics = data;
+    renderNegocioTab(data);
+  } catch(e) {
+    document.getElementById('drawer-body').innerHTML = `<div class="drawer-loading"><span style="color:var(--red)">Erro ao carregar métricas.</span></div>`;
+  }
+}
+
+function renderAdsTab(data, dailyData) {
+  const { summary, campaigns } = data;
   const acosColor = summary.acos<=15?'var(--green)':summary.acos<=25?'var(--amber)':'var(--red)';
   const roasColor = summary.roas>=3?'var(--green)':'var(--red)';
-  const hasDailyData = dailyData && dailyData.days && dailyData.days.length > 0;
-  const chartTitle = hasDailyData ? 'Evolução Diária' : 'Gasto vs Receita por Campanha';
-  const chartSub = hasDailyData ? 'Gasto e receita dia a dia no período' : 'Performance de cada campanha no período';
+  const hasDailyData = dailyData&&dailyData.days&&dailyData.days.length>0;
+  const ctr = summary.impressions>0?((summary.clicks/summary.impressions)*100).toFixed(2):'0.00';
 
   const campRows = (campaigns||[]).map(c => {
     const acosC = c.acos<=15?'badge-green':c.acos<=25?'badge-amber':'badge-red';
-    const statusClass = (c.status==='active'||c.status==='enabled')?'active':c.status==='paused'?'paused':'stopped';
-    const statusLabel = (c.status==='active'||c.status==='enabled')?'Ativa':c.status==='paused'?'Pausada':'Parada';
-    const statusBadge = (c.status==='active'||c.status==='enabled')?'badge-green':c.status==='paused'?'badge-amber':'badge-red';
+    const stClass = (c.status==='active'||c.status==='enabled')?'active':c.status==='paused'?'paused':'stopped';
+    const stLabel = (c.status==='active'||c.status==='enabled')?'Ativa':c.status==='paused'?'Pausada':'Parada';
+    const stBadge = (c.status==='active'||c.status==='enabled')?'badge-green':c.status==='paused'?'badge-amber':'badge-red';
     return `<tr>
-      <td><span class="camp-status ${statusClass}"></span><span class="camp-name" title="${c.name}">${c.name}</span></td>
-      <td>${fmtDec(c.spend)}</td>
-      <td>${fmtDec(c.revenue)}</td>
+      <td><span class="camp-status ${stClass}"></span><span class="camp-name" title="${c.name}">${c.name}</span></td>
+      <td>${fmtDec(c.spend)}</td><td>${fmtDec(c.revenue)}</td>
       <td style="color:${c.roas>=3?'var(--green)':'var(--red)'}">${c.roas}x</td>
       <td><span class="badge ${acosC}">${c.acos}%</span></td>
-      <td>${fmtK(c.clicks)}</td>
-      <td>${fmtK(c.impressions)}</td>
-      <td><span class="badge ${statusBadge}">${statusLabel}</span></td>
+      <td>${fmtK(c.clicks)}</td><td>${fmtK(c.impressions)}</td>
+      <td><span class="badge ${stBadge}">${stLabel}</span></td>
     </tr>`;
   }).join('');
 
-  const emptyCamps = campaigns&&campaigns.length===0
-    ? `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Nenhuma campanha encontrada no período</td></tr>`
-    : campRows;
-
-  const ctr = summary.impressions>0?((summary.clicks/summary.impressions)*100).toFixed(2):'0.00';
-
   document.getElementById('drawer-body').innerHTML = `
     <div class="detail-summary">
-      <div class="detail-metric">
-        <div class="detail-metric-label">Gasto</div>
-        <div class="detail-metric-value">${fmt(summary.spend)}</div>
-        <div class="detail-metric-sub">no período</div>
-      </div>
-      <div class="detail-metric">
-        <div class="detail-metric-label">Receita ADS</div>
-        <div class="detail-metric-value">${fmt(summary.revenue)}</div>
-        <div class="detail-metric-sub">no período</div>
-      </div>
-      <div class="detail-metric">
-        <div class="detail-metric-label">ROAS</div>
-        <div class="detail-metric-value" style="color:${roasColor}">${summary.roas}x</div>
-        <div class="detail-metric-sub">meta: ≥ 3x</div>
-      </div>
-      <div class="detail-metric">
-        <div class="detail-metric-label">ACOS</div>
-        <div class="detail-metric-value" style="color:${acosColor}">${summary.acos}%</div>
-        <div class="detail-metric-sub">meta: ≤ 15%</div>
-      </div>
+      <div class="detail-metric"><div class="detail-metric-label">Gasto</div><div class="detail-metric-value">${fmt(summary.spend)}</div><div class="detail-metric-sub">no período</div></div>
+      <div class="detail-metric"><div class="detail-metric-label">Receita ADS</div><div class="detail-metric-value">${fmt(summary.revenue)}</div><div class="detail-metric-sub">no período</div></div>
+      <div class="detail-metric"><div class="detail-metric-label">ROAS</div><div class="detail-metric-value" style="color:${roasColor}">${summary.roas}x</div><div class="detail-metric-sub">meta: ≥ 3x</div></div>
+      <div class="detail-metric"><div class="detail-metric-label">ACOS</div><div class="detail-metric-value" style="color:${acosColor}">${summary.acos}%</div><div class="detail-metric-sub">meta: ≤ 15%</div></div>
     </div>
     <div class="detail-summary" style="grid-template-columns:repeat(3,1fr)">
-      <div class="detail-metric">
-        <div class="detail-metric-label">Cliques</div>
-        <div class="detail-metric-value">${fmtK(summary.clicks)}</div>
-      </div>
-      <div class="detail-metric">
-        <div class="detail-metric-label">Impressões</div>
-        <div class="detail-metric-value">${fmtK(summary.impressions)}</div>
-      </div>
-      <div class="detail-metric">
-        <div class="detail-metric-label">CTR</div>
-        <div class="detail-metric-value">${ctr}%</div>
-      </div>
+      <div class="detail-metric"><div class="detail-metric-label">Cliques</div><div class="detail-metric-value">${fmtK(summary.clicks)}</div></div>
+      <div class="detail-metric"><div class="detail-metric-label">Impressões</div><div class="detail-metric-value">${fmtK(summary.impressions)}</div></div>
+      <div class="detail-metric"><div class="detail-metric-label">CTR</div><div class="detail-metric-value">${ctr}%</div></div>
     </div>
     <div class="detail-section">
-      <div class="detail-section-title">${chartTitle}</div>
-      <div class="detail-section-sub">${chartSub}</div>
+      <div class="detail-section-title">${hasDailyData?'Evolução Diária':'Gasto vs Receita por Campanha'}</div>
+      <div class="detail-section-sub">${hasDailyData?'Gasto e receita dia a dia':'Performance por campanha no período'}</div>
       <div class="detail-chart-wrap"><canvas id="chart-daily"></canvas></div>
     </div>
     <div class="detail-section">
       <div class="detail-section-title">Campanhas</div>
-      <div class="detail-section-sub">${campaigns?campaigns.length:0} campanhas encontradas no período</div>
+      <div class="detail-section-sub">${campaigns?campaigns.length:0} campanhas no período</div>
       <div style="overflow-x:auto">
         <table class="camp-table">
           <thead><tr><th>Campanha</th><th>Gasto</th><th>Receita</th><th>ROAS</th><th>ACOS</th><th>Cliques</th><th>Impressões</th><th>Status</th></tr></thead>
-          <tbody>${emptyCamps}</tbody>
+          <tbody>${campRows||`<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:24px">Nenhuma campanha encontrada</td></tr>`}</tbody>
         </table>
       </div>
     </div>`;
@@ -506,41 +471,110 @@ function renderDetailBody(data, dailyData) {
   setTimeout(() => {
     const canvas = document.getElementById('chart-daily');
     if (!canvas) return;
-    if (chartDetail) chartDetail.destroy();
+    if (chartDetail) { chartDetail.destroy(); chartDetail = null; }
     if (hasDailyData) {
-      const days = dailyData.days;
       chartDetail = new Chart(canvas, {
-        type: 'line',
-        data: {
-          labels: days.map(d => d.date),
-          datasets: [
-            { label:'Receita', data:days.map(d=>d.revenue), borderColor:'#4A9EFF', backgroundColor:'rgba(74,158,255,0.08)', borderWidth:2, tension:0.3, fill:true, pointRadius:3, pointHoverRadius:5 },
-            { label:'Gasto',   data:days.map(d=>d.cost),    borderColor:'#FF5252', backgroundColor:'rgba(255,82,82,0.06)',  borderWidth:2, tension:0.3, fill:true, pointRadius:3, pointHoverRadius:5 }
-          ]
-        },
-        options: { responsive:true, maintainAspectRatio:false,
-          plugins:{legend:{display:true,labels:{color:'#999',font:{size:11},boxWidth:10,boxHeight:10}}},
-          scales:{x:{ticks:{font:{size:10},color:'#666',maxRotation:35},grid:{display:false}},y:{ticks:{font:{size:10},color:'#666',callback:v=>'R$'+fmtK(v)},grid:{color:'rgba(255,255,255,0.05)'}}}
-        }
+        type:'line',
+        data:{labels:dailyData.days.map(d=>d.date),datasets:[
+          {label:'Receita',data:dailyData.days.map(d=>d.revenue),borderColor:'#4A9EFF',backgroundColor:'rgba(74,158,255,0.08)',borderWidth:2,tension:0.3,fill:true,pointRadius:3},
+          {label:'Gasto',data:dailyData.days.map(d=>d.cost),borderColor:'#FF5252',backgroundColor:'rgba(255,82,82,0.06)',borderWidth:2,tension:0.3,fill:true,pointRadius:3}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#999',font:{size:11},boxWidth:10}}},
+          scales:{x:{ticks:{font:{size:10},color:'#666',maxRotation:35},grid:{display:false}},y:{ticks:{font:{size:10},color:'#666',callback:v=>'R$'+fmtK(v)},grid:{color:'rgba(255,255,255,0.05)'}}}}
       });
     } else {
       const camps = (campaigns||[]).slice(0,10);
       chartDetail = new Chart(canvas, {
-        type: 'bar',
-        data: {
-          labels: camps.map(c=>c.name.length>20?c.name.slice(0,20)+'…':c.name),
-          datasets:[
-            { label:'Receita', data:camps.map(c=>c.revenue), backgroundColor:'#4A9EFF', borderRadius:4, borderSkipped:false },
-            { label:'Gasto',   data:camps.map(c=>c.spend),   backgroundColor:'#FF5252', borderRadius:4, borderSkipped:false }
-          ]
-        },
-        options: { responsive:true, maintainAspectRatio:false,
-          plugins:{legend:{display:true,labels:{color:'#999',font:{size:11},boxWidth:10,boxHeight:10}}},
-          scales:{x:{ticks:{font:{size:10},color:'#666',maxRotation:40},grid:{display:false}},y:{ticks:{font:{size:10},color:'#666',callback:v=>'R$'+fmtK(v)},grid:{color:'rgba(255,255,255,0.05)'}}}
-        }
+        type:'bar',
+        data:{labels:camps.map(c=>c.name.length>20?c.name.slice(0,20)+'…':c.name),datasets:[
+          {label:'Receita',data:camps.map(c=>c.revenue),backgroundColor:'#4A9EFF',borderRadius:4,borderSkipped:false},
+          {label:'Gasto',data:camps.map(c=>c.spend),backgroundColor:'#FF5252',borderRadius:4,borderSkipped:false}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#999',font:{size:11},boxWidth:10}}},
+          scales:{x:{ticks:{font:{size:10},color:'#666',maxRotation:40},grid:{display:false}},y:{ticks:{font:{size:10},color:'#666',callback:v=>'R$'+fmtK(v)},grid:{color:'rgba(255,255,255,0.05)'}}}}
       });
     }
   }, 50);
+}
+
+function renderNegocioTab(data) {
+  const { sales, visits, reputation } = data;
+  const [repLabel, repBadge] = repLevel(reputation.level);
+  const [psLabel, psBadge] = powerSeller(reputation.power_seller);
+  const conv = visits.conversion || 0;
+  const convColor = conv>=3?'var(--green)':conv>=1?'var(--amber)':'var(--red)';
+  const ratings = reputation.ratings || {};
+  const posRate = Math.round((ratings.positive||0)*100);
+  const neuRate = Math.round((ratings.neutral||0)*100);
+  const negRate = Math.round((ratings.negative||0)*100);
+
+  document.getElementById('drawer-body').innerHTML = `
+    <div class="detail-section">
+      <div class="detail-section-title">💰 Vendas</div>
+      <div class="detail-section-sub">Pedidos pagos no período selecionado</div>
+      <div class="detail-summary">
+        <div class="detail-metric"><div class="detail-metric-label">GMV</div><div class="detail-metric-value">${fmt(sales.gmv)}</div><div class="detail-metric-sub">faturamento total</div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Pedidos</div><div class="detail-metric-value">${fmtK(sales.total_orders)}</div><div class="detail-metric-sub">pedidos pagos</div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Ticket Médio</div><div class="detail-metric-value">${fmt(sales.avg_ticket)}</div><div class="detail-metric-sub">por pedido</div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Conversão</div><div class="detail-metric-value" style="color:${convColor}">${conv}%</div><div class="detail-metric-sub">visitas → venda</div></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">👁 Visitas</div>
+      <div class="detail-section-sub">Tráfego nos anúncios no período</div>
+      <div class="detail-summary" style="grid-template-columns:repeat(2,1fr)">
+        <div class="detail-metric"><div class="detail-metric-label">Total de Visitas</div><div class="detail-metric-value">${fmtK(visits.total)}</div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Taxa de Conversão</div><div class="detail-metric-value" style="color:${convColor}">${conv}%</div></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">⭐ Reputação</div>
+      <div class="detail-section-sub">Indicadores de saúde da conta</div>
+      <div class="detail-summary" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+        <div class="detail-metric"><div class="detail-metric-label">Nível</div><div class="detail-metric-value" style="font-size:14px;margin-top:4px"><span class="badge ${repBadge}">${repLabel}</span></div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Power Seller</div><div class="detail-metric-value" style="font-size:14px;margin-top:4px"><span class="badge ${psBadge}">${psLabel}</span></div></div>
+        <div class="detail-metric"><div class="detail-metric-label">Vendas Concluídas</div><div class="detail-metric-value">${fmtK(reputation.sales_completed)}</div></div>
+      </div>
+
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:14px;text-transform:uppercase;letter-spacing:0.05em">Avaliações dos compradores</div>
+        <div class="rep-bar-wrap">
+          <div class="rep-bar-label">✅ Positivas</div>
+          <div class="rep-bar-track"><div class="rep-bar-fill" style="width:${posRate}%;background:var(--green)"></div></div>
+          <div class="rep-bar-val">${posRate}%</div>
+        </div>
+        <div class="rep-bar-wrap">
+          <div class="rep-bar-label">😐 Neutras</div>
+          <div class="rep-bar-track"><div class="rep-bar-fill" style="width:${neuRate}%;background:var(--amber)"></div></div>
+          <div class="rep-bar-val">${neuRate}%</div>
+        </div>
+        <div class="rep-bar-wrap">
+          <div class="rep-bar-label">❌ Negativas</div>
+          <div class="rep-bar-track"><div class="rep-bar-fill" style="width:${negRate}%;background:var(--red)"></div></div>
+          <div class="rep-bar-val">${negRate}%</div>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em">Métricas operacionais (60 dias)</div>
+          <div class="rep-bar-wrap">
+            <div class="rep-bar-label">Cancelamentos</div>
+            <div class="rep-bar-track"><div class="rep-bar-fill" style="width:${Math.min((reputation.cancellations||0)*100*5,100)}%;background:${(reputation.cancellations||0)<=0.02?'var(--green)':'var(--red)'}"></div></div>
+            <div class="rep-bar-val">${((reputation.cancellations||0)*100).toFixed(1)}%</div>
+          </div>
+          <div class="rep-bar-wrap">
+            <div class="rep-bar-label">Reclamações</div>
+            <div class="rep-bar-track"><div class="rep-bar-fill" style="width:${Math.min((reputation.claims||0)*100*5,100)}%;background:${(reputation.claims||0)<=0.02?'var(--green)':'var(--red)'}"></div></div>
+            <div class="rep-bar-val">${((reputation.claims||0)*100).toFixed(1)}%</div>
+          </div>
+          <div class="rep-bar-wrap">
+            <div class="rep-bar-label">Atrasos</div>
+            <div class="rep-bar-track"><div class="rep-bar-fill" style="width:${Math.min((reputation.delayed||0)*100*5,100)}%;background:${(reputation.delayed||0)<=0.05?'var(--green)':'var(--red)'}"></div></div>
+            <div class="rep-bar-val">${((reputation.delayed||0)*100).toFixed(1)}%</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function closeDetail() {
@@ -548,15 +582,16 @@ function closeDetail() {
   document.getElementById('drawer').classList.remove('open');
   document.body.style.overflow = '';
   currentDetailSellerId = null;
+  cachedAds = null; cachedMetrics = null;
   if (chartDetail) { chartDetail.destroy(); chartDetail = null; }
 }
 
-document.addEventListener('keydown', e => { if (e.key==='Escape') closeDetail(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeDetail(); });
 
 async function removeSeller(sellerId, name) {
   if (!confirm(`Remover "${name}" do dashboard?`)) return;
   await fetch(`/api/sellers/${sellerId}`, { method: 'DELETE' });
-  allSellersData = allSellersData.filter(s => String(s.seller_id) !== String(sellerId));
+  allSellersData = allSellersData.filter(s => String(s.seller_id)!==String(sellerId));
   renderAll(allSellersData);
 }
 
