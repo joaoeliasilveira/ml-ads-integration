@@ -37,7 +37,7 @@ def init_db():
 try:
     init_db()
 except Exception as e:
-    print(f"Erro ao inicializar banco: {e}")
+    print("Erro ao inicializar banco: " + str(e))
 
 @app.route("/")
 def home():
@@ -45,9 +45,6 @@ def home():
 
 @app.route("/auth")
 def auth():
-    # FIX 1: Scope corrigido de "read_advertising+write_advertising+read_metrics"
-    # para "read_ads" — o scope correto da API de Advertising do Mercado Livre.
-    # ATENÇÃO: sellers que autorizaram com o scope antigo precisam revogar e reautorizar.
     auth_url = (
         "https://auth.mercadolivre.com.br/authorization"
         "?response_type=code"
@@ -154,6 +151,18 @@ def refresh_token_if_needed(user_id, access_token, refresh_token, updated_at):
     conn.close()
     return new_access
 
+def get_seller_token(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
+    seller = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not seller:
+        return None, None
+    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+    return token, seller
+
 def get_campaigns(user_id, token):
     endpoints = [
         "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns",
@@ -162,58 +171,31 @@ def get_campaigns(user_id, token):
     for url in endpoints:
         resp = requests.get(url, headers={"Authorization": "Bearer " + token})
         data = resp.json()
-
-        # FIX 2: Log de erro para facilitar diagnóstico de falhas de autorização
-        # (401, 403) ou endpoints incorretos (404) sem silenciar o problema.
         if not resp.ok:
-            print(f"[ADS][ERRO] GET {url} → HTTP {resp.status_code}: {data}")
+            print("[ADS][ERRO] GET " + url + " HTTP " + str(resp.status_code))
             continue
-
         if isinstance(data, list):
-            print(f"[ADS] GET {url} → {len(data)} campanhas (lista)")
             return data, url
         if isinstance(data, dict) and "results" in data:
-            print(f"[ADS] GET {url} → {len(data['results'])} campanhas (results)")
             return data["results"], url
-
-        # Resposta OK mas formato inesperado — loga para diagnóstico
-        print(f"[ADS][AVISO] GET {url} → HTTP 200 mas formato nao reconhecido: {list(data.keys()) if isinstance(data, dict) else type(data)}")
-
     return [], None
 
 def get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url):
-    # FIX 3: Removido "/days" do path — o endpoint correto da API do ML é
-    # /metrics com date_from e date_to como query params (sem subfixo /days).
     if "product_ads" in base_url:
         url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns/" + str(camp_id) + "/metrics"
     else:
         url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns/" + str(camp_id) + "/metrics"
-
-    resp = requests.get(
-        url,
-        params={"date_from": date_from, "date_to": date_to},
-        headers={"Authorization": "Bearer " + token}
-    )
-
+    resp = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token})
     if not resp.ok:
-        print(f"[METRICS][ERRO] GET {url} → HTTP {resp.status_code}: {resp.json()}")
         return []
-
     return resp.json()
 
 @app.route("/api/ads/<user_id>")
 def get_ads(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
-    seller = cur.fetchone()
-    cur.close()
-    conn.close()
-
+    token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
 
-    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
     campaigns, base_url = get_campaigns(user_id, token)
@@ -262,17 +244,10 @@ def get_ads(user_id):
 
 @app.route("/api/ads/<user_id>/daily")
 def get_ads_daily(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
-    seller = cur.fetchone()
-    cur.close()
-    conn.close()
-
+    token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
 
-    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
     campaigns, base_url = get_campaigns(user_id, token)
@@ -306,19 +281,147 @@ def get_ads_daily(user_id):
         "days": days_list
     })
 
-@app.route("/api/metrics/<user_id>")
-def get_metrics(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
-    seller = cur.fetchone()
-    cur.close()
-    conn.close()
-
+@app.route("/api/reputation/<user_id>")
+def get_reputation(user_id):
+    token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
 
-    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+    rep_resp = requests.get(
+        "https://api.mercadolibre.com/users/" + user_id,
+        headers={"Authorization": "Bearer " + token}
+    )
+    rep_data = rep_resp.json() if rep_resp.ok else {}
+    reputation = rep_data.get("seller_reputation", {})
+    metrics_rep = reputation.get("metrics", {})
+    transactions = reputation.get("transactions", {})
+
+    return jsonify({
+        "seller_id": user_id,
+        "nickname": seller["nickname"],
+        "reputation": {
+            "level": reputation.get("level_id", ""),
+            "power_seller": rep_data.get("power_seller_status", ""),
+            "cancellations": metrics_rep.get("cancellations", {}).get("rate", 0),
+            "claims": metrics_rep.get("claims", {}).get("rate", 0),
+            "delayed": metrics_rep.get("delayed_handling_time", {}).get("rate", 0),
+            "sales_completed": transactions.get("completed", 0),
+            "ratings": reputation.get("ratings", {})
+        }
+    })
+
+@app.route("/api/sales/<user_id>")
+def get_sales(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    date_from = request.args.get("date_from", "2026-05-01")
+    date_to   = request.args.get("date_to",   "2026-05-26")
+
+    sales_resp = requests.get(
+        "https://api.mercadolibre.com/orders/search",
+        params={
+            "seller": user_id,
+            "order.date_created.from": date_from + "T00:00:00.000-00:00",
+            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+            "order.status": "paid",
+            "limit": 50
+        },
+        headers={"Authorization": "Bearer " + token}
+    )
+    sales_data   = sales_resp.json() if sales_resp.ok else {}
+    orders       = sales_data.get("results", [])
+    total_orders = sales_data.get("paging", {}).get("total", 0)
+    gmv          = sum(o.get("total_amount", 0) for o in orders)
+
+    visits_resp = requests.get(
+        "https://api.mercadolibre.com/users/" + user_id + "/items_visits",
+        params={"date_from": date_from, "date_to": date_to},
+        headers={"Authorization": "Bearer " + token}
+    )
+    visits_data  = visits_resp.json() if visits_resp.ok else {}
+    total_visits = visits_data.get("total_visits", 0)
+
+    orders_detail = []
+    for o in orders[:20]:
+        orders_detail.append({
+            "id": o.get("id"),
+            "date": o.get("date_created", "")[:10],
+            "total": o.get("total_amount", 0),
+            "status": o.get("status", ""),
+            "items": len(o.get("order_items", []))
+        })
+
+    return jsonify({
+        "seller_id": user_id,
+        "nickname": seller["nickname"],
+        "period": {"date_from": date_from, "date_to": date_to},
+        "summary": {
+            "total_orders": total_orders,
+            "gmv": round(gmv, 2),
+            "avg_ticket": round(gmv / total_orders, 2) if total_orders > 0 else 0,
+            "total_visits": total_visits,
+            "conversion": round((total_orders / total_visits) * 100, 2) if total_visits > 0 else 0
+        },
+        "orders": orders_detail
+    })
+
+@app.route("/api/promotions/<user_id>")
+def get_promotions(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    promos_resp = requests.get(
+        "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions",
+        params={"status": "active"},
+        headers={"Authorization": "Bearer " + token}
+    )
+
+    if not promos_resp.ok:
+        promos_resp2 = requests.get(
+            "https://api.mercadolibre.com/promotions",
+            params={"seller_id": user_id, "status": "started"},
+            headers={"Authorization": "Bearer " + token}
+        )
+        promos_data = promos_resp2.json() if promos_resp2.ok else {}
+    else:
+        promos_data = promos_resp.json()
+
+    promotions = []
+    if isinstance(promos_data, list):
+        promotions = promos_data
+    elif isinstance(promos_data, dict):
+        promotions = promos_data.get("results", promos_data.get("promotions", []))
+
+    result = []
+    for p in promotions[:20]:
+        result.append({
+            "id": p.get("id", ""),
+            "name": p.get("name", p.get("description", "Promocao")),
+            "type": p.get("type", p.get("promotion_type", "")),
+            "status": p.get("status", ""),
+            "discount": p.get("discount_meli_amount", p.get("value", 0)),
+            "start_date": str(p.get("start_date", p.get("from", "")))[:10],
+            "end_date": str(p.get("finish_date", p.get("to", "")))[:10],
+            "items_count": p.get("items_count", 0)
+        })
+
+    return jsonify({
+        "seller_id": user_id,
+        "nickname": seller["nickname"],
+        "total": len(result),
+        "promotions": result,
+        "raw_status": promos_resp.status_code if promos_resp else None
+    })
+
+@app.route("/api/metrics/<user_id>")
+def get_metrics(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
 
@@ -379,19 +482,30 @@ def get_metrics(user_id):
         }
     })
 
-@app.route("/api/debug-metrics/<user_id>")
-def debug_metrics(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
-    seller = cur.fetchone()
-    cur.close()
-    conn.close()
-
+@app.route("/api/debug/<user_id>")
+def debug_ads(user_id):
+    token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao encontrado"}), 404
 
-    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
+    urls = [
+        "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns",
+        "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns",
+        "https://api.mercadolibre.com/advertising/" + user_id + "/campaigns",
+        "https://api.mercadolibre.com/advertising/advertisers/" + user_id,
+    ]
+    results = {}
+    for url in urls:
+        r = requests.get(url, headers={"Authorization": "Bearer " + token})
+        results[url] = {"status": r.status_code, "response": r.json()}
+
+    return jsonify({"user_id": user_id, "endpoints_tested": results})
+
+@app.route("/api/debug-metrics/<user_id>")
+def debug_metrics(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
 
     r_orders = requests.get(
         "https://api.mercadolibre.com/orders/search",
@@ -407,40 +521,18 @@ def debug_metrics(user_id):
         "https://api.mercadolibre.com/users/" + user_id,
         headers={"Authorization": "Bearer " + token}
     )
+    r_promos = requests.get(
+        "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions",
+        params={"status": "active"},
+        headers={"Authorization": "Bearer " + token}
+    )
 
     return jsonify({
         "orders":     {"status": r_orders.status_code, "response": r_orders.json()},
         "visits":     {"status": r_visits.status_code, "response": r_visits.json()},
-        "reputation": {"status": r_rep.status_code,    "response": r_rep.json()}
+        "reputation": {"status": r_rep.status_code,    "response": r_rep.json()},
+        "promotions": {"status": r_promos.status_code, "response": r_promos.json()}
     })
-
-@app.route("/api/debug/<user_id>")
-def debug_ads(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
-    seller = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    if not seller:
-        return jsonify({"error": "Seller nao encontrado"}), 404
-
-    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
-
-    urls = [
-        "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns",
-        "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns",
-        "https://api.mercadolibre.com/advertising/" + user_id + "/campaigns",
-        "https://api.mercadolibre.com/advertising/advertisers/" + user_id,
-    ]
-
-    results = {}
-    for url in urls:
-        r = requests.get(url, headers={"Authorization": "Bearer " + token})
-        results[url] = {"status": r.status_code, "response": r.json()}
-
-    return jsonify({"user_id": user_id, "endpoints_tested": results})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
