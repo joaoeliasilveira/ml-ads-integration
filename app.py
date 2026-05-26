@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, render_template, redirect
 import requests
 import os
-import json
 
 app = Flask(__name__)
 
@@ -51,14 +50,12 @@ def callback():
     if not access_token:
         return f"Erro ao obter token: {token_data}", 400
 
-    # Salva o token
     tokens_store[str(user_id)] = {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "user_id": user_id
     }
 
-    # Busca nome do seller
     user_resp = requests.get(
         f"https://api.mercadolibre.com/users/{user_id}",
         headers={"Authorization": f"Bearer {access_token}"}
@@ -72,6 +69,13 @@ def callback():
 def get_sellers():
     return jsonify(list(tokens_store.values()))
 
+@app.route("/api/sellers/<user_id>", methods=["DELETE"])
+def delete_seller(user_id):
+    if user_id in tokens_store:
+        del tokens_store[user_id]
+        return jsonify({"success": True})
+    return jsonify({"error": "Seller não encontrado"}), 404
+
 @app.route("/api/ads/<user_id>")
 def get_ads(user_id):
     if user_id not in tokens_store:
@@ -81,7 +85,6 @@ def get_ads(user_id):
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
 
-    # Busca campanhas
     camps_resp = requests.get(
         f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns",
         headers={"Authorization": f"Bearer {token}"}
@@ -112,9 +115,9 @@ def get_ads(user_id):
             roas = round(revenue / spend, 2) if spend > 0 else 0
             acos = round((spend / revenue) * 100, 1) if revenue > 0 else 0
 
-            total_spend     += spend
-            total_revenue   += revenue
-            total_clicks    += clicks
+            total_spend       += spend
+            total_revenue     += revenue
+            total_clicks      += clicks
             total_impressions += imps
 
             result.append({
