@@ -294,23 +294,32 @@ def get_metrics(user_id):
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
 
-    # Vendas e faturamento
+    # Reputação (sempre funciona)
+    rep_resp = requests.get(
+        f"https://api.mercadolibre.com/users/{user_id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    rep_data = rep_resp.json() if rep_resp.ok else {}
+    reputation = rep_data.get("seller_reputation", {})
+    metrics_rep = reputation.get("metrics", {})
+    transactions = reputation.get("transactions", {})
+
+    # Vendas
     sales_resp = requests.get(
         f"https://api.mercadolibre.com/orders/search",
         params={
             "seller": user_id,
             "order.date_created.from": f"{date_from}T00:00:00.000-00:00",
-            "order.date_created.to": f"{date_to}T23:59:59.000-00:00",
+            "order.date_created.to":   f"{date_to}T23:59:59.000-00:00",
             "order.status": "paid",
             "limit": 50
         },
         headers={"Authorization": f"Bearer {token}"}
     )
-    sales_data = sales_resp.json() if sales_resp.ok else {}
-
-    orders = sales_data.get("results", [])
+    sales_data  = sales_resp.json() if sales_resp.ok else {}
+    orders      = sales_data.get("results", [])
     total_orders = sales_data.get("paging", {}).get("total", 0)
-    gmv = sum(o.get("total_amount", 0) for o in orders)
+    gmv          = sum(o.get("total_amount", 0) for o in orders)
 
     # Visitas
     visits_resp = requests.get(
@@ -318,17 +327,8 @@ def get_metrics(user_id):
         params={"date_from": date_from, "date_to": date_to},
         headers={"Authorization": f"Bearer {token}"}
     )
-    visits_data = visits_resp.json() if visits_resp.ok else {}
+    visits_data  = visits_resp.json() if visits_resp.ok else {}
     total_visits = visits_data.get("total_visits", 0)
-
-    # Reputação
-    rep_resp = requests.get(
-        f"https://api.mercadolibre.com/users/{user_id}",
-        headers={"Authorization": f"Bearer {token}"}
-    )
-    rep_data = rep_resp.json() if rep_resp.ok else {}
-    reputation = rep_data.get("seller_reputation", {})
-    power_status = rep_data.get("power_seller_status", "")
 
     return jsonify({
         "seller_id": user_id,
@@ -345,8 +345,11 @@ def get_metrics(user_id):
         },
         "reputation": {
             "level": reputation.get("level_id", ""),
-            "power_seller": power_status,
-            "transactions": reputation.get("transactions", {}),
+            "power_seller": rep_data.get("power_seller_status", ""),
+            "cancellations": metrics_rep.get("cancellations", {}).get("rate", 0),
+            "claims": metrics_rep.get("claims", {}).get("rate", 0),
+            "delayed": metrics_rep.get("delayed_handling_time", {}).get("rate", 0),
+            "sales_completed": transactions.get("completed", 0),
             "ratings": reputation.get("ratings", {})
         }
     })
@@ -371,50 +374,4 @@ def debug_metrics(user_id):
             params={"seller": user_id, "order.status": "paid", "limit": 1},
             headers={"Authorization": f"Bearer {token}"}
         ),
-        "visits": requests.get(
-            f"https://api.mercadolibre.com/users/{user_id}/items_visits",
-            params={"date_from": "2026-05-01", "date_to": "2026-05-26"},
-            headers={"Authorization": f"Bearer {token}"}
-        ),
-        "reputation": requests.get(
-            f"https://api.mercadolibre.com/users/{user_id}",
-            headers={"Authorization": f"Bearer {token}"}
-        ),
-    }
-
-    return jsonify({
-        k: {"status": v.status_code, "response": v.json()}
-        for k, v in endpoints.items()
-    })
-
-@app.route("/api/debug/<user_id>")
-def debug_ads(user_id):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM sellers WHERE user_id = %s", (user_id,))
-    seller = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    if not seller:
-        return jsonify({"error": "Seller não encontrado"}), 404
-
-    token = refresh_token_if_needed(user_id, seller["access_token"], seller["refresh_token"], seller["updated_at"])
-
-    endpoints_to_test = [
-        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/product_ads/campaigns",
-        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}/campaigns",
-        f"https://api.mercadolibre.com/advertising/{user_id}/campaigns",
-        f"https://api.mercadolibre.com/advertising/advertisers/{user_id}",
-    ]
-
-    results = {}
-    for url in endpoints_to_test:
-        r = requests.get(url, headers={"Authorization": f"Bearer {token}"})
-        results[url] = {"status": r.status_code, "response": r.json()}
-
-    return jsonify({"user_id": user_id, "endpoints_tested": results})
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+        "
