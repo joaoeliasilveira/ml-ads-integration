@@ -357,9 +357,8 @@ def get_sales(user_id):
     from datetime import date as ddate, timedelta as tdelta
 
     # Status que o ML considera como "Quantidade de vendas" no painel de Negocios
-    # Fonte: assistente ML - inclui todos exceto invalid
-    SALE_STATUSES = {"confirmed", "payment_required", "payment_in_process", "paid",
-                     "partially_refunded", "pending_cancel", "cancelled"}
+    # Removidos cancelled e pending_cancel pois o ML nao os conta como vendas
+    SALE_STATUSES = {"confirmed", "payment_required", "payment_in_process", "paid", "partially_refunded"}
 
     def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
         """Busca todos os pedidos sem filtro de status e separa localmente."""
