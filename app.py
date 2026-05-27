@@ -356,19 +356,23 @@ def get_sales(user_id):
 
     from datetime import date as ddate, timedelta as tdelta
 
-    def fetch_orders_by_status(uid, tok, dfrom, dto, status, max_offset=10000):
+    # Status que o ML considera como "venda realizada"
+    SALE_STATUSES = {"paid", "delivered", "confirmed", "partially_refunded"}
+    CANCELLED_STATUSES = {"cancelled"}
+
+    def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
+        """Busca todos os pedidos sem filtro de status e separa localmente."""
         all_orders = []
         offset = 0
         limit = 50
         total = None
-        while offset <= max_offset:
+        while True:
             r = requests.get(
                 "https://api.mercadolibre.com/orders/search",
                 params={
                     "seller": uid,
                     "order.date_created.from": dfrom + "T00:00:00.000-00:00",
                     "order.date_created.to":   dto + "T23:59:59.000-00:00",
-                    "order.status": status,
                     "limit": limit,
                     "offset": offset,
                     "sort": "date_asc"
@@ -385,15 +389,9 @@ def get_sales(user_id):
             offset += limit
             if offset >= (total or 0) or not results:
                 break
-        return all_orders, total or 0
-
-    def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
-        # Busca paid + payment_in_process (ambos contam como vendas no ML)
-        paid_orders, paid_total = fetch_orders_by_status(uid, tok, dfrom, dto, "paid")
-        pip_orders, pip_total   = fetch_orders_by_status(uid, tok, dfrom, dto, "payment_in_process")
-        all_orders = paid_orders + pip_orders
-        total = paid_total + pip_total
-        return all_orders, total
+        # Filtra localmente por status
+        sale_orders = [o for o in all_orders if o.get("status") in SALE_STATUSES]
+        return sale_orders, len(sale_orders)
 
     # Periodo atual
     orders, total_orders = fetch_all_orders(user_id, token, date_from, date_to)
@@ -452,10 +450,7 @@ def get_sales(user_id):
     for p in top_products:
         p["revenue"] = round(p["revenue"], 2)
 
-    # Metricas de cancelamentos e devolucoes
-    cancelled_orders = []
-    returned_orders  = []
-
+    # Cancelamentos — busca separado com status=cancelled
     r_cancelled = requests.get(
         "https://api.mercadolibre.com/orders/search",
         params={
@@ -463,15 +458,28 @@ def get_sales(user_id):
             "order.date_created.from": date_from + "T00:00:00.000-00:00",
             "order.date_created.to":   date_to + "T23:59:59.000-00:00",
             "order.status": "cancelled",
-            "limit": 50
+            "limit": 1,
+            "offset": 0
         },
         headers={"Authorization": "Bearer " + token}
     )
     if r_cancelled.ok and r_cancelled.text:
-        cancelled_data   = r_cancelled.json()
-        cancelled_orders = cancelled_data.get("results", [])
-        total_cancelled  = cancelled_data.get("paging", {}).get("total", 0)
-        value_cancelled  = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in cancelled_orders)
+        cancelled_data  = r_cancelled.json()
+        total_cancelled = cancelled_data.get("paging", {}).get("total", 0)
+        # Busca valor dos cancelados (primeiros 50)
+        r_cancelled_val = requests.get(
+            "https://api.mercadolibre.com/orders/search",
+            params={
+                "seller": user_id,
+                "order.date_created.from": date_from + "T00:00:00.000-00:00",
+                "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+                "order.status": "cancelled",
+                "limit": 50
+            },
+            headers={"Authorization": "Bearer " + token}
+        )
+        cancelled_results = r_cancelled_val.json().get("results", []) if r_cancelled_val.ok and r_cancelled_val.text else []
+        value_cancelled = sum(order_value(o) for o in cancelled_results)
     else:
         total_cancelled = 0
         value_cancelled = 0
