@@ -131,11 +131,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div><div class="brand-name">Dashboard ML</div><div class="brand-sub">Mercado Livre</div></div>
   </div>
   <div class="topbar-right">
-    <select class="period-select" id="period">
-      <option value="7">Últimos 7 dias</option>
-      <option value="30" selected>Últimos 30 dias</option>
-      <option value="90">Últimos 90 dias</option>
-    </select>
+    <div style="display:flex;align-items:center;gap:8px">
+      <select class="period-select" id="period-preset" onchange="applyPreset()">
+        <option value="7">Últimos 7 dias</option>
+        <option value="30" selected>Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+        <option value="custom">Personalizado</option>
+      </select>
+      <div id="custom-dates" style="display:none;align-items:center;gap:6px">
+        <input type="date" id="date-from" class="period-select" style="font-size:12px;padding:7px 10px">
+        <span style="color:var(--text3);font-size:12px">até</span>
+        <input type="date" id="date-to" class="period-select" style="font-size:12px;padding:7px 10px">
+        <button onclick="applyCustomDate()" style="background:var(--yellow);color:#000;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:7px 12px;border:none;border-radius:var(--radius-sm);cursor:pointer">Aplicar</button>
+      </div>
+    </div>
     <button class="btn-connect" onclick="window.location='/auth'">+ Conectar Seller</button>
   </div>
 </div>
@@ -195,12 +204,61 @@ var loaded = {};
 function fmt(n){return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function fmtDec(n){return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtK(n){if(n>=1000000)return (n/1000000).toFixed(1)+'M';if(n>=1000)return (n/1000).toFixed(1)+'k';return String(n);}
+function fmtFull(n){return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});}
 
 function getPeriodDates(){
-  var days=parseInt(document.getElementById('period').value);
+  var preset=document.getElementById('period-preset').value;
+  if(preset==='custom'){
+    var df=document.getElementById('date-from').value;
+    var dt=document.getElementById('date-to').value;
+    if(df&&dt) return{date_from:df,date_to:dt};
+  }
+  var days=parseInt(preset)||30;
   var to=new Date(),from=new Date();
   from.setDate(from.getDate()-days);
   return{date_from:from.toISOString().split('T')[0],date_to:to.toISOString().split('T')[0]};
+}
+
+function applyPreset(){
+  var preset=document.getElementById('period-preset').value;
+  var customDiv=document.getElementById('custom-dates');
+  if(preset==='custom'){
+    customDiv.style.display='flex';
+    // Set default dates
+    var to=new Date(),from=new Date();
+    from.setDate(from.getDate()-30);
+    document.getElementById('date-from').value=from.toISOString().split('T')[0];
+    document.getElementById('date-to').value=to.toISOString().split('T')[0];
+  } else {
+    customDiv.style.display='none';
+    if(currentSellerId){
+      loaded={};
+      destroyCharts();
+      document.querySelectorAll('.tab-content').forEach(function(c){
+        if(c.classList.contains('active')){
+          c.innerHTML='<div class="loading-state"><div class="spinner"></div><span>Atualizando...</span></div>';
+        }
+      });
+      loadTab(activeTab);
+    }
+  }
+}
+
+function applyCustomDate(){
+  var df=document.getElementById('date-from').value;
+  var dt=document.getElementById('date-to').value;
+  if(!df||!dt){alert('Selecione as duas datas.');return;}
+  if(df>dt){alert('Data inicial deve ser anterior à data final.');return;}
+  if(currentSellerId){
+    loaded={};
+    destroyCharts();
+    document.querySelectorAll('.tab-content').forEach(function(c){
+      if(c.classList.contains('active')){
+        c.innerHTML='<div class="loading-state"><div class="spinner"></div><span>Atualizando...</span></div>';
+      }
+    });
+    loadTab(activeTab);
+  }
 }
 
 function repLevel(l){
@@ -452,7 +510,7 @@ function renderVendas(el,data){
     return '<tr>'+
       '<td style="color:var(--text3);font-weight:600;width:32px">'+(i+1)+'</td>'+
       '<td><span class="cell-name" title="'+p.title+'">'+p.title+'</span></td>'+
-      '<td>'+fmtK(p.qty)+' un</td>'+
+      '<td>'+fmtFull(p.qty)+' un</td>'+
       '<td>'+fmtDec(p.revenue)+'</td>'+
     '</tr>';
   }).join('');
@@ -470,7 +528,7 @@ function renderVendas(el,data){
 
       '<div class="metric-card">'+
         '<div class="metric-label">Unidades Vendidas</div>'+
-        '<div class="metric-value">'+fmtK(s.unidades_vendidas||0)+'</div>'+
+        '<div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'</div>'+
         '<div class="metric-delta">'+varBadge(cmp.var_unidades)+' vs período anterior</div>'+
       '</div>'+
 
@@ -482,7 +540,7 @@ function renderVendas(el,data){
 
       '<div class="metric-card">'+
         '<div class="metric-label">Qtd de Vendas</div>'+
-        '<div class="metric-value">'+fmtK(s.qtd_vendas||0)+'</div>'+
+        '<div class="metric-value">'+fmtFull(s.qtd_vendas||0)+'</div>'+
         '<div class="metric-delta">'+varBadge(cmp.var_qtd_vendas)+' vs período anterior</div>'+
       '</div>'+
 
@@ -494,7 +552,7 @@ function renderVendas(el,data){
 
       '<div class="metric-card">'+
         '<div class="metric-label">Visitas</div>'+
-        '<div class="metric-value">'+fmtK(s.total_visits||0)+'</div>'+
+        '<div class="metric-value">'+fmtFull(s.total_visits||0)+'</div>'+
         '<div class="metric-delta">nos anúncios</div>'+
       '</div>'+
 
@@ -506,7 +564,7 @@ function renderVendas(el,data){
 
       '<div class="metric-card">'+
         '<div class="metric-label">Qtd Canceladas</div>'+
-        '<div class="metric-value" style="color:'+(s.qtd_canceladas>0?'var(--red)':'var(--text)')+'">'+fmtK(s.qtd_canceladas||0)+'</div>'+
+        '<div class="metric-value" style="color:'+(s.qtd_canceladas>0?'var(--red)':'var(--text)')+'">'+fmtFull(s.qtd_canceladas||0)+'</div>'+
         '<div class="metric-delta">no período</div>'+
       '</div>'+
 
@@ -632,18 +690,7 @@ async function removeSeller(sellerId,name){
   loadList();
 }
 
-document.getElementById('period').addEventListener('change',function(){
-  if(currentSellerId){
-    loaded={};
-    destroyCharts();
-    document.querySelectorAll('.tab-content').forEach(function(c){
-      if(c.classList.contains('active')){
-        c.innerHTML='<div class="loading-state"><div class="spinner"></div><span>Atualizando...</span></div>';
-      }
-    });
-    loadTab(activeTab);
-  }
-});
+// period change handled by applyPreset and applyCustomDate
 
 var params=new URLSearchParams(window.location.search);
 if(params.get('seller_added')){
