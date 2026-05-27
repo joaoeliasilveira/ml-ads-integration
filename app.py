@@ -1137,6 +1137,51 @@ def debug_reports(user_id):
         "results": results
     })
 
+
+@app.route("/api/debug-promos/<user_id>")
+def debug_promos(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    results = {}
+
+    endpoints = [
+        ("promotions_v1",        "https://api.mercadolibre.com/promotions",
+         {"seller_id": user_id}),
+        ("seller_deals",         "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions",
+         {}),
+        ("seller_deals_v2",      "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions?limit=10",
+         {}),
+        ("discount_campaigns",   "https://api.mercadolibre.com/discount-campaigns/users/" + user_id,
+         {}),
+        ("coupons",              "https://api.mercadolibre.com/users/" + user_id + "/coupons",
+         {}),
+        ("item_promotions",      "https://api.mercadolibre.com/users/" + user_id + "/item_promotions",
+         {}),
+        ("promotions_search2",   "https://api.mercadolibre.com/promotions/search",
+         {"seller_id": user_id}),
+        ("loyalty",              "https://api.mercadolibre.com/loyalty/users/" + user_id + "/summary",
+         {}),
+        ("mshops_promotions",    "https://api.mercadolibre.com/mshops/promotion-campaigns/seller/" + user_id,
+         {}),
+        ("price_campaigns",      "https://api.mercadolibre.com/price-campaigns/seller/" + user_id,
+         {}),
+    ]
+
+    for name, url, params in endpoints:
+        try:
+            r = requests.get(url, params=params, headers={"Authorization": "Bearer " + token})
+            try:
+                body = r.json()
+            except Exception:
+                body = r.text[:300]
+            results[name] = {"status": r.status_code, "response": body}
+        except Exception as e:
+            results[name] = {"error": str(e)}
+
+    return jsonify({"user_id": user_id, "results": results})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
