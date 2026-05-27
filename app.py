@@ -232,17 +232,18 @@ def get_ads(user_id):
         camp_id = camp.get("id")
         metrics = get_campaign_metrics(aid, camp_id, token, date_from, date_to, base_url or "")
 
-        # Novo formato: {cost, clicks, prints, direct_amount, indirect_amount, total_amount}
-        if isinstance(metrics, list):
-            spend   = sum(d.get("cost", 0) for d in metrics)
-            revenue = sum(d.get("total_amount", d.get("direct_amount", 0)) for d in metrics)
-            clicks  = sum(d.get("clicks", 0) for d in metrics)
-            imps    = sum(d.get("prints", d.get("impressions", 0)) for d in metrics)
+        # Formato: response tem objeto "metrics" dentro
+        if isinstance(metrics, dict) and "metrics" in metrics:
+            m = metrics["metrics"]
+        elif isinstance(metrics, list) and len(metrics) > 0:
+            m = metrics[0].get("metrics", metrics[0])
         else:
-            spend   = metrics.get("cost", 0)
-            revenue = metrics.get("total_amount", metrics.get("direct_amount", metrics.get("revenue", 0)))
-            clicks  = metrics.get("clicks", 0)
-            imps    = metrics.get("prints", metrics.get("impressions", 0))
+            m = metrics if isinstance(metrics, dict) else {}
+
+        spend   = m.get("cost", 0)
+        revenue = m.get("total_amount", m.get("direct_amount", m.get("revenue", 0)))
+        clicks  = m.get("clicks", 0)
+        imps    = m.get("prints", m.get("impressions", 0))
 
         roas = round(revenue / spend, 2) if spend > 0 else 0
         acos = round((spend / revenue) * 100, 1) if revenue > 0 else 0
