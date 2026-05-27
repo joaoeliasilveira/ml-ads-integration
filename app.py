@@ -1041,6 +1041,90 @@ def debug_sales2(user_id):
         "combined_total": total_paid + pip_total
     })
 
+
+@app.route("/api/debug-reports/<user_id>")
+def debug_reports(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    from datetime import date as ddate, timedelta as tdelta
+    today = ddate.today()
+    date_from = (today - tdelta(days=30)).isoformat()
+    date_to   = today.isoformat()
+
+    results = {}
+
+    # Endpoint 1: data-reporting/seller_performance
+    r1 = requests.get(
+        "https://api.mercadolibre.com/data-reporting/seller_performance",
+        params={"caller.id": user_id, "date_from": date_from, "date_to": date_to},
+        headers={"Authorization": "Bearer " + token}
+    )
+    results["seller_performance"] = {"status": r1.status_code, "response": r1.json() if r1.ok and r1.text else r1.text[:200]}
+
+    # Endpoint 2: seller_performance/search
+    r2 = requests.get(
+        "https://api.mercadolibre.com/data-reporting/seller_performance/search",
+        params={"caller.id": user_id, "date_from": date_from, "date_to": date_to},
+        headers={"Authorization": "Bearer " + token}
+    )
+    results["seller_performance_search"] = {"status": r2.status_code, "response": r2.json() if r2.ok and r2.text else r2.text[:200]}
+
+    # Endpoint 3: users/{id}/orders_summary
+    r3 = requests.get(
+        "https://api.mercadolibre.com/users/" + user_id + "/orders_summary",
+        params={"date_from": date_from, "date_to": date_to},
+        headers={"Authorization": "Bearer " + token}
+    )
+    results["orders_summary"] = {"status": r3.status_code, "response": r3.json() if r3.ok and r3.text else r3.text[:200]}
+
+    # Endpoint 4: billing/integration/invoices
+    r4 = requests.get(
+        "https://api.mercadolibre.com/users/" + user_id + "/sales",
+        params={"date_from": date_from, "date_to": date_to},
+        headers={"Authorization": "Bearer " + token}
+    )
+    results["user_sales"] = {"status": r4.status_code, "response": r4.json() if r4.ok and r4.text else r4.text[:200]}
+
+    # Endpoint 5: seller_performance via meli API
+    r5 = requests.get(
+        "https://api.mercadolibre.com/users/" + user_id + "/items_visits/time_window",
+        params={"last": "30", "unit": "day", "ending": date_to},
+        headers={"Authorization": "Bearer " + token}
+    )
+    results["items_visits_window"] = {"status": r5.status_code, "response": r5.json() if r5.ok and r5.text else r5.text[:200]}
+
+    # Endpoint 6: highlights
+    r6 = requests.get(
+        "https://api.mercadolibre.com/highlights/MLB/seller/" + user_id,
+        headers={"Authorization": "Bearer " + token}
+    )
+    results["highlights"] = {"status": r6.status_code, "response": r6.json() if r6.ok and r6.text else r6.text[:200]}
+
+    # Endpoint 7: v2 orders com status=all
+    r7 = requests.get(
+        "https://api.mercadolibre.com/orders/search",
+        params={
+            "seller": user_id,
+            "order.date_created.from": date_from + "T00:00:00.000-00:00",
+            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+            "limit": 1,
+            "offset": 0
+        },
+        headers={"Authorization": "Bearer " + token}
+    )
+    results["orders_no_status_filter"] = {
+        "status": r7.status_code,
+        "total": r7.json().get("paging", {}).get("total", 0) if r7.ok and r7.text else 0
+    }
+
+    return jsonify({
+        "user_id": user_id,
+        "date_range": {"from": date_from, "to": date_to},
+        "results": results
+    })
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
