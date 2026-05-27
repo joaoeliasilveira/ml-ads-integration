@@ -394,19 +394,48 @@ def get_sales(user_id):
         return sale_orders, len(sale_orders)
 
     # Periodo atual
-    orders, total_orders = fetch_all_orders(user_id, token, date_from, date_to)
-    # Vendas brutas = soma de payments[].total_paid_amount (fonte: assistente ML)
+    orders, _ = fetch_all_orders(user_id, token, date_from, date_to)
+    # Valor de uma order (total_amount como campo principal)
     def order_value(o):
-        # total_amount = valor total da order (fonte: documentacao ML)
         val = o.get("total_amount") or 0
         if val:
             return val
-        # Fallback para payments se total_amount ausente
         payments = o.get("payments", [])
         if payments:
             return sum(p.get("total_paid_amount", 0) or 0 for p in payments)
         return o.get("paid_amount") or 0
-    gmv = sum(order_value(o) for o in orders)
+
+    # Qtd vendas: agrupa por pack_id (pack com N itens = 1 venda)
+    def count_sales(order_list):
+        packs_seen = set()
+        count = 0
+        for o in order_list:
+            pack_id = o.get("pack_id")
+            if pack_id:
+                if pack_id not in packs_seen:
+                    packs_seen.add(pack_id)
+                    count += 1
+            else:
+                count += 1
+        return count
+
+    # Vendas brutas: soma agrupando packs para evitar dupla contagem
+    def sum_gmv(order_list):
+        packs_seen = set()
+        total = 0
+        for o in order_list:
+            pack_id = o.get("pack_id")
+            if pack_id:
+                if pack_id not in packs_seen:
+                    packs_seen.add(pack_id)
+                    pack_orders = [x for x in order_list if x.get("pack_id") == pack_id]
+                    total += sum(order_value(x) for x in pack_orders)
+            else:
+                total += order_value(o)
+        return total
+
+    total_orders = count_sales(orders)
+    gmv = sum_gmv(orders)
 
     # Periodo anterior
     d_from = ddate.fromisoformat(date_from)
@@ -414,8 +443,9 @@ def get_sales(user_id):
     delta  = (d_to - d_from).days + 1
     prev_from = (d_from - tdelta(days=delta)).isoformat()
     prev_to   = (d_from - tdelta(days=1)).isoformat()
-    prev_orders, prev_total = fetch_all_orders(user_id, token, prev_from, prev_to)
-    prev_gmv = sum(order_value(o) for o in prev_orders)
+    prev_orders, _ = fetch_all_orders(user_id, token, prev_from, prev_to)
+    prev_total = count_sales(prev_orders)
+    prev_gmv = sum_gmv(prev_orders)
 
     # Visitas — endpoint time_window (correto para apps de terceiros)
     try:
