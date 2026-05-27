@@ -356,19 +356,19 @@ def get_sales(user_id):
 
     from datetime import date as ddate, timedelta as tdelta
 
-    def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
+    def fetch_orders_by_status(uid, tok, dfrom, dto, status, max_offset=10000):
         all_orders = []
         offset = 0
         limit = 50
         total = None
-        while True:
+        while offset <= max_offset:
             r = requests.get(
                 "https://api.mercadolibre.com/orders/search",
                 params={
                     "seller": uid,
                     "order.date_created.from": dfrom + "T00:00:00.000-00:00",
                     "order.date_created.to":   dto + "T23:59:59.000-00:00",
-                    "order.status": "paid",
+                    "order.status": status,
                     "limit": limit,
                     "offset": offset,
                     "sort": "date_asc"
@@ -383,14 +383,25 @@ def get_sales(user_id):
                 total = data.get("paging", {}).get("total", 0)
             all_orders.extend(results)
             offset += limit
-            if offset >= total or offset >= 10000 or not results:
+            if offset >= (total or 0) or not results:
                 break
         return all_orders, total or 0
 
+    def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
+        # Busca paid + payment_in_process (ambos contam como vendas no ML)
+        paid_orders, paid_total = fetch_orders_by_status(uid, tok, dfrom, dto, "paid")
+        pip_orders, pip_total   = fetch_orders_by_status(uid, tok, dfrom, dto, "payment_in_process")
+        all_orders = paid_orders + pip_orders
+        total = paid_total + pip_total
+        return all_orders, total
+
     # Periodo atual
     orders, total_orders = fetch_all_orders(user_id, token, date_from, date_to)
-    # paid_amount = valor pago pelo comprador (mais proximo de vendas brutas)
-    gmv = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in orders)
+    # total_paid_amount eh o campo mais preciso para vendas brutas
+    def order_value(o):
+        val = o.get("total_paid_amount") or o.get("paid_amount") or o.get("total_amount") or 0
+        return val
+    gmv = sum(order_value(o) for o in orders)
 
     # Periodo anterior
     d_from = ddate.fromisoformat(date_from)
@@ -399,7 +410,7 @@ def get_sales(user_id):
     prev_from = (d_from - tdelta(days=delta)).isoformat()
     prev_to   = (d_from - tdelta(days=1)).isoformat()
     prev_orders, prev_total = fetch_all_orders(user_id, token, prev_from, prev_to)
-    prev_gmv = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in prev_orders)
+    prev_gmv = sum(order_value(o) for o in prev_orders)
 
     # Visitas
     visits_resp = requests.get(
@@ -418,7 +429,7 @@ def get_sales(user_id):
             continue
         if day not in daily_map:
             daily_map[day] = {"date": day, "gmv": 0, "orders": 0}
-        daily_map[day]["gmv"]    += o.get("paid_amount", 0) or o.get("total_amount", 0)
+        daily_map[day]["gmv"]    += order_value(o)
         daily_map[day]["orders"] += 1
     daily_sales = sorted(daily_map.values(), key=lambda x: x["date"])
     for d in daily_sales:
