@@ -413,14 +413,21 @@ def get_sales(user_id):
     prev_orders, prev_total = fetch_all_orders(user_id, token, prev_from, prev_to)
     prev_gmv = sum(order_value(o) for o in prev_orders)
 
-    # Visitas
-    visits_resp = requests.get(
-        "https://api.mercadolibre.com/users/" + user_id + "/items_visits",
-        params={"date_from": date_from, "date_to": date_to},
-        headers={"Authorization": "Bearer " + token}
-    )
-    visits_data  = visits_resp.json() if visits_resp.ok and visits_resp.text else {}
-    total_visits = visits_data.get("total_visits", 0)
+    # Visitas — endpoint time_window (correto para apps de terceiros)
+    try:
+        from datetime import date as _ddate
+        _d_from = _ddate.fromisoformat(date_from)
+        _d_to   = _ddate.fromisoformat(date_to)
+        _days   = (_d_to - _d_from).days + 1
+        visits_resp = requests.get(
+            "https://api.mercadolibre.com/users/" + user_id + "/items_visits/time_window",
+            params={"last": _days, "unit": "day", "ending": date_to},
+            headers={"Authorization": "Bearer " + token}
+        )
+        visits_data  = visits_resp.json() if visits_resp.ok and visits_resp.text else {}
+        total_visits = visits_data.get("total_visits", visits_data.get("visits", 0))
+    except Exception:
+        total_visits = 0
 
     # Vendas diarias
     daily_map = {}
