@@ -501,12 +501,14 @@ body {
       <button class="tab-btn" id="tab-campanhas-btn" onclick="switchTab('campanhas')">📣 Campanhas</button>
       <button class="tab-btn" id="tab-promocoes-btn" onclick="switchTab('promocoes')">🎯 Promoções</button>
       <button class="tab-btn" id="tab-reputacao-btn" onclick="switchTab('reputacao')">⭐ Reputação</button>
+      <button class="tab-btn" id="tab-produtos-btn" onclick="switchTab('produtos')">📦 Produtos</button>
     </div>
 
     <div class="tab-content active" id="tab-vendas"><div class="loading-state"><div class="spinner"></div><span>Carregando vendas...</span></div></div>
     <div class="tab-content" id="tab-campanhas"><div class="loading-state"><div class="spinner"></div><span>Carregando campanhas...</span></div></div>
     <div class="tab-content" id="tab-promocoes"><div class="loading-state"><div class="spinner"></div><span>Carregando promoções...</span></div></div>
     <div class="tab-content" id="tab-reputacao"><div class="loading-state"><div class="spinner"></div><span>Carregando reputação...</span></div></div>
+    <div class="tab-content" id="tab-produtos"><div class="loading-state"><div class="spinner"></div><span>Carregando produtos...</span></div></div>
   </div>
 </div>
 
@@ -525,6 +527,7 @@ function saveNames(){ try { localStorage.setItem('petina_seller_names', JSON.str
 function fmt(n){ return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function fmtDec(n){ return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtFull(n){ return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmtDate(d){ if(!d) return '—'; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 function fmtK(n){ if(n>=1000000) return (n/1000000).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return String(n); }
 
 function getPeriodDates(){
@@ -734,6 +737,9 @@ async function loadTab(tab){
     } else if(tab === 'promocoes'){
       var promos = await fetch('/api/promotions/'+currentSellerId).then(function(r){return r.json();});
       renderPromocoes(el, promos);
+    } else if(tab === 'produtos'){
+      var sales = await fetch('/api/sales/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();});
+      renderProdutos(el, sales);
     } else if(tab === 'reputacao'){
       var rep = await fetch('/api/reputation/'+currentSellerId).then(function(r){return r.json();});
       renderReputacao(el, rep);
@@ -781,32 +787,52 @@ function renderVendas(el, data){
     '</div>'+
 
     '<div class="section-label">Comparativo de Períodos</div>'+
-    '<div class="two-col">'+
-      '<div class="card">'+
-        '<div class="card-title">Período Atual</div>'+
-        '<div class="card-sub">'+(data.period&&data.period.date_from||'')+' a '+(data.period&&data.period.date_to||'')+'</div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">'+
-          '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Vendas Brutas</div><div style="font-size:19px;font-weight:700;font-family:\'Bricolage Grotesque\'">'+fmt(s.vendas_brutas||0)+'</div></div>'+
-          '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Qtd Vendas</div><div style="font-size:19px;font-weight:700;font-family:\'Bricolage Grotesque\'">'+fmtFull(s.qtd_vendas||0)+'</div></div>'+
-          '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Unidades</div><div style="font-size:19px;font-weight:700;font-family:\'Bricolage Grotesque\'">'+fmtFull(s.unidades_vendidas||0)+'</div></div>'+
+    '<div class="card" style="margin-bottom:14px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
+        '<div>'+
+          '<div class="card-title">Atual vs Período Anterior</div>'+
+          '<div style="font-size:11px;color:var(--text3);margin-top:3px">'+
+            fmtDate(data.period&&data.period.date_from)+' – '+fmtDate(data.period&&data.period.date_to)+
+            ' <span style="margin:0 6px;opacity:0.4">vs</span> '+
+            fmtDate(cmp.prev_period&&cmp.prev_period.date_from)+' – '+fmtDate(cmp.prev_period&&cmp.prev_period.date_to)+
+          '</div>'+
         '</div>'+
       '</div>'+
-      '<div class="card">'+
-        '<div class="card-title">Período Anterior</div>'+
-        '<div class="card-sub">'+(cmp.prev_period&&cmp.prev_period.date_from||'')+' a '+(cmp.prev_period&&cmp.prev_period.date_to||'')+'</div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">'+
-          '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Vendas Brutas</div><div style="font-size:19px;font-weight:700;font-family:\'Bricolage Grotesque\'">'+fmt(cmp.prev_vendas_brutas||0)+'</div></div>'+
-          '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Qtd Vendas</div><div style="font-size:19px;font-weight:700;font-family:\'Bricolage Grotesque\'">'+fmtFull(cmp.prev_qtd_vendas||0)+'</div></div>'+
-          '<div><div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase">Unidades</div><div style="font-size:19px;font-weight:700;font-family:\'Bricolage Grotesque\'">'+fmtFull(cmp.prev_unidades||0)+'</div></div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'+
+        '<div style="background:var(--bg3);border-radius:var(--radius-sm);padding:14px 16px">'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Vendas Brutas</div>'+
+          '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;margin-bottom:6px">'+fmt(s.vendas_brutas||0)+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px">'+
+            '<span style="font-size:11px;color:var(--text3)">Ant: '+fmt(cmp.prev_vendas_brutas||0)+'</span>'+
+            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_vendas_brutas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_vendas_brutas||0)>=0?'▲':'▼')+Math.abs(cmp.var_vendas_brutas||0)+'%</span>'+
+          '</div>'+
+        '</div>'+
+        '<div style="background:var(--bg3);border-radius:var(--radius-sm);padding:14px 16px">'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Qtd de Vendas</div>'+
+          '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;margin-bottom:6px">'+fmtFull(s.qtd_vendas||0)+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px">'+
+            '<span style="font-size:11px;color:var(--text3)">Ant: '+fmtFull(cmp.prev_qtd_vendas||0)+'</span>'+
+            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_qtd_vendas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_qtd_vendas||0)>=0?'▲':'▼')+Math.abs(cmp.var_qtd_vendas||0)+'%</span>'+
+          '</div>'+
+        '</div>'+
+        '<div style="background:var(--bg3);border-radius:var(--radius-sm);padding:14px 16px">'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Unidades Vendidas</div>'+
+          '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;margin-bottom:6px">'+fmtFull(s.unidades_vendidas||0)+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px">'+
+            '<span style="font-size:11px;color:var(--text3)">Ant: '+fmtFull(cmp.prev_unidades||0)+'</span>'+
+            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_unidades||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_unidades||0)>=0?'▲':'▼')+Math.abs(cmp.var_unidades||0)+'%</span>'+
+          '</div>'+
         '</div>'+
       '</div>'+
     '</div>'+
 
     '<div class="section-label">Evolução Diária</div>'+
     '<div class="card">'+
-      '<div class="card-title">Vendas Brutas por Dia</div>'+
-      '<div class="card-sub">Faturamento dia a dia no período selecionado</div>'+
-      '<div style="position:relative;height:220px"><canvas id="chart-daily-sales"></canvas></div>'+
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
+        '<div><div class="card-title">Vendas Brutas por Dia</div><div class="card-sub" style="margin-bottom:0">Faturamento e quantidade de vendas dia a dia</div></div>'+
+        '<div class="legend" style="margin-bottom:0"><span class="leg"><span class="leg-dot" style="background:#2ecc9a"></span>Vendas Brutas</span><span class="leg"><span class="leg-dot" style="background:rgba(74,95,232,0.7)"></span>Qtd Vendas</span></div>'+
+      '</div>'+
+      '<div style="position:relative;height:240px"><canvas id="chart-daily-sales"></canvas></div>'+
     '</div>'+
 
     '<div class="section-label">Ranking de Produtos</div>'+
@@ -830,21 +856,52 @@ function renderVendas(el, data){
     charts.dailySales = new Chart(canvas, {
       type: 'bar',
       data: {
-        labels: daily.map(function(d){ return d.date; }),
-        datasets: [{
-          label: 'Vendas Brutas',
-          data: daily.map(function(d){ return d.gmv; }),
-          backgroundColor: 'rgba(46,204,154,0.6)',
-          borderColor: '#2ecc9a',
-          borderWidth: 1, borderRadius: 5, borderSkipped: false
-        }]
+        labels: daily.map(function(d){ return fmtDate(d.date); }),
+        datasets: [
+          {
+            label: 'Vendas Brutas',
+            data: daily.map(function(d){ return d.gmv; }),
+            backgroundColor: 'rgba(46,204,154,0.65)',
+            borderColor: '#2ecc9a',
+            borderWidth: 1, borderRadius: 5, borderSkipped: false,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Qtd Vendas',
+            data: daily.map(function(d){ return d.orders; }),
+            type: 'line',
+            borderColor: 'rgba(74,95,232,0.9)',
+            backgroundColor: 'transparent',
+            borderWidth: 2, tension: 0.3,
+            pointRadius: 3, pointHoverRadius: 5,
+            yAxisID: 'y2'
+          }
+        ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return ' R$'+fmtK(c.raw); } } } },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, labels: { color: '#9898b0', font: { size: 11, family: 'Poppins' }, boxWidth: 10, usePointStyle: true } },
+          tooltip: { callbacks: {
+            label: function(c){
+              if(c.datasetIndex===0) return ' R$'+fmtFull(c.raw);
+              return ' '+fmtFull(c.raw)+' vendas';
+            }
+          }}
+        },
         scales: {
-          x: { ticks: { font: { size: 10, family: 'Poppins' }, color: '#5a5a70', maxRotation: 35 }, grid: { display: false } },
-          y: { ticks: { font: { size: 10, family: 'Poppins' }, color: '#5a5a70', callback: function(v){ return 'R$'+fmtK(v); } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+          x: { ticks: { font: { size: 10, family: 'Poppins' }, color: '#5a5a70', maxRotation: 40, maxTicksLimit: 15 }, grid: { display: false } },
+          y: {
+            position: 'left',
+            ticks: { font: { size: 10, family: 'Poppins' }, color: '#2ecc9a', callback: function(v){ return 'R$'+fmtK(v); } },
+            grid: { color: 'rgba(255,255,255,0.04)' }
+          },
+          y2: {
+            position: 'right',
+            ticks: { font: { size: 10, family: 'Poppins' }, color: 'rgba(74,95,232,0.8)', callback: function(v){ return v+' vd'; } },
+            grid: { display: false }
+          }
         }
       }
     });
@@ -977,6 +1034,120 @@ function renderPromocoes(el, data){
       '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Central de Promoções</div><div class="card-sub" style="margin-bottom:0">'+total+' promoção(ões) ativa(s)</div></div>'+
       '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Promoção / Tipo</th><th>Status</th><th>Início</th><th>Fim</th></tr></thead><tbody>'+emptyPromos+'</tbody></table></div>'+
     '</div>';
+}
+
+function renderProdutos(el, data){
+  var products = data.top_products || [];
+  var searchQuery = '';
+
+  function renderTable(prods){
+    if(!prods.length) return '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:32px">Nenhum produto encontrado no período</td></tr>';
+    return prods.map(function(p,i){
+      var pct = products.length>0 ? Math.round((p.revenue/products[0].revenue)*100) : 0;
+      return '<tr style="cursor:pointer" onclick="toggleProduct(\'prod-'+i+'\')">' +
+        '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
+        '<td>'+
+          '<div style="font-weight:500;max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
+          '<div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;width:200px">'+
+            '<div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"></div>'+
+          '</div>'+
+        '</td>'+
+        '<td style="color:var(--text2)">'+fmtFull(p.qty)+' un</td>'+
+        '<td style="font-weight:600">'+fmtDec(p.revenue)+'</td>'+
+        '<td style="color:var(--text3);font-size:11px">'+fmtDec(p.qty>0?p.revenue/p.qty:0)+'/un</td>'+
+        '<td style="color:var(--text3);width:20px">›</td>'+
+      '</tr>'+
+      '<tr id="prod-'+i+'" style="display:none">'+
+        '<td colspan="6" style="padding:0">'+
+          '<div style="background:var(--bg3);border-radius:var(--radius-sm);margin:0 8px 8px;padding:16px">'+
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">'+
+              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total</div>'+
+                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtDec(p.revenue)+'</div>'+
+              '</div>'+
+              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Unidades Vendidas</div>'+
+                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtFull(p.qty)+'</div>'+
+              '</div>'+
+              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio / Un</div>'+
+                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtDec(p.qty>0?p.revenue/p.qty:0)+'</div>'+
+              '</div>'+
+              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% do Faturamento</div>'+
+                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+pct+'%</div>'+
+              '</div>'+
+            '</div>'+
+            '<div style="margin-top:10px;padding:10px;background:var(--bg4);border-radius:var(--radius-xs);font-size:11px;color:var(--text3)">'+
+              '⚠ Vendas orgânicas vs ADS vs Promoções: disponível após integração de relatórios avançados do ML.'+
+            '</div>'+
+          '</div>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+  }
+
+  el.innerHTML =
+    '<div class="section-label">Produtos</div>'+
+    '<div class="card" style="padding:0;overflow:hidden">'+
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
+        '<div><div class="card-title">Ranking de Produtos</div><div class="card-sub" style="margin-bottom:0">'+products.length+' produtos · clique para expandir detalhes</div></div>'+
+        '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:220px">'+
+      '</div>'+
+      '<div style="overflow-x:auto">'+
+        '<table class="data-table" id="prod-table">'+
+          '<thead><tr><th>#</th><th>Produto</th><th>Unidades</th><th>Receita</th><th>Preço Médio</th><th></th></tr></thead>'+
+          '<tbody id="prod-tbody">'+renderTable(products)+'</tbody>'+
+        '</table>'+
+      '</div>'+
+    '</div>';
+
+  el._products = products;
+}
+
+function toggleProduct(id){
+  var row = document.getElementById(id);
+  if(row) row.style.display = row.style.display==='none'?'table-row':'none';
+}
+
+function filterProducts(q){
+  var el = document.getElementById('tab-produtos');
+  if(!el || !el._products) return;
+  var filtered = el._products.filter(function(p){ return p.title.toLowerCase().includes(q.toLowerCase()); });
+  var tbody = document.getElementById('prod-tbody');
+  if(tbody){
+    var tmp = document.createElement('div');
+    tmp.innerHTML = '<table><tbody>'+renderProductRows(filtered)+'</tbody></table>';
+    tbody.innerHTML = renderProductRows(filtered);
+  }
+}
+
+function renderProductRows(prods){
+  if(!prods.length) return '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Nenhum produto encontrado</td></tr>';
+  return prods.map(function(p,i){
+    var maxRev = prods[0].revenue || 1;
+    var pct = Math.round((p.revenue/maxRev)*100);
+    return '<tr style="cursor:pointer" onclick="toggleProduct(\'pfilt-'+i+'\')">' +
+      '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
+      '<td><div style="font-weight:500;max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
+        '<div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;width:200px"><div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"></div></div>'+
+      '</td>'+
+      '<td style="color:var(--text2)">'+fmtFull(p.qty)+' un</td>'+
+      '<td style="font-weight:600">'+fmtDec(p.revenue)+'</td>'+
+      '<td style="color:var(--text3);font-size:11px">'+fmtDec(p.qty>0?p.revenue/p.qty:0)+'/un</td>'+
+      '<td style="color:var(--text3);width:20px">›</td>'+
+    '</tr>'+
+    '<tr id="pfilt-'+i+'" style="display:none"><td colspan="6" style="padding:0">'+
+      '<div style="background:var(--bg3);border-radius:var(--radius-sm);margin:0 8px 8px;padding:16px">'+
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">'+
+          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total</div><div style="font-size:18px;font-weight:700;color:var(--green)">'+fmtDec(p.revenue)+'</div></div>'+
+          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Unidades</div><div style="font-size:18px;font-weight:700">'+fmtFull(p.qty)+'</div></div>'+
+          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio</div><div style="font-size:18px;font-weight:700">'+fmtDec(p.qty>0?p.revenue/p.qty:0)+'</div></div>'+
+          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% Faturamento</div><div style="font-size:18px;font-weight:700">'+pct+'%</div></div>'+
+        '</div>'+
+      '</div>'+
+    '</td></tr>';
+  }).join('');
 }
 
 function renderReputacao(el, data){
