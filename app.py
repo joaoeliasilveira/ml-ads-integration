@@ -187,25 +187,32 @@ def get_campaigns(user_id, token):
     ]
     for url in endpoints:
         resp = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception:
+            continue
         if not resp.ok:
             print("[ADS][ERRO] GET " + url + " HTTP " + str(resp.status_code))
             continue
         if isinstance(data, list):
-            return data, url
+            return data, url, aid
         if isinstance(data, dict) and "results" in data:
-            return data["results"], url
-    return [], None
+            return data["results"], url, aid
+    return [], None, aid
 
-def get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url):
+def get_campaign_metrics(advertiser_id, camp_id, token, date_from, date_to, base_url):
     if "product_ads" in base_url:
-        url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/product_ads/campaigns/" + str(camp_id) + "/metrics"
+        url = "https://api.mercadolibre.com/advertising/advertisers/" + advertiser_id + "/product_ads/campaigns/" + str(camp_id) + "/metrics"
     else:
-        url = "https://api.mercadolibre.com/advertising/advertisers/" + user_id + "/campaigns/" + str(camp_id) + "/metrics"
+        url = "https://api.mercadolibre.com/advertising/advertisers/" + advertiser_id + "/campaigns/" + str(camp_id) + "/metrics"
     resp = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
     if not resp.ok:
+        print("[METRICS][ERRO] " + url + " HTTP " + str(resp.status_code))
         return []
-    return resp.json()
+    try:
+        return resp.json()
+    except Exception:
+        return []
 
 @app.route("/api/ads/<user_id>")
 def get_ads(user_id):
@@ -215,14 +222,14 @@ def get_ads(user_id):
 
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
-    campaigns, base_url = get_campaigns(user_id, token)
+    campaigns, base_url, aid = get_campaigns(user_id, token)
 
     result = []
     total_spend = total_revenue = total_clicks = total_impressions = 0
 
     for camp in campaigns[:10]:
         camp_id = camp.get("id")
-        metrics = get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url or "")
+        metrics = get_campaign_metrics(aid, camp_id, token, date_from, date_to, base_url or "")
         spend   = sum(d.get("cost", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("cost", 0)
         revenue = sum(d.get("revenue", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("revenue", 0)
         clicks  = sum(d.get("clicks", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("clicks", 0)
@@ -267,12 +274,12 @@ def get_ads_daily(user_id):
 
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
-    campaigns, base_url = get_campaigns(user_id, token)
+    campaigns, base_url, aid = get_campaigns(user_id, token)
     daily_map = {}
 
     for camp in campaigns[:10]:
         camp_id = camp.get("id")
-        metrics = get_campaign_metrics(user_id, camp_id, token, date_from, date_to, base_url or "")
+        metrics = get_campaign_metrics(aid, camp_id, token, date_from, date_to, base_url or "")
         if isinstance(metrics, list):
             for day in metrics:
                 date = day.get("date", "")
