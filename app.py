@@ -201,18 +201,19 @@ def get_campaigns(user_id, token):
     return [], None, aid
 
 def get_campaign_metrics(advertiser_id, camp_id, token, date_from, date_to, base_url):
-    if "product_ads" in base_url:
-        url = "https://api.mercadolibre.com/advertising/advertisers/" + advertiser_id + "/product_ads/campaigns/" + str(camp_id) + "/metrics"
-    else:
-        url = "https://api.mercadolibre.com/advertising/advertisers/" + advertiser_id + "/campaigns/" + str(camp_id) + "/metrics"
-    resp = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
+    url = "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + str(camp_id)
+    resp = requests.get(url, params={
+        "date_from": date_from,
+        "date_to": date_to,
+        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
+    }, headers={"Authorization": "Bearer " + token, "Api-Version": "2"})
     if not resp.ok:
-        print("[METRICS][ERRO] " + url + " HTTP " + str(resp.status_code))
-        return []
+        print("[METRICS][ERRO] " + url + " HTTP " + str(resp.status_code) + " " + resp.text[:200])
+        return {}
     try:
         return resp.json()
     except Exception:
-        return []
+        return {}
 
 @app.route("/api/ads/<user_id>")
 def get_ads(user_id):
@@ -230,10 +231,19 @@ def get_ads(user_id):
     for camp in campaigns[:10]:
         camp_id = camp.get("id")
         metrics = get_campaign_metrics(aid, camp_id, token, date_from, date_to, base_url or "")
-        spend   = sum(d.get("cost", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("cost", 0)
-        revenue = sum(d.get("revenue", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("revenue", 0)
-        clicks  = sum(d.get("clicks", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("clicks", 0)
-        imps    = sum(d.get("impressions", 0) for d in metrics) if isinstance(metrics, list) else metrics.get("impressions", 0)
+
+        # Novo formato: {cost, clicks, prints, direct_amount, indirect_amount, total_amount}
+        if isinstance(metrics, list):
+            spend   = sum(d.get("cost", 0) for d in metrics)
+            revenue = sum(d.get("total_amount", d.get("direct_amount", 0)) for d in metrics)
+            clicks  = sum(d.get("clicks", 0) for d in metrics)
+            imps    = sum(d.get("prints", d.get("impressions", 0)) for d in metrics)
+        else:
+            spend   = metrics.get("cost", 0)
+            revenue = metrics.get("total_amount", metrics.get("direct_amount", metrics.get("revenue", 0)))
+            clicks  = metrics.get("clicks", 0)
+            imps    = metrics.get("prints", metrics.get("impressions", 0))
+
         roas = round(revenue / spend, 2) if spend > 0 else 0
         acos = round((spend / revenue) * 100, 1) if revenue > 0 else 0
         total_spend += spend
