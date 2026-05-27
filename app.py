@@ -659,6 +659,55 @@ def debug_campaign(user_id, camp_id):
         "metrics_endpoints": results
     })
 
+
+@app.route("/api/debug-camp-detail/<user_id>")
+def debug_camp_detail(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+
+    # Busca campanhas e retorna JSON completo
+    r = requests.get(
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns",
+        headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
+    )
+    try:
+        camp_data = r.json()
+    except Exception:
+        camp_data = r.text[:500]
+
+    # Testa endpoint de summary de metricas do advertiser
+    r2 = requests.get(
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/summary",
+        params={"date_from": "2026-04-01", "date_to": "2026-05-26"},
+        headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
+    )
+    try:
+        summary_data = r2.json()
+    except Exception:
+        summary_data = r2.text[:500]
+
+    # Testa endpoint de reports
+    r3 = requests.get(
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/reports",
+        params={"date_from": "2026-04-01", "date_to": "2026-05-26"},
+        headers={"Authorization": "Bearer " + token, "Api-Version": "1"}
+    )
+    try:
+        reports_data = r3.json()
+    except Exception:
+        reports_data = r3.text[:500]
+
+    return jsonify({
+        "advertiser_id": aid,
+        "campaigns_raw": camp_data,
+        "summary_endpoint": {"status": r2.status_code, "response": summary_data},
+        "reports_endpoint": {"status": r3.status_code, "response": reports_data}
+    })
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
