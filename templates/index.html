@@ -100,25 +100,55 @@ body {
 
 .period-wrap { display: flex; align-items: center; gap: 8px; }
 
-.period-select {
+/* ── PERIOD DROPDOWN ── */
+.period-dropdown { position: relative; }
+
+.period-trigger {
+  display: flex; align-items: center; gap: 8px;
   background: var(--bg3); border: 1px solid var(--border2);
   color: var(--text); font-family: 'Poppins', sans-serif;
-  font-size: 12px; padding: 7px 11px; border-radius: var(--radius-sm);
-  cursor: pointer; outline: none; transition: border-color 0.15s;
+  font-size: 13px; font-weight: 500; padding: 8px 14px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: border-color 0.15s; white-space: nowrap;
+  min-width: 160px; justify-content: space-between;
 }
-.period-select:focus { border-color: var(--grad1); }
+.period-trigger:hover { border-color: var(--grad1); }
+.period-trigger.open { border-color: var(--grad1); }
+
+.period-menu {
+  display: none; position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); padding: 6px;
+  min-width: 240px; z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.period-menu.open { display: block; }
+
+.period-menu-option {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-radius: var(--radius-xs);
+  cursor: pointer; transition: background 0.12s;
+}
+.period-menu-option:hover { background: var(--bg3); }
+.period-menu-option.selected { background: rgba(74,95,232,0.12); border: 1px solid rgba(74,95,232,0.3); }
+
+.period-option-label { font-size: 13px; font-weight: 500; }
+.period-option-sub { font-size: 11px; color: var(--text3); }
+
+.period-custom-row {
+  display: none; align-items: center; gap: 6px;
+  padding: 8px 4px 4px; flex-wrap: wrap;
+  border-top: 1px solid var(--border); margin-top: 6px;
+}
+.period-custom-row.open { display: flex; }
 
 .date-input {
   background: var(--bg3); border: 1px solid var(--border2);
   color: var(--text); font-family: 'Poppins', sans-serif;
   font-size: 12px; padding: 7px 11px; border-radius: var(--radius-sm);
-  outline: none; transition: border-color 0.15s;
+  outline: none; transition: border-color 0.15s; width: 130px;
 }
 .date-input:focus { border-color: var(--grad1); }
-
-#custom-dates {
-  display: none; align-items: center; gap: 6px;
-}
 
 .btn-apply {
   background: linear-gradient(135deg, var(--grad1), var(--grad3));
@@ -457,17 +487,38 @@ body {
   </div>
   <div class="topbar-right">
     <div class="period-wrap">
-      <select class="period-select" id="period-preset" onchange="applyPreset()">
-        <option value="7">Últimos 7 dias</option>
-        <option value="30" selected>Últimos 30 dias</option>
-        <option value="90">Últimos 90 dias</option>
-        <option value="custom">Personalizado</option>
-      </select>
-      <div id="custom-dates">
-        <input type="date" id="date-from" class="date-input">
-        <span style="color:var(--text3);font-size:12px">até</span>
-        <input type="date" id="date-to" class="date-input">
-        <button class="btn-apply" onclick="applyCustomDate()">Aplicar</button>
+      <div class="period-dropdown" id="period-dropdown">
+        <button class="period-trigger" id="period-trigger" onclick="togglePeriodDropdown(event)">
+          <span id="period-label">Últimos 30 dias</span>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform 0.2s" id="period-chevron"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="period-menu" id="period-menu">
+          <div class="period-menu-option" onclick="selectPeriodOption('today','Hoje')">
+            <span class="period-option-label">Hoje</span>
+            <span class="period-option-sub" id="sub-today"></span>
+          </div>
+          <div class="period-menu-option selected" id="opt-7" onclick="selectPeriodOption('7','Últimos 7 dias')">
+            <span class="period-option-label">Últimos 7 dias</span>
+            <span class="period-option-sub" id="sub-7"></span>
+          </div>
+          <div class="period-menu-option" id="opt-15" onclick="selectPeriodOption('15','Últimos 15 dias')">
+            <span class="period-option-label">Últimos 15 dias</span>
+            <span class="period-option-sub" id="sub-15"></span>
+          </div>
+          <div class="period-menu-option selected" id="opt-30" onclick="selectPeriodOption('30','Últimos 30 dias')">
+            <span class="period-option-label">Últimos 30 dias</span>
+            <span class="period-option-sub" id="sub-30"></span>
+          </div>
+          <div class="period-menu-option" onclick="selectPeriodOption('custom','Data personalizada')">
+            <span class="period-option-label">Data personalizada</span>
+          </div>
+          <div class="period-custom-row" id="period-custom-row">
+            <input type="date" id="date-from" class="date-input">
+            <span style="color:var(--text3);font-size:11px">até</span>
+            <input type="date" id="date-to" class="date-input">
+            <button class="btn-apply" onclick="applyCustomDate()">Aplicar</button>
+          </div>
+        </div>
       </div>
     </div>
     <button class="btn-connect" onclick="window.location='/auth'">+ Conectar Seller</button>
@@ -530,32 +581,70 @@ function fmtFull(n){ return Number(n).toLocaleString('pt-BR',{minimumFractionDig
 function fmtDate(d){ if(!d) return '—'; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
 function fmtK(n){ if(n>=1000000) return (n/1000000).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return String(n); }
 
+var currentPeriodValue = '30';
+
+function buildPeriodSubtitles(){
+  var today = new Date();
+  var fmt2 = function(d){ return d.getDate()+' '+['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][d.getMonth()]+' '+d.getFullYear(); };
+  var sub = function(days){
+    var from = new Date(); from.setDate(from.getDate()-days);
+    return fmt2(from)+' a '+fmt2(today);
+  };
+  var todayStr = fmt2(today);
+  var el = document.getElementById('sub-today'); if(el) el.textContent = todayStr;
+  var el7 = document.getElementById('sub-7'); if(el7) el7.textContent = sub(7);
+  var el15 = document.getElementById('sub-15'); if(el15) el15.textContent = sub(15);
+  var el30 = document.getElementById('sub-30'); if(el30) el30.textContent = sub(30);
+}
+
+function togglePeriodDropdown(e){
+  e.stopPropagation();
+  var menu = document.getElementById('period-menu');
+  var trigger = document.getElementById('period-trigger');
+  var chevron = document.getElementById('period-chevron');
+  var isOpen = menu.classList.contains('open');
+  menu.classList.toggle('open');
+  trigger.classList.toggle('open');
+  chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+function selectPeriodOption(value, label){
+  currentPeriodValue = value;
+  document.getElementById('period-label').textContent = label;
+
+  // Remove selected de todas
+  document.querySelectorAll('.period-menu-option').forEach(function(o){ o.classList.remove('selected'); });
+
+  // Fecha menu (exceto se custom)
+  if(value !== 'custom'){
+    document.getElementById('period-menu').classList.remove('open');
+    document.getElementById('period-trigger').classList.remove('open');
+    document.getElementById('period-chevron').style.transform = '';
+    document.getElementById('period-custom-row').classList.remove('open');
+    if(currentSellerId){ reloadCurrentTab(); }
+  } else {
+    document.getElementById('period-custom-row').classList.add('open');
+    var to = new Date(), from = new Date();
+    from.setDate(from.getDate()-30);
+    document.getElementById('date-from').value = from.toISOString().split('T')[0];
+    document.getElementById('date-to').value = to.toISOString().split('T')[0];
+  }
+}
+
 function getPeriodDates(){
-  var preset = document.getElementById('period-preset').value;
-  if(preset === 'custom'){
+  if(currentPeriodValue === 'custom'){
     var df = document.getElementById('date-from').value;
     var dt = document.getElementById('date-to').value;
     if(df && dt) return {date_from: df, date_to: dt};
   }
-  var days = parseInt(preset) || 30;
+  if(currentPeriodValue === 'today'){
+    var t = new Date().toISOString().split('T')[0];
+    return {date_from: t, date_to: t};
+  }
+  var days = parseInt(currentPeriodValue) || 30;
   var to = new Date(), from = new Date();
   from.setDate(from.getDate() - days);
   return {date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0]};
-}
-
-function applyPreset(){
-  var preset = document.getElementById('period-preset').value;
-  var customDiv = document.getElementById('custom-dates');
-  if(preset === 'custom'){
-    customDiv.style.display = 'flex';
-    var to = new Date(), from = new Date();
-    from.setDate(from.getDate() - 30);
-    document.getElementById('date-from').value = from.toISOString().split('T')[0];
-    document.getElementById('date-to').value = to.toISOString().split('T')[0];
-  } else {
-    customDiv.style.display = 'none';
-    if(currentSellerId){ reloadCurrentTab(); }
-  }
 }
 
 function applyCustomDate(){
@@ -563,8 +652,26 @@ function applyCustomDate(){
   var dt = document.getElementById('date-to').value;
   if(!df || !dt){ alert('Selecione as duas datas.'); return; }
   if(df > dt){ alert('Data inicial deve ser anterior à data final.'); return; }
+  // Atualiza label
+  var fmtBR = function(s){ var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+  document.getElementById('period-label').textContent = fmtBR(df)+' – '+fmtBR(dt);
+  document.getElementById('period-menu').classList.remove('open');
+  document.getElementById('period-trigger').classList.remove('open');
+  document.getElementById('period-chevron').style.transform = '';
   if(currentSellerId){ reloadCurrentTab(); }
 }
+
+// Fechar dropdown clicando fora
+document.addEventListener('click', function(e){
+  var dd = document.getElementById('period-dropdown');
+  if(dd && !dd.contains(e.target)){
+    document.getElementById('period-menu').classList.remove('open');
+    document.getElementById('period-trigger').classList.remove('open');
+    document.getElementById('period-chevron').style.transform = '';
+  }
+});
+
+buildPeriodSubtitles();
 
 function reloadCurrentTab(){
   loaded = {};
@@ -728,8 +835,9 @@ async function loadTab(tab){
 
   try {
     if(tab === 'vendas'){
+      var isToday = dates.date_from === dates.date_to && dates.date_from === new Date().toISOString().split('T')[0];
       var d = await fetch('/api/sales/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();});
-      renderVendas(el, d);
+      renderVendas(el, d, isToday);
     } else if(tab === 'campanhas'){
       var ads = await fetch('/api/ads/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();});
       var daily = await fetch('/api/ads/'+currentSellerId+'/daily?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
@@ -755,22 +863,33 @@ function varBadge(v){
   return '<span style="font-size:11px;color:'+color+'">'+(v>=0?'▲':'▼')+Math.abs(v)+'%</span>';
 }
 
-function renderVendas(el, data){
+function renderVendas(el, data, isToday){
   var s = data.summary || {};
   var cmp = data.comparison || {};
   var daily = data.daily_sales || [];
-  var products = data.top_products || [];
   var convColor = s.conversion>=3?'var(--green)':s.conversion>=1?'var(--amber)':'var(--red)';
 
-  var productRows = products.map(function(p,i){
-    return '<tr>'+
-      '<td style="color:var(--text3);font-weight:600;width:28px">'+(i+1)+'</td>'+
-      '<td><span class="cell-name" title="'+p.title+'">'+p.title+'</span></td>'+
-      '<td>'+fmtFull(p.qty)+' un</td>'+
-      '<td>'+fmtDec(p.revenue)+'</td>'+
-    '</tr>';
-  }).join('');
-  var emptyProducts = products.length===0 ? '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px">Nenhum produto encontrado</td></tr>' : productRows;
+  // Monta dados horários a partir dos pedidos brutos (quando "Hoje")
+  // A API retorna data.orders[] com campo date_created
+  var hourlyData = null;
+  if(isToday){
+    var hourBuckets = {};
+    for(var h=0;h<24;h++) hourBuckets[h]={gmv:0,orders:0};
+    var orders = data.orders || [];
+    orders.forEach(function(o){
+      var dt = new Date(o.date_created||o.date_closed||'');
+      if(!isNaN(dt)){
+        var hr = dt.getHours();
+        hourBuckets[hr].orders++;
+        var val = 0;
+        if(o.payments&&o.payments.length) o.payments.forEach(function(p){val+=p.total_paid_amount||0;});
+        else val = o.paid_amount||o.total_amount||0;
+        hourBuckets[hr].gmv += val;
+      }
+    });
+    hourlyData = [];
+    for(var h=0;h<24;h++) hourlyData.push({hour:h, gmv:hourBuckets[h].gmv, orders:hourBuckets[h].orders});
+  }
 
   el.innerHTML =
     '<div class="section-label">Resumo de Desempenho</div>'+
@@ -826,41 +945,42 @@ function renderVendas(el, data){
       '</div>'+
     '</div>'+
 
-    '<div class="section-label">Evolução Diária</div>'+
+    '<div class="section-label">Evolução</div>'+
     '<div class="card">'+
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
-        '<div><div class="card-title">Vendas Brutas por Dia</div><div class="card-sub" style="margin-bottom:0">Faturamento e quantidade de vendas dia a dia</div></div>'+
+        '<div><div class="card-title">'+(isToday?'Vendas por Hora — Hoje':'Vendas Brutas por Dia')+'</div><div class="card-sub" style="margin-bottom:0">'+(isToday?'Faturamento acumulado hora a hora (00h–23h)':'Faturamento e quantidade de vendas dia a dia')+'</div></div>'+
         '<div class="legend" style="margin-bottom:0"><span class="leg"><span class="leg-dot" style="background:#2ecc9a"></span>Vendas Brutas</span><span class="leg"><span class="leg-dot" style="background:rgba(74,95,232,0.7)"></span>Qtd Vendas</span></div>'+
       '</div>'+
       '<div style="position:relative;height:240px"><canvas id="chart-daily-sales"></canvas></div>'+
     '</div>'+
 
-    '<div class="section-label">Ranking de Produtos</div>'+
-    '<div class="card" style="padding:0;overflow:hidden">'+
-      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)">'+
-        '<div class="card-title">Top 10 Produtos</div>'+
-        '<div class="card-sub" style="margin-bottom:0">Por faturamento no período</div>'+
-      '</div>'+
-      '<div style="overflow-x:auto">'+
-        '<table class="data-table">'+
-          '<thead><tr><th>#</th><th>Produto</th><th>Unidades</th><th>Receita</th></tr></thead>'+
-          '<tbody>'+emptyProducts+'</tbody>'+
-        '</table>'+
-      '</div>'+
-    '</div>';
+    '';
 
   setTimeout(function(){
     var canvas = document.getElementById('chart-daily-sales');
-    if(!canvas || !daily.length) return;
+    if(!canvas) return;
     if(charts.dailySales){ charts.dailySales.destroy(); charts.dailySales=null; }
+
+    var chartLabels, chartGmv, chartOrders;
+    if(isToday && hourlyData){
+      chartLabels = hourlyData.map(function(h){ return h.hour+'h'; });
+      chartGmv    = hourlyData.map(function(h){ return h.gmv; });
+      chartOrders = hourlyData.map(function(h){ return h.orders; });
+    } else {
+      if(!daily.length) return;
+      chartLabels = daily.map(function(d){ return fmtDate(d.date); });
+      chartGmv    = daily.map(function(d){ return d.gmv; });
+      chartOrders = daily.map(function(d){ return d.orders; });
+    }
+
     charts.dailySales = new Chart(canvas, {
       type: 'bar',
       data: {
-        labels: daily.map(function(d){ return fmtDate(d.date); }),
+        labels: chartLabels,
         datasets: [
           {
             label: 'Vendas Brutas',
-            data: daily.map(function(d){ return d.gmv; }),
+            data: chartGmv,
             backgroundColor: 'rgba(46,204,154,0.65)',
             borderColor: '#2ecc9a',
             borderWidth: 1, borderRadius: 5, borderSkipped: false,
@@ -868,7 +988,7 @@ function renderVendas(el, data){
           },
           {
             label: 'Qtd Vendas',
-            data: daily.map(function(d){ return d.orders; }),
+            data: chartOrders,
             type: 'line',
             borderColor: 'rgba(74,95,232,0.9)',
             backgroundColor: 'transparent',
@@ -1196,7 +1316,7 @@ async function removeSeller(sellerId, name){
   loadList();
 }
 
-// period change handled by applyPreset and applyCustomDate
+
 
 var params = new URLSearchParams(window.location.search);
 if(params.get('seller_added')){
