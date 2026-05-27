@@ -354,6 +354,7 @@ def get_sales(user_id):
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
 
+    # Periodo atual
     sales_resp = requests.get(
         "https://api.mercadolibre.com/orders/search",
         params={
@@ -361,32 +362,83 @@ def get_sales(user_id):
             "order.date_created.from": date_from + "T00:00:00.000-00:00",
             "order.date_created.to":   date_to + "T23:59:59.000-00:00",
             "order.status": "paid",
-            "limit": 50
+            "limit": 50,
+            "sort": "date_asc"
         },
         headers={"Authorization": "Bearer " + token}
     )
-    sales_data   = sales_resp.json() if sales_resp.ok else {}
+    sales_data   = sales_resp.json() if sales_resp.ok and sales_resp.text else {}
     orders       = sales_data.get("results", [])
     total_orders = sales_data.get("paging", {}).get("total", 0)
     gmv          = sum(o.get("total_amount", 0) for o in orders)
 
+    # Periodo anterior (mesmo numero de dias)
+    from datetime import date as ddate, timedelta as tdelta
+    d_from = ddate.fromisoformat(date_from)
+    d_to   = ddate.fromisoformat(date_to)
+    delta  = (d_to - d_from).days + 1
+    prev_from = (d_from - tdelta(days=delta)).isoformat()
+    prev_to   = (d_from - tdelta(days=1)).isoformat()
+
+    prev_resp = requests.get(
+        "https://api.mercadolibre.com/orders/search",
+        params={
+            "seller": user_id,
+            "order.date_created.from": prev_from + "T00:00:00.000-00:00",
+            "order.date_created.to":   prev_to + "T23:59:59.000-00:00",
+            "order.status": "paid",
+            "limit": 50
+        },
+        headers={"Authorization": "Bearer " + token}
+    )
+    prev_data    = prev_resp.json() if prev_resp.ok and prev_resp.text else {}
+    prev_orders  = prev_data.get("results", [])
+    prev_total   = prev_data.get("paging", {}).get("total", 0)
+    prev_gmv     = sum(o.get("total_amount", 0) for o in prev_orders)
+
+    # Visitas
     visits_resp = requests.get(
         "https://api.mercadolibre.com/users/" + user_id + "/items_visits",
         params={"date_from": date_from, "date_to": date_to},
         headers={"Authorization": "Bearer " + token}
     )
-    visits_data  = visits_resp.json() if visits_resp.ok else {}
+    visits_data  = visits_resp.json() if visits_resp.ok and visits_resp.text else {}
     total_visits = visits_data.get("total_visits", 0)
 
-    orders_detail = []
-    for o in orders[:20]:
-        orders_detail.append({
-            "id": o.get("id"),
-            "date": o.get("date_created", "")[:10],
-            "total": o.get("total_amount", 0),
-            "status": o.get("status", ""),
-            "items": len(o.get("order_items", []))
-        })
+    # Vendas diarias
+    daily_map = {}
+    for o in orders:
+        day = o.get("date_created", "")[:10]
+        if not day:
+            continue
+        if day not in daily_map:
+            daily_map[day] = {"date": day, "gmv": 0, "orders": 0}
+        daily_map[day]["gmv"]    += o.get("total_amount", 0)
+        daily_map[day]["orders"] += 1
+    daily_sales = sorted(daily_map.values(), key=lambda x: x["date"])
+    for d in daily_sales:
+        d["gmv"] = round(d["gmv"], 2)
+
+    # Ranking de produtos
+    products_map = {}
+    for o in orders:
+        for item in o.get("order_items", []):
+            title = item.get("item", {}).get("title", "Produto")
+            item_id = item.get("item", {}).get("id", "")
+            qty   = item.get("quantity", 1)
+            price = item.get("unit_price", 0)
+            key   = item_id or title
+            if key not in products_map:
+                products_map[key] = {"title": title, "qty": 0, "revenue": 0}
+            products_map[key]["qty"]     += qty
+            products_map[key]["revenue"] += qty * price
+    top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)[:10]
+    for p in top_products:
+        p["revenue"] = round(p["revenue"], 2)
+
+    # Comparativo
+    gmv_var   = round(((gmv - prev_gmv) / prev_gmv * 100), 1) if prev_gmv > 0 else 0
+    order_var = round(((total_orders - prev_total) / prev_total * 100), 1) if prev_total > 0 else 0
 
     return jsonify({
         "seller_id": user_id,
@@ -399,7 +451,15 @@ def get_sales(user_id):
             "total_visits": total_visits,
             "conversion": round((total_orders / total_visits) * 100, 2) if total_visits > 0 else 0
         },
-        "orders": orders_detail
+        "comparison": {
+            "prev_period": {"date_from": prev_from, "date_to": prev_to},
+            "prev_gmv": round(prev_gmv, 2),
+            "prev_orders": prev_total,
+            "gmv_var": gmv_var,
+            "order_var": order_var
+        },
+        "daily_sales": daily_sales,
+        "top_products": top_products
     })
 
 @app.route("/api/promotions/<user_id>")
