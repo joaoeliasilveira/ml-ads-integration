@@ -647,26 +647,25 @@ def debug_campaign(user_id, camp_id):
     date_to   = request.args.get("date_to",   "2026-05-26")
 
     results = {}
-    urls_to_test = [
-        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id + "/metrics",
-        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id + "/metrics/days",
-        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/campaigns/" + camp_id + "/metrics",
-        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/campaigns/" + camp_id + "/metrics/days",
+    tests = [
+        ("MLB_v2_metrics", "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("MLB_v1", "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to}, "1"),
+        ("aid_v2", "https://api.mercadolibre.com/advertising/" + aid + "/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("aid_campaigns_v2", "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("MLB_no_params", "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + camp_id, {}, "2"),
     ]
-    for url in urls_to_test:
-        r = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
+    for name, url, params, version in tests:
+        r = requests.get(url, params=params, headers={"Authorization": "Bearer " + token, "Api-Version": version})
         try:
-            results[url] = {"status": r.status_code, "response": r.json()}
+            results[name] = {"status": r.status_code, "url": url, "response": r.json()}
         except Exception:
-            results[url] = {"status": r.status_code, "response": r.text[:300]}
+            results[name] = {"status": r.status_code, "url": url, "response": r.text[:300]}
 
     return jsonify({
         "user_id": user_id,
         "advertiser_id": aid,
         "camp_id": camp_id,
-        "date_from": date_from,
-        "date_to": date_to,
-        "metrics_endpoints": results
+        "results": results
     })
 
 
