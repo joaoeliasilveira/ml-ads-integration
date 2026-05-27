@@ -441,29 +441,81 @@ def get_sales(user_id):
     for p in top_products:
         p["revenue"] = round(p["revenue"], 2)
 
+    # Metricas de cancelamentos e devolucoes
+    cancelled_orders = []
+    returned_orders  = []
+
+    r_cancelled = requests.get(
+        "https://api.mercadolibre.com/orders/search",
+        params={
+            "seller": user_id,
+            "order.date_created.from": date_from + "T00:00:00.000-00:00",
+            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+            "order.status": "cancelled",
+            "limit": 50
+        },
+        headers={"Authorization": "Bearer " + token}
+    )
+    if r_cancelled.ok and r_cancelled.text:
+        cancelled_data   = r_cancelled.json()
+        cancelled_orders = cancelled_data.get("results", [])
+        total_cancelled  = cancelled_data.get("paging", {}).get("total", 0)
+        value_cancelled  = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in cancelled_orders)
+    else:
+        total_cancelled = 0
+        value_cancelled = 0
+
+    # Unidades vendidas e preco medio por unidade
+    total_units = 0
+    for o in orders:
+        for item in o.get("order_items", []):
+            total_units += item.get("quantity", 1)
+
+    prev_units = 0
+    for o in prev_orders:
+        for item in o.get("order_items", []):
+            prev_units += item.get("quantity", 1)
+
+    avg_price_per_unit = round(gmv / total_units, 2) if total_units > 0 else 0
+    prev_avg_unit      = round(prev_gmv / prev_units, 2) if prev_units > 0 else 0
+
     # Comparativo
-    gmv_var   = round(((gmv - prev_gmv) / prev_gmv * 100), 1) if prev_gmv > 0 else 0
-    order_var = round(((total_orders - prev_total) / prev_total * 100), 1) if prev_total > 0 else 0
+    def var(curr, prev):
+        if prev > 0:
+            return round(((curr - prev) / prev * 100), 1)
+        return 0
 
     return jsonify({
         "seller_id": user_id,
         "nickname": seller["nickname"],
         "period": {"date_from": date_from, "date_to": date_to},
         "summary": {
-            "total_orders": total_orders,
-            "gmv": round(gmv, 2),
-            "avg_ticket": round(gmv / total_orders, 2) if total_orders > 0 else 0,
-            "total_visits": total_visits,
-            "conversion": round((total_orders / total_visits) * 100, 2) if total_visits > 0 else 0
+            "vendas_brutas":       round(gmv, 2),
+            "unidades_vendidas":   total_units,
+            "preco_medio_unidade": avg_price_per_unit,
+            "qtd_vendas":          total_orders,
+            "preco_medio_venda":   round(gmv / total_orders, 2) if total_orders > 0 else 0,
+            "total_visits":        total_visits,
+            "conversion":          round((total_orders / total_visits) * 100, 2) if total_visits > 0 else 0,
+            "qtd_canceladas":      total_cancelled,
+            "valor_canceladas":    round(value_cancelled, 2),
         },
         "comparison": {
-            "prev_period": {"date_from": prev_from, "date_to": prev_to},
-            "prev_gmv": round(prev_gmv, 2),
-            "prev_orders": prev_total,
-            "gmv_var": gmv_var,
-            "order_var": order_var
+            "prev_period":        {"date_from": prev_from, "date_to": prev_to},
+            "prev_vendas_brutas": round(prev_gmv, 2),
+            "prev_qtd_vendas":    prev_total,
+            "prev_unidades":      prev_units,
+            "prev_avg_unit":      prev_avg_unit,
+            "var_vendas_brutas":  var(gmv, prev_gmv),
+            "var_qtd_vendas":     var(total_orders, prev_total),
+            "var_unidades":       var(total_units, prev_units),
+            "var_avg_unit":       var(avg_price_per_unit, prev_avg_unit),
+            "var_conversion":     var(
+                round((total_orders / total_visits) * 100, 2) if total_visits > 0 else 0,
+                0
+            )
         },
-        "daily_sales": daily_sales,
+        "daily_sales":  daily_sales,
         "top_products": top_products
     })
 
