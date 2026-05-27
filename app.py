@@ -357,8 +357,9 @@ def get_sales(user_id):
     from datetime import date as ddate, timedelta as tdelta
 
     # Status que o ML considera como "venda realizada"
-    SALE_STATUSES = {"paid", "delivered", "confirmed", "partially_refunded"}
-    CANCELLED_STATUSES = {"cancelled"}
+    # O ML conta: paid, delivered, partially_refunded
+    # "confirmed" = pedido confirmado mas ainda nao pago, ML nao conta como venda
+    SALE_STATUSES = {"paid", "delivered", "partially_refunded"}
 
     def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
         """Busca todos os pedidos sem filtro de status e separa localmente."""
@@ -479,7 +480,10 @@ def get_sales(user_id):
             headers={"Authorization": "Bearer " + token}
         )
         cancelled_results = r_cancelled_val.json().get("results", []) if r_cancelled_val.ok and r_cancelled_val.text else []
-        value_cancelled = sum(order_value(o) for o in cancelled_results)
+        # ML conta apenas cancelamentos pos-pagamento (que tiveram valor pago)
+        paid_cancelled = [o for o in cancelled_results if order_value(o) > 0]
+        total_cancelled = len(paid_cancelled)
+        value_cancelled = sum(order_value(o) for o in paid_cancelled)
     else:
         total_cancelled = 0
         value_cancelled = 0
