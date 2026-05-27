@@ -708,6 +708,40 @@ def debug_camp_detail(user_id):
         "reports_endpoint": {"status": r3.status_code, "response": reports_data}
     })
 
+
+@app.route("/api/debug-metrics2/<user_id>")
+def debug_metrics2(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+    camp_id = "357533684"
+    sf_id = "14"
+    date_from = "2026-04-01"
+    date_to = "2026-05-26"
+
+    urls = [
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id + "/metrics/days",
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id + "/daily_metrics",
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/metrics",
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/metrics",
+        "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id + "/clicks",
+        "https://api.mercadolibre.com/advertising/" + aid + "/campaigns/" + camp_id + "/metrics",
+        "https://api.mercadolibre.com/pads/advertisers/" + aid + "/campaigns/" + camp_id + "/metrics",
+    ]
+
+    results = {}
+    for url in urls:
+        r = requests.get(url, params={"date_from": date_from, "date_to": date_to}, headers={"Authorization": "Bearer " + token, "Api-Version": "1"})
+        try:
+            results[url] = {"status": r.status_code, "response": r.json()}
+        except Exception:
+            results[url] = {"status": r.status_code, "response": r.text[:300]}
+
+    return jsonify({"advertiser_id": aid, "camp_id": camp_id, "results": results})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
