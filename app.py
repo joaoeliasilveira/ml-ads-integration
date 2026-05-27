@@ -984,74 +984,49 @@ def debug_sales2(user_id):
     date_from = (today - tdelta(days=30)).isoformat()
     date_to   = today.isoformat()
 
-    # Testa paginacao completa de paid
-    pages_paid = []
-    offset = 0
-    limit = 50
-    total_paid = 0
-    fetched_paid = 0
-    while True:
+    # Busca total por cada status individualmente
+    statuses = ["paid", "cancelled", "confirmed", "payment_in_process",
+                "payment_required", "partially_refunded", "pending_cancel",
+                "delivered", "invalid"]
+    status_totals = {}
+    for st in statuses:
         r = requests.get(
             "https://api.mercadolibre.com/orders/search",
             params={
                 "seller": user_id,
                 "order.date_created.from": date_from + "T00:00:00.000-00:00",
                 "order.date_created.to":   date_to + "T23:59:59.000-00:00",
-                "order.status": "paid",
-                "limit": limit,
-                "offset": offset,
-                "sort": "date_asc"
+                "order.status": st,
+                "limit": 1, "offset": 0
             },
             headers={"Authorization": "Bearer " + token}
         )
-        if not r.ok or not r.text:
-            pages_paid.append({"offset": offset, "error": r.status_code})
-            break
-        data = r.json()
-        results = data.get("results", [])
-        total_paid = data.get("paging", {}).get("total", 0)
-        pages_paid.append({"offset": offset, "fetched": len(results), "total_reported": total_paid})
-        fetched_paid += len(results)
-        offset += limit
-        if offset >= total_paid or not results:
-            break
+        if r.ok and r.text:
+            try:
+                status_totals[st] = r.json().get("paging", {}).get("total", 0)
+            except Exception:
+                status_totals[st] = 0
+        else:
+            status_totals[st] = {"error": r.status_code}
 
-    # Testa paginacao de payment_in_process
-    r_pip = requests.get(
+    # Total sem filtro
+    r_all = requests.get(
         "https://api.mercadolibre.com/orders/search",
         params={
             "seller": user_id,
             "order.date_created.from": date_from + "T00:00:00.000-00:00",
             "order.date_created.to":   date_to + "T23:59:59.000-00:00",
-            "order.status": "payment_in_process",
-            "limit": 1,
-            "offset": 0
+            "limit": 1, "offset": 0
         },
         headers={"Authorization": "Bearer " + token}
     )
-    pip_total = r_pip.json().get("paging", {}).get("total", 0) if r_pip.ok and r_pip.text else 0
-
-    # Testa cancelled com datas corretas
-    r_can = requests.get(
-        "https://api.mercadolibre.com/orders/search",
-        params={
-            "seller": user_id,
-            "order.date_created.from": date_from + "T00:00:00.000-00:00",
-            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
-            "order.status": "cancelled",
-            "limit": 1,
-            "offset": 0
-        },
-        headers={"Authorization": "Bearer " + token}
-    )
-    cancelled_total = r_can.json().get("paging", {}).get("total", 0) if r_can.ok and r_can.text else 0
+    total_no_filter = r_all.json().get("paging", {}).get("total", 0) if r_all.ok and r_all.text else 0
 
     return jsonify({
         "date_range": {"from": date_from, "to": date_to},
-        "paid": {"total_api": total_paid, "fetched": fetched_paid, "pages": pages_paid},
-        "payment_in_process": {"total": pip_total},
-        "cancelled": {"total": cancelled_total},
-        "combined_total": total_paid + pip_total
+        "total_no_filter": total_no_filter,
+        "by_status": status_totals,
+        "sum_known_statuses": sum(v for v in status_totals.values() if isinstance(v, int))
     })
 
 
