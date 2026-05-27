@@ -649,34 +649,87 @@ function renderVendas(el,data){
   },50);
 }
 
+function promoTypeLabel(type){
+  var map = {
+    'LIGHTNING':              ['⚡ Oferta Relâmpago', 'badge-red'],
+    'SMART':                  ['🧠 Smart',            'badge-blue'],
+    'DEAL':                   ['🏷 Deal',              'badge-amber'],
+    'SELLER_CAMPAIGN':        ['📣 Campanha',          'badge-green'],
+    'SELLER_COUPON_CAMPAIGN': ['🎟 Cupom',             'badge-green'],
+    'PRICE_DISCOUNT':         ['💲 Desconto',          'badge-amber'],
+    'CROSS_SELLING':          ['🔗 Cross-selling',     'badge-blue'],
+    'COMBINATION':            ['🎁 Combinação',        'badge-blue'],
+  };
+  var info = map[type] || [type||'—', 'badge-gray'];
+  return '<span class="badge '+info[1]+'" style="font-size:10px">'+info[0]+'</span>';
+}
+
 function renderPromocoes(el,data){
   var promos=data.promotions||[];
   var total=data.total||0;
 
+  // Agrupa por tipo para o resumo
+  var byType = {};
+  promos.forEach(function(p){
+    var t = p.type||'OUTROS';
+    byType[t] = (byType[t]||0) + 1;
+  });
+
+  var typeCards = Object.keys(byType).map(function(t){
+    return '<div class="metric-card">'+
+      '<div class="metric-label" style="margin-bottom:8px">'+promoTypeLabel(t)+'</div>'+
+      '<div class="metric-value">'+byType[t]+'</div>'+
+      '<div class="metric-delta">ativas</div>'+
+    '</div>';
+  }).join('');
+
   var promoRows=promos.map(function(p){
     var statusBadge=p.status==='started'||p.status==='active'?'badge-green':p.status==='paused'?'badge-amber':'badge-gray';
     var statusLabel=p.status==='started'||p.status==='active'?'Ativa':p.status==='paused'?'Pausada':'Encerrada';
+    var inicio = p.start_date ? p.start_date.replace(/-/g,'/') : '—';
+    var fim    = p.end_date   ? p.end_date.replace(/-/g,'/')   : '—';
+    var duracao = '';
+    if(p.start_date && p.end_date){
+      var dias = Math.ceil((new Date(p.end_date) - new Date(p.start_date)) / (1000*60*60*24));
+      duracao = '<div style="font-size:10px;color:var(--text3);margin-top:2px">'+dias+' dias</div>';
+    }
     return '<tr>'+
-      '<td><span class="cell-name" title="'+p.name+'">'+p.name+'</span><div class="promo-type">'+( p.type||'—')+'</div></td>'+
+      '<td>'+
+        '<div style="font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.name+'">'+p.name+'</div>'+
+        '<div style="margin-top:4px">'+promoTypeLabel(p.type)+'</div>'+
+      '</td>'+
       '<td><span class="badge '+statusBadge+'">'+statusLabel+'</span></td>'+
-      '<td>'+(p.discount>0?fmtDec(p.discount):'—')+'</td>'+
-      '<td>'+(p.items_count||'—')+'</td>'+
-      '<td>'+(p.start_date||'—')+'</td>'+
-      '<td>'+(p.end_date||'—')+'</td>'+
+      '<td>'+inicio+'</td>'+
+      '<td>'+fim+duracao+'</td>'+
     '</tr>';
   }).join('');
-  var emptyPromos=promos.length===0?'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">Nenhuma promoção ativa encontrada</td></tr>':promoRows;
+
+  var emptyPromos=promos.length===0?
+    '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px">'+
+      '<div style="font-size:32px;margin-bottom:12px;opacity:0.3">🎯</div>'+
+      '<div style="font-size:14px;color:var(--text2)">Nenhuma promoção ativa encontrada</div>'+
+    '</td></tr>':promoRows;
 
   el.innerHTML=
-    '<div class="section-label">Central de Promoções</div>'+
-    '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:24px">'+
-      '<div class="metric-card"><div class="metric-label">Promoções Ativas</div><div class="metric-value">'+total+'</div><div class="metric-delta">no momento</div></div>'+
+    '<div class="section-label">Resumo de Promoções</div>'+
+    '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:24px">'+
+      '<div class="metric-card">'+
+        '<div class="metric-label">Total Ativas</div>'+
+        '<div class="metric-value">'+total+'</div>'+
+        '<div class="metric-delta">promoções no ar</div>'+
+      '</div>'+
+      typeCards+
     '</div>'+
+
+    '<div class="section-label">Promoções Ativas</div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
-      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Promoções</div><div class="card-sub" style="margin-bottom:0">'+total+' promoção(ões) encontrada(s)</div></div>'+
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)">'+
+        '<div class="card-title">Central de Promoções</div>'+
+        '<div class="card-sub" style="margin-bottom:0">'+total+' promoção(ões) ativa(s)</div>'+
+      '</div>'+
       '<div style="overflow-x:auto">'+
         '<table class="data-table">'+
-          '<thead><tr><th>Promoção</th><th>Status</th><th>Desconto</th><th>Itens</th><th>Início</th><th>Fim</th></tr></thead>'+
+          '<thead><tr><th>Promoção / Tipo</th><th>Status</th><th>Início</th><th>Fim</th></tr></thead>'+
           '<tbody>'+emptyPromos+'</tbody>'+
         '</table>'+
       '</div>'+
