@@ -721,7 +721,7 @@ async function loadList(){
         '</div>' +
         '<div class="seller-card-actions">' +
           '<button class="btn-icon" title="Renomear" onclick="event.stopPropagation();editName(\''+s.user_id+'\')">✏️</button>' +
-          '<button class="btn-icon danger" title="Remover" onclick="event.stopPropagation();removeSeller(\''+s.user_id+'\',\''+displayName+'\')">✕</button>' +
+          '<button class="btn-icon danger" title="Remover" data-seller-id="'+s.user_id+'" data-seller-name="'+displayName.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();removeSeller(this)">✕</button>' +
         '</div>' +
       '</div>' +
       '<div class="seller-card-metrics">' +
@@ -1309,11 +1309,18 @@ function renderReputacao(el, data){
     '</div>';
 }
 
-async function removeSeller(sellerId, name){
+async function removeSeller(btn){
+  var sellerId = btn.getAttribute('data-seller-id');
+  var name = btn.getAttribute('data-seller-name');
   if(!confirm('Remover "'+name+'" do dashboard?')) return;
-  await fetch('/api/sellers/'+sellerId, {method:'DELETE'});
-  allSellers = allSellers.filter(function(s){ return String(s.user_id)!==String(sellerId); });
-  loadList();
+  try {
+    var r = await fetch('/api/sellers/'+sellerId, {method:'DELETE'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    allSellers = allSellers.filter(function(s){ return String(s.user_id)!==String(sellerId); });
+    loadList();
+  } catch(e) {
+    alert('Erro ao remover seller. Tente novamente.');
+  }
 }
 
 
