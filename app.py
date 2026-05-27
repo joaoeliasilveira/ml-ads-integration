@@ -356,10 +356,10 @@ def get_sales(user_id):
 
     from datetime import date as ddate, timedelta as tdelta
 
-    # Status que o ML considera como "venda realizada"
-    # O ML conta: paid, delivered, partially_refunded
-    # "confirmed" = pedido confirmado mas ainda nao pago, ML nao conta como venda
-    SALE_STATUSES = {"paid", "delivered", "partially_refunded"}
+    # Status que o ML considera como "Quantidade de vendas" no painel de Negocios
+    # Fonte: assistente ML - inclui todos exceto invalid
+    SALE_STATUSES = {"confirmed", "payment_required", "payment_in_process", "paid",
+                     "partially_refunded", "pending_cancel", "cancelled"}
 
     def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
         """Busca todos os pedidos sem filtro de status e separa localmente."""
@@ -396,10 +396,13 @@ def get_sales(user_id):
 
     # Periodo atual
     orders, total_orders = fetch_all_orders(user_id, token, date_from, date_to)
-    # total_paid_amount eh o campo mais preciso para vendas brutas
+    # Vendas brutas = soma de payments[].total_paid_amount (fonte: assistente ML)
     def order_value(o):
-        val = o.get("total_paid_amount") or o.get("paid_amount") or o.get("total_amount") or 0
-        return val
+        payments = o.get("payments", [])
+        if payments:
+            return sum(p.get("total_paid_amount", 0) or 0 for p in payments)
+        # Fallback se nao tiver payments
+        return o.get("paid_amount") or o.get("total_amount") or 0
     gmv = sum(order_value(o) for o in orders)
 
     # Periodo anterior
