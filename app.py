@@ -358,7 +358,7 @@ def get_sales(user_id):
 
     # Status que o ML considera como "Quantidade de vendas" no painel de Negocios
     # Removidos cancelled e pending_cancel pois o ML nao os conta como vendas
-    SALE_STATUSES = {"confirmed", "payment_required", "payment_in_process", "paid", "partially_refunded", "delivered"}
+    SALE_STATUSES = {"confirmed", "payment_required", "payment_in_process", "paid", "partially_refunded", "partially_paid", "pending_cancel"}
 
     def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
         """Busca todos os pedidos sem filtro de status e separa localmente."""
@@ -397,11 +397,15 @@ def get_sales(user_id):
     orders, total_orders = fetch_all_orders(user_id, token, date_from, date_to)
     # Vendas brutas = soma de payments[].total_paid_amount (fonte: assistente ML)
     def order_value(o):
+        # total_amount = valor total da order (fonte: documentacao ML)
+        val = o.get("total_amount") or 0
+        if val:
+            return val
+        # Fallback para payments se total_amount ausente
         payments = o.get("payments", [])
         if payments:
             return sum(p.get("total_paid_amount", 0) or 0 for p in payments)
-        # Fallback se nao tiver payments
-        return o.get("paid_amount") or o.get("total_amount") or 0
+        return o.get("paid_amount") or 0
     gmv = sum(order_value(o) for o in orders)
 
     # Periodo anterior
