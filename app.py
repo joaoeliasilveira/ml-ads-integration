@@ -869,6 +869,85 @@ def debug_metrics2(user_id):
 
     return jsonify({"advertiser_id": aid, "camp_id": camp_id, "results": results})
 
+
+@app.route("/api/debug-sales/<user_id>")
+def debug_sales(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    from datetime import date as ddate, timedelta as tdelta
+    today = ddate.today()
+    date_from = (today - tdelta(days=7)).isoformat()
+    date_to   = today.isoformat()
+
+    # Testa diferentes status
+    results = {}
+    for status in ["paid", "cancelled", "delivered", "confirmed", "payment_required", "payment_in_process"]:
+        r = requests.get(
+            "https://api.mercadolibre.com/orders/search",
+            params={
+                "seller": user_id,
+                "order.date_created.from": date_from + "T00:00:00.000-00:00",
+                "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+                "order.status": status,
+                "limit": 1,
+                "offset": 0
+            },
+            headers={"Authorization": "Bearer " + token}
+        )
+        if r.ok and r.text:
+            d = r.json()
+            results[status] = {
+                "total": d.get("paging", {}).get("total", 0),
+                "status": r.status_code
+            }
+        else:
+            results[status] = {"total": 0, "status": r.status_code}
+
+    # Busca paid com paginacao e mostra totais
+    all_paid = []
+    offset = 0
+    limit = 50
+    total_api = 0
+    pages = []
+    while offset <= 500:
+        r = requests.get(
+            "https://api.mercadolibre.com/orders/search",
+            params={
+                "seller": user_id,
+                "order.date_created.from": date_from + "T00:00:00.000-00:00",
+                "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+                "order.status": "paid",
+                "limit": limit,
+                "offset": offset,
+                "sort": "date_asc"
+            },
+            headers={"Authorization": "Bearer " + token}
+        )
+        if not r.ok or not r.text:
+            break
+        data = r.json()
+        results_page = data.get("results", [])
+        total_api = data.get("paging", {}).get("total", 0)
+        pages.append({"offset": offset, "count": len(results_page), "total_reported": total_api})
+        all_paid.extend(results_page)
+        offset += limit
+        if offset >= total_api or not results_page:
+            break
+
+    gmv = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in all_paid)
+
+    return jsonify({
+        "date_range": {"from": date_from, "to": date_to},
+        "status_totals": results,
+        "paid_pagination": pages,
+        "paid_fetched": len(all_paid),
+        "paid_total_api": total_api,
+        "gmv_calculated": round(gmv, 2),
+        "sample_order": all_paid[0] if all_paid else None
+    })
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
