@@ -548,42 +548,41 @@ def get_promotions(user_id):
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
 
-    # Testa multiplos endpoints de promocoes do ML
     promotions = []
     status_info = {}
 
-    # Endpoint 1: promotions/search (mais recente)
+    # Endpoint correto conforme documentacao ML: app_version=v2
     r1 = requests.get(
-        "https://api.mercadolibre.com/promotions/search",
-        params={"seller_id": user_id, "type": "DEAL", "status": "started"},
+        "https://api.mercadolibre.com/seller-promotions/users/" + user_id,
+        params={"app_version": "v2"},
         headers={"Authorization": "Bearer " + token}
     )
-    status_info["promotions_search"] = r1.status_code
-    if r1.ok:
-        d = r1.json()
-        promotions = d if isinstance(d, list) else d.get("results", d.get("deals", []))
+    status_info["seller_promotions_v2"] = r1.status_code
+    if r1.ok and r1.text:
+        try:
+            d = r1.json()
+            raw = d if isinstance(d, list) else d.get("results", d.get("promotions", []))
+            # Filtra apenas promos ativas
+            promotions = [p for p in raw if p.get("status") in ("started", "active", "candidate")]
+            if not promotions:
+                promotions = raw  # mostra todas se nenhuma ativa
+        except Exception:
+            pass
 
-    # Endpoint 2: seller-promotions (se o 1 falhar)
+    # Fallback: sem app_version
     if not promotions:
         r2 = requests.get(
             "https://api.mercadolibre.com/seller-promotions/users/" + user_id + "/promotions",
+            params={"app_version": "v2"},
             headers={"Authorization": "Bearer " + token}
         )
-        status_info["seller_promotions"] = r2.status_code
-        if r2.ok:
-            d = r2.json()
-            promotions = d if isinstance(d, list) else d.get("results", d.get("promotions", []))
-
-    # Endpoint 3: deals (cupons e descontos)
-    if not promotions:
-        r3 = requests.get(
-            "https://api.mercadolibre.com/users/" + user_id + "/deals",
-            headers={"Authorization": "Bearer " + token}
-        )
-        status_info["deals"] = r3.status_code
-        if r3.ok:
-            d = r3.json()
-            promotions = d if isinstance(d, list) else d.get("results", d.get("deals", []))
+        status_info["seller_promotions_path_v2"] = r2.status_code
+        if r2.ok and r2.text:
+            try:
+                d = r2.json()
+                promotions = d if isinstance(d, list) else d.get("results", d.get("promotions", []))
+            except Exception:
+                pass
 
     result = []
     for p in promotions[:20]:
