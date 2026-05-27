@@ -436,41 +436,105 @@ function renderReputacao(el,data){
 
 function renderVendas(el,data){
   var s=data.summary||{};
-  var orders=data.orders||[];
+  var cmp=data.comparison||{};
+  var daily=data.daily_sales||[];
+  var products=data.top_products||[];
   var convColor=s.conversion>=3?'var(--green)':s.conversion>=1?'var(--amber)':'var(--red)';
 
-  var blocked=s.total_orders===0&&s.gmv===0;
+  var gmvVar=cmp.gmv_var||0;
+  var orderVar=cmp.order_var||0;
+  var gmvVarColor=gmvVar>=0?'var(--green)':'var(--red)';
+  var orderVarColor=orderVar>=0?'var(--green)':'var(--red)';
+  var gmvVarStr=(gmvVar>=0?'+':'')+gmvVar+'% vs período anterior';
+  var orderVarStr=(orderVar>=0?'+':'')+orderVar+'% vs período anterior';
 
-  var orderRows=orders.map(function(o){
+  var productRows=products.map(function(p,i){
     return '<tr>'+
-      '<td><span class="cell-name">#'+o.id+'</span></td>'+
-      '<td>'+o.date+'</td>'+
-      '<td>'+fmtDec(o.total)+'</td>'+
-      '<td>'+o.items+' item(s)</td>'+
-      '<td><span class="badge badge-green">Pago</span></td>'+
+      '<td style="color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
+      '<td><span class="cell-name" title="'+p.title+'">'+p.title+'</span></td>'+
+      '<td>'+p.qty+' un</td>'+
+      '<td>'+fmtDec(p.revenue)+'</td>'+
     '</tr>';
   }).join('');
-  var emptyOrders=orders.length===0?'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">'+(blocked?'Permissão necessária — seller precisa reconectar com novo token':'Nenhum pedido no período')+'</td></tr>':orderRows;
+  var emptyProducts=products.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:20px">Nenhum produto encontrado</td></tr>':productRows;
 
   el.innerHTML=
     '<div class="section-label">Resumo de Vendas</div>'+
     '<div class="metrics-grid">'+
-      '<div class="metric-card"><div class="metric-label">GMV</div><div class="metric-value">'+fmt(s.gmv||0)+'</div><div class="metric-delta">faturamento total</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Pedidos Pagos</div><div class="metric-value">'+fmtK(s.total_orders||0)+'</div><div class="metric-delta">no período</div></div>'+
+      '<div class="metric-card"><div class="metric-label">GMV</div><div class="metric-value">'+fmt(s.gmv||0)+'</div><div class="metric-delta" style="color:'+gmvVarColor+'">'+gmvVarStr+'</div></div>'+
+      '<div class="metric-card"><div class="metric-label">Pedidos Pagos</div><div class="metric-value">'+fmtK(s.total_orders||0)+'</div><div class="metric-delta" style="color:'+orderVarColor+'">'+orderVarStr+'</div></div>'+
       '<div class="metric-card"><div class="metric-label">Ticket Médio</div><div class="metric-value">'+fmt(s.avg_ticket||0)+'</div><div class="metric-delta">por pedido</div></div>'+
       '<div class="metric-card"><div class="metric-label">Visitas</div><div class="metric-value">'+fmtK(s.total_visits||0)+'</div><div class="metric-delta">nos anúncios</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Conversão</div><div class="metric-value" style="color:'+convColor+'">'+( s.conversion||0)+'%</div><div class="metric-delta">visitas → venda</div></div>'+
+      '<div class="metric-card"><div class="metric-label">Conversão</div><div class="metric-value" style="color:'+convColor+'">'+(s.conversion||0)+'%</div><div class="metric-delta">visitas → venda</div></div>'+
     '</div>'+
-    (blocked?'<div style="background:var(--amber2);border:1px solid var(--amber);border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;color:var(--amber);margin-bottom:16px">⚠ Para visualizar pedidos e visitas, o seller precisa reconectar via <a href="/auth" style="color:var(--amber)">link de autenticação</a> para gerar um token com as permissões atualizadas.</div>':'')+
-    '<div class="section-label">Últimos Pedidos</div>'+
+
+    '<div class="section-label">Comparativo de Períodos</div>'+
+    '<div class="two-col" style="margin-bottom:24px">'+
+      '<div class="card">'+
+        '<div class="card-title">Período Atual</div>'+
+        '<div class="card-sub">'+( data.period&&data.period.date_from||'')+ ' a '+(data.period&&data.period.date_to||'')+'</div>'+
+        '<div style="display:flex;gap:24px">'+
+          '<div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">GMV</div><div style="font-size:22px;font-weight:600">'+fmt(s.gmv||0)+'</div></div>'+
+          '<div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Pedidos</div><div style="font-size:22px;font-weight:600">'+fmtK(s.total_orders||0)+'</div></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="card">'+
+        '<div class="card-title">Período Anterior</div>'+
+        '<div class="card-sub">'+(cmp.prev_period&&cmp.prev_period.date_from||'')+' a '+(cmp.prev_period&&cmp.prev_period.date_to||'')+'</div>'+
+        '<div style="display:flex;gap:24px">'+
+          '<div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">GMV</div><div style="font-size:22px;font-weight:600">'+fmt(cmp.prev_gmv||0)+'</div></div>'+
+          '<div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Pedidos</div><div style="font-size:22px;font-weight:600">'+fmtK(cmp.prev_orders||0)+'</div></div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="section-label">Vendas Diárias</div>'+
+    '<div class="card">'+
+      '<div class="card-title">Evolução do GMV</div>'+
+      '<div class="card-sub">Faturamento dia a dia no período selecionado</div>'+
+      '<div style="position:relative;height:240px"><canvas id="chart-daily-sales"></canvas></div>'+
+    '</div>'+
+
+    '<div class="section-label">Ranking de Produtos</div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Top 10 Produtos</div><div class="card-sub" style="margin-bottom:0">Por faturamento no período</div></div>'+
       '<div style="overflow-x:auto">'+
         '<table class="data-table">'+
-          '<thead><tr><th>Pedido</th><th>Data</th><th>Valor</th><th>Itens</th><th>Status</th></tr></thead>'+
-          '<tbody>'+emptyOrders+'</tbody>'+
+          '<thead><tr><th>#</th><th>Produto</th><th>Qtd Vendida</th><th>Receita</th></tr></thead>'+
+          '<tbody>'+emptyProducts+'</tbody>'+
         '</table>'+
       '</div>'+
     '</div>';
+
+  // Grafico de vendas diarias
+  setTimeout(function(){
+    var canvas=document.getElementById('chart-daily-sales');
+    if(!canvas||!daily.length) return;
+    if(charts.dailySales){charts.dailySales.destroy();charts.dailySales=null;}
+    charts.dailySales=new Chart(canvas,{
+      type:'bar',
+      data:{
+        labels:daily.map(function(d){return d.date;}),
+        datasets:[{
+          label:'GMV',
+          data:daily.map(function(d){return d.gmv;}),
+          backgroundColor:'rgba(29,185,122,0.7)',
+          borderColor:'#1DB97A',
+          borderWidth:1,
+          borderRadius:4,
+          borderSkipped:false
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return ' GMV: R$'+fmtK(c.raw);}}}},
+        scales:{
+          x:{ticks:{font:{size:10},color:'#666',maxRotation:35},grid:{display:false}},
+          y:{ticks:{font:{size:10},color:'#666',callback:function(v){return 'R$'+fmtK(v);}},grid:{color:'rgba(255,255,255,0.05)'}}
+        }
+      }
+    });
+  },50);
 }
 
 function renderPromocoes(el,data){
