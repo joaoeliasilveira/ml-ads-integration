@@ -1158,6 +1158,26 @@ def debug_promos(user_id):
 
     return jsonify({"user_id": user_id, "results": results})
 
+@app.route("/notifications", methods=["GET", "POST"])
+def notifications():
+    # GET: validação do webhook pelo ML (envia ?challenge=xxx, devemos retornar o mesmo valor)
+    challenge = request.args.get("challenge")
+    if challenge:
+        return jsonify({"challenge": challenge}), 200
+
+    # POST: notificação real do ML
+    try:
+        payload = request.get_json(silent=True) or {}
+        topic   = payload.get("topic", "")
+        res_id  = payload.get("resource", "")
+        user_id = str(payload.get("user_id", ""))
+        print(f"[NOTIFICATION] topic={topic} resource={res_id} user_id={user_id}")
+    except Exception as e:
+        print(f"[NOTIFICATION][ERRO] {e}")
+
+    return "", 200
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
