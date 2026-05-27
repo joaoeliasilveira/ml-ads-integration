@@ -354,47 +354,52 @@ def get_sales(user_id):
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
 
-    # Periodo atual
-    sales_resp = requests.get(
-        "https://api.mercadolibre.com/orders/search",
-        params={
-            "seller": user_id,
-            "order.date_created.from": date_from + "T00:00:00.000-00:00",
-            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
-            "order.status": "paid",
-            "limit": 50,
-            "sort": "date_asc"
-        },
-        headers={"Authorization": "Bearer " + token}
-    )
-    sales_data   = sales_resp.json() if sales_resp.ok and sales_resp.text else {}
-    orders       = sales_data.get("results", [])
-    total_orders = sales_data.get("paging", {}).get("total", 0)
-    gmv          = sum(o.get("total_amount", 0) for o in orders)
-
-    # Periodo anterior (mesmo numero de dias)
     from datetime import date as ddate, timedelta as tdelta
+
+    def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
+        all_orders = []
+        offset = 0
+        limit = 50
+        total = None
+        while True:
+            r = requests.get(
+                "https://api.mercadolibre.com/orders/search",
+                params={
+                    "seller": uid,
+                    "order.date_created.from": dfrom + "T00:00:00.000-00:00",
+                    "order.date_created.to":   dto + "T23:59:59.000-00:00",
+                    "order.status": "paid",
+                    "limit": limit,
+                    "offset": offset,
+                    "sort": "date_asc"
+                },
+                headers={"Authorization": "Bearer " + tok}
+            )
+            if not r.ok or not r.text:
+                break
+            data = r.json()
+            results = data.get("results", [])
+            if total is None:
+                total = data.get("paging", {}).get("total", 0)
+            all_orders.extend(results)
+            offset += limit
+            if offset >= total or offset >= 10000 or not results:
+                break
+        return all_orders, total or 0
+
+    # Periodo atual
+    orders, total_orders = fetch_all_orders(user_id, token, date_from, date_to)
+    # paid_amount = valor pago pelo comprador (mais proximo de vendas brutas)
+    gmv = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in orders)
+
+    # Periodo anterior
     d_from = ddate.fromisoformat(date_from)
     d_to   = ddate.fromisoformat(date_to)
     delta  = (d_to - d_from).days + 1
     prev_from = (d_from - tdelta(days=delta)).isoformat()
     prev_to   = (d_from - tdelta(days=1)).isoformat()
-
-    prev_resp = requests.get(
-        "https://api.mercadolibre.com/orders/search",
-        params={
-            "seller": user_id,
-            "order.date_created.from": prev_from + "T00:00:00.000-00:00",
-            "order.date_created.to":   prev_to + "T23:59:59.000-00:00",
-            "order.status": "paid",
-            "limit": 50
-        },
-        headers={"Authorization": "Bearer " + token}
-    )
-    prev_data    = prev_resp.json() if prev_resp.ok and prev_resp.text else {}
-    prev_orders  = prev_data.get("results", [])
-    prev_total   = prev_data.get("paging", {}).get("total", 0)
-    prev_gmv     = sum(o.get("total_amount", 0) for o in prev_orders)
+    prev_orders, prev_total = fetch_all_orders(user_id, token, prev_from, prev_to)
+    prev_gmv = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in prev_orders)
 
     # Visitas
     visits_resp = requests.get(
@@ -413,7 +418,7 @@ def get_sales(user_id):
             continue
         if day not in daily_map:
             daily_map[day] = {"date": day, "gmv": 0, "orders": 0}
-        daily_map[day]["gmv"]    += o.get("total_amount", 0)
+        daily_map[day]["gmv"]    += o.get("paid_amount", 0) or o.get("total_amount", 0)
         daily_map[day]["orders"] += 1
     daily_sales = sorted(daily_map.values(), key=lambda x: x["date"])
     for d in daily_sales:
