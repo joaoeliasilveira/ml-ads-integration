@@ -1373,6 +1373,27 @@ def validate(user_id):
     return jsonify({"seller": seller["nickname"], "user_id": user_id, "score": f"{ok_count}/{len(results)}", "results": results})
 
 
+@app.route("/api/debug-promo-items/<user_id>/<promo_id>")
+def debug_promo_items(user_id, promo_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    def safe_json(r):
+        try: return r.json() if r.text and r.text.strip() else {}
+        except: return {"raw": r.text[:400] if r.text else ""}
+
+    results = {}
+    for ptype in ["SMART", "DEAL", "PRICE_MATCHING_MELI_ALL", "LIGHTNING", "SELLER_CAMPAIGN"]:
+        url = f"https://api.mercadolibre.com/seller-promotions/promotions/{promo_id}/items"
+        r = requests.get(url,
+            params={"promotion_type": ptype, "app_version": "v2", "status_item": "active"},
+            headers={"Authorization": "Bearer " + token}, timeout=8)
+        results[ptype] = {"status": r.status_code, "response": str(safe_json(r))[:400]}
+
+    return jsonify({"promo_id": promo_id, "user_id": user_id, "results": results})
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
