@@ -1420,14 +1420,34 @@ function renderPerguntas(el, data){
     '</div>';
 }
 
+function setProdSort(s){
+  var el = document.getElementById('tab-produtos');
+  if(!el) return;
+  el._sortBy = s;
+  var btnR = document.getElementById('sort-revenue');
+  var btnQ = document.getElementById('sort-qty');
+  if(btnR){ btnR.style.background = s==='revenue'?'var(--td)':'transparent'; btnR.style.color = s==='revenue'?'#fff':'var(--text2)'; btnR.style.fontWeight = s==='revenue'?'600':'400'; }
+  if(btnQ){ btnQ.style.background = s==='qty'?'var(--td)':'transparent'; btnQ.style.color = s==='qty'?'#fff':'var(--text2)'; btnQ.style.fontWeight = s==='qty'?'600':'400'; }
+  var searchVal = (document.getElementById('prod-search')||{}).value || '';
+  if(el._rebuildTable) el._rebuildTable(searchVal);
+}
+
 function renderProdutos(el, data){
   var products = data.top_products || [];
-  var searchQuery = '';
+  var sortBy = 'revenue';
+
+  function getSorted(prods){
+    var s = el._sortBy || sortBy;
+    return prods.slice().sort(function(a,b){ return (b[s]||0)-(a[s]||0); });
+  }
 
   function renderTable(prods){
-    if(!prods.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">Nenhum produto encontrado no período</td></tr>';
-    return prods.map(function(p,i){
-      var pct = products.length>0 ? Math.round((p.revenue/products[0].revenue)*100) : 0;
+    var sorted = getSorted(prods);
+    var s = el._sortBy || sortBy;
+    var maxVal = sorted.length>0 ? (sorted[0][s]||1) : 1;
+    if(!sorted.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">Nenhum produto encontrado no período</td></tr>';
+    return sorted.map(function(p,i){
+      var pct        = Math.round(((p[s]||0)/maxVal)*100);
       var adsQty     = p.ads_qty     || 0;
       var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
       var hasAds     = adsQty > 0;
@@ -1486,12 +1506,34 @@ function renderProdutos(el, data){
     }).join('');
   }
 
+  function rebuildTable(searchVal){
+    var q = (searchVal||'').toLowerCase();
+    var filtered = q ? products.filter(function(p){ return p.title.toLowerCase().includes(q); }) : products;
+    var tbody = document.getElementById('prod-tbody');
+    var subtitle = document.getElementById('prod-subtitle');
+    if(tbody) tbody.innerHTML = renderTable(filtered);
+    if(subtitle) subtitle.textContent = filtered.length+' produto(s) encontrado(s)';
+  }
+
+  el._products     = products;
+  el._sortBy       = sortBy;
+  el._rebuildTable = rebuildTable;
+
   el.innerHTML =
     '<div class="section-label">Produtos</div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
       '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
-        '<div><div class="card-title">Ranking de Produtos</div><div class="card-sub" style="margin-bottom:0">'+products.length+' produtos · clique para expandir detalhes</div></div>'+
-        '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:220px">'+
+        '<div>'+
+          '<div class="card-title">Todos os Produtos</div>'+
+          '<div class="card-sub" style="margin-bottom:0" id="prod-subtitle">'+products.length+' produto(s) encontrado(s)</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+          '<div style="display:flex;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
+            '<button id=\"sort-revenue\" onclick=\"setProdSort(\\'revenue\\')\" style=\"padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600\">💰 Faturamento</button>'+
+            '<button id=\"sort-qty\" onclick=\"setProdSort(\\'qty\\')\" style=\"padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)\">📦 Volume</button>'+
+          '</div>'+
+          '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:220px">'+
+        '</div>'+
       '</div>'+
       '<div style="overflow-x:auto">'+
         '<table class="data-table" id="prod-table">'+
@@ -1500,8 +1542,6 @@ function renderProdutos(el, data){
         '</table>'+
       '</div>'+
     '</div>';
-
-  el._products = products;
 }
 
 function toggleProduct(id){
@@ -1511,14 +1551,8 @@ function toggleProduct(id){
 
 function filterProducts(q){
   var el = document.getElementById('tab-produtos');
-  if(!el || !el._products) return;
-  var filtered = el._products.filter(function(p){ return p.title.toLowerCase().includes(q.toLowerCase()); });
-  var tbody = document.getElementById('prod-tbody');
-  if(tbody){
-    var tmp = document.createElement('div');
-    tmp.innerHTML = '<table><tbody>'+renderProductRows(filtered)+'</tbody></table>';
-    tbody.innerHTML = renderProductRows(filtered);
-  }
+  if(!el || !el._rebuildTable) return;
+  el._rebuildTable(q);
 }
 
 function renderProductRows(prods){
