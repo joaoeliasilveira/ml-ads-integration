@@ -1629,6 +1629,56 @@ def get_promo_items(user_id, promo_id):
 
 
 
+@app.route("/api/item-visits/<user_id>/<item_id>")
+def get_item_visits(user_id, item_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    date_from = request.args.get("date_from", "")
+    date_to   = request.args.get("date_to", "")
+
+    if not date_from or not date_to:
+        today    = datetime.now(timezone.utc).date()
+        date_to  = today.isoformat()
+        date_from = (today - tdelta(days=29)).isoformat()
+
+    try:
+        r = requests.get(
+            f"https://api.mercadolibre.com/users/{user_id}/items_visits",
+            params={"ids": item_id, "date_from": date_from, "date_to": date_to},
+            headers={"Authorization": "Bearer " + token},
+            timeout=8
+        )
+        if not r.ok:
+            return jsonify({"visits": 0, "error": r.status_code})
+
+        data = r.json()
+        # Resposta pode ser lista ou dict com data_points
+        visits = 0
+        if isinstance(data, list):
+            for entry in data:
+                if str(entry.get("item_id", "")) == str(item_id):
+                    visits = entry.get("total_visits", entry.get("visits", 0))
+        elif isinstance(data, dict):
+            visits = data.get("total_visits", data.get("visits", 0))
+            # Pode vir como lista de items dentro do dict
+            items_list = data.get("items", data.get("results", []))
+            if items_list:
+                for entry in items_list:
+                    if str(entry.get("item_id", "")) == str(item_id):
+                        visits = entry.get("total_visits", entry.get("visits", 0))
+
+        return jsonify({
+            "item_id":   item_id,
+            "visits":    visits,
+            "date_from": date_from,
+            "date_to":   date_to
+        })
+    except Exception as e:
+        return jsonify({"visits": 0, "error": str(e)})
+
+
 @app.route("/api/debug-promo-items/<user_id>/<promo_id>")
 def debug_promo_items(user_id, promo_id):
     try:
