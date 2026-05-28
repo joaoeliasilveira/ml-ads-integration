@@ -960,13 +960,13 @@ function renderCampanhas(el, ads, daily){
 
   el.innerHTML =
     '<div class="section-label">Resumo do Período</div>'+
-    '<div class="metrics-grid">'+
-      '<div class="metric-card"><div class="metric-label">Gasto</div><div class="metric-value">'+fmt(s.spend)+'</div><div class="metric-delta">no período</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Receita ADS</div><div class="metric-value">'+fmt(s.revenue)+'</div><div class="metric-delta">no período</div></div>'+
-      '<div class="metric-card"><div class="metric-label">ROAS</div><div class="metric-value" style="color:'+roasColor+'">'+s.roas+'x</div><div class="metric-delta '+(s.roas>=3?'delta-up':'delta-down')+'">'+(s.roas>=3?'Acima':'Abaixo')+' da meta (3x)</div></div>'+
-      '<div class="metric-card"><div class="metric-label">ACOS</div><div class="metric-value" style="color:'+acosColor+'">'+s.acos+'%</div><div class="metric-delta '+(s.acos<=15?'delta-up':'delta-down')+'">'+(s.acos<=15?'Dentro':'Acima')+' da meta (15%)</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Cliques</div><div class="metric-value">'+fmtK(s.clicks)+'</div><div class="metric-delta">CTR: '+ctr+'%</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Impressões</div><div class="metric-value">'+fmtK(s.impressions)+'</div><div class="metric-delta">total do período</div></div>'+
+    '<div class="metrics-grid" style="grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">'+
+      '<div class="metric-card" style="padding:12px 14px"><div class="metric-label">Gasto</div><div class="metric-value" style="font-size:18px">'+fmt(s.spend)+'</div><div class="metric-delta">no período</div></div>'+
+      '<div class="metric-card" style="padding:12px 14px"><div class="metric-label">Receita ADS</div><div class="metric-value" style="font-size:18px">'+fmt(s.revenue)+'</div><div class="metric-delta">no período</div></div>'+
+      '<div class="metric-card" style="padding:12px 14px"><div class="metric-label">ROAS</div><div class="metric-value" style="font-size:18px;color:'+roasColor+'">'+s.roas+'x</div><div class="metric-delta '+(s.roas>=3?'delta-up':'delta-down')+'">'+(s.roas>=3?'Acima':'Abaixo')+' da meta (3x)</div></div>'+
+      '<div class="metric-card" style="padding:12px 14px"><div class="metric-label">ACOS</div><div class="metric-value" style="font-size:18px;color:'+acosColor+'">'+s.acos+'%</div><div class="metric-delta '+(s.acos<=15?'delta-up':'delta-down')+'">'+(s.acos<=15?'Dentro':'Acima')+' da meta (15%)</div></div>'+
+      '<div class="metric-card" style="padding:12px 14px"><div class="metric-label">Cliques</div><div class="metric-value" style="font-size:18px">'+fmtK(s.clicks)+'</div><div class="metric-delta">CTR: '+ctr+'%</div></div>'+
+      '<div class="metric-card" style="padding:12px 14px"><div class="metric-label">Impressões</div><div class="metric-value" style="font-size:18px">'+fmtK(s.impressions)+'</div><div class="metric-delta">total do período</div></div>'+
     '</div>'+
 
     '<div class="section-label">'+(hasDailyData?'Evolução Diária':'Gasto vs Receita por Campanha')+'</div>'+
