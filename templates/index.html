@@ -1542,6 +1542,35 @@ function renderProdutos(el, data){
 }
 
 function openProdModal(p){
+  var stock     = (p.stock_total != null) ? p.stock_total : null;
+  var isFull    = p.is_full || false;
+  var daysStock = (p.days_stock != null) ? p.days_stock : null;
+  var dailyRate = p.daily_rate || 0;
+  var daysColor = daysStock === null ? 'var(--text3)' : daysStock === 0 ? 'var(--red)' : daysStock <= 7 ? 'var(--red)' : daysStock <= 15 ? 'var(--amber)' : 'var(--green)';
+  var daysLabel = daysStock === null ? '—' : daysStock === 0 ? 'Esgotado' : daysStock + ' dias';
+  var stockHTML = stock === null ? '' :
+    '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)">'+
+      '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📦 Estoque</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
+        '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Estoque Atual</div>'+
+          '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(stock===0?'var(--red)':'var(--text)')+'">'+stock+' un</div>'+
+          (isFull ? '<div style="font-size:10px;color:var(--tl);margin-top:4px">Full ML</div>' : '<div style="font-size:10px;color:var(--text3);margin-top:4px">Estoque próprio</div>')+
+        '</div>'+
+        '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Fulfillment</div>'+
+          '<div style="font-size:16px;font-weight:700;color:'+(isFull?'var(--tl)':'var(--text2)')+'">'+
+            (isFull ? '⚡ Full ML' : '🏠 Próprio')+
+          '</div>'+
+          '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(isFull?'Armazenado no ML':'Enviado pelo seller')+'</div>'+
+        '</div>'+
+        '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">⏱ Projeção (30d)</div>'+
+          '<div style="font-size:20px;font-weight:700;color:'+daysColor+'">'+daysLabel+'</div>'+
+          '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(dailyRate>0?dailyRate.toFixed(1)+' un/dia (média 30d)':'Sem vendas nos últimos 30d')+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
   var adsQty     = p.ads_qty || 0;
   var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
   var hasAds     = adsQty > 0;
@@ -1580,39 +1609,7 @@ function openProdModal(p){
           (window._currentProdGmv>0?Math.round(totalRev/window._currentProdGmv*100):0)+'%'+
         '</div>'+
       '</div>'+
-    '</div>'+
-    // Seção de estoque
-    (function(){
-      var stock     = p.stock_total != null ? p.stock_total : null;
-      var isFull    = p.is_full || false;
-      var daysStock = p.days_stock != null ? p.days_stock : null;
-      var dailyRate = p.daily_rate || 0;
-      if(stock === null) return '';
-      var daysColor = daysStock === null ? 'var(--text3)' : daysStock <= 7 ? 'var(--red)' : daysStock <= 15 ? 'var(--amber)' : 'var(--green)';
-      var daysLabel = daysStock === null ? '—' : daysStock === 0 ? 'Esgotado' : daysStock + ' dias';
-      return '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)">'+
-        '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📦 Estoque</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
-          '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Estoque Atual</div>'+
-            '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(stock===0?'var(--red)':'var(--text)')+'">'+stock+' un</div>'+
-            (isFull ? '<div style="font-size:10px;color:var(--tl);margin-top:4px">Full ML</div>' : '<div style="font-size:10px;color:var(--text3);margin-top:4px">Estoque próprio</div>')+
-          '</div>'+
-          '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Tipo de Fulfillment</div>'+
-            '<div style="font-size:16px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(isFull?'var(--tl)':'var(--text2)')+'">'+
-              (isFull ? '⚡ Full ML' : '🏠 Próprio')+
-            '</div>'+
-            '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(isFull?'Armazenado no ML':'Enviado pelo seller')+'</div>'+
-          '</div>'+
-          '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid '+daysColor.replace('var(--','rgba(').replace(')',',0.25)')+' !important">'+
-            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">⏱ Projeção de Estoque</div>'+
-            '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+daysColor+'">'+daysLabel+'</div>'+
-            '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(dailyRate>0?dailyRate.toFixed(1)+' un/dia':'Sem vendas no período')+'</div>'+
-          '</div>'+
-        '</div>'+
-      '</div>';
-    })();
+    '</div>'+stockHTML;
   var overlay = document.getElementById('prod-modal-overlay');
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
