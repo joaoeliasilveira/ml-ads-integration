@@ -523,7 +523,7 @@ def get_sales(user_id):
             chunk = all_ids_to_fetch[i:i+20]
             r_t = requests.get(
                 "https://api.mercadolibre.com/items",
-                params={"ids": ",".join(chunk), "attributes": "id,title,price,status,available_quantity,shipping,fulfillment"},
+                params={"ids": ",".join(chunk), "attributes": "id,title,price,status,available_quantity,shipping,fulfillment,catalog_product_id"},
                 headers={"Authorization": "Bearer " + token},
                 timeout=10
             )
@@ -535,22 +535,25 @@ def get_sales(user_id):
                 is_full   = bool(body.get("fulfillment", {}).get("fulfillment_id") or
                                   (body.get("shipping", {}) or {}).get("fulfillment"))
                 avail_qty = body.get("available_quantity", 0) or 0
+                catalog_id = body.get("catalog_product_id") or ""
                 if iid and iid not in products_map:
                     products_map[iid] = {
-                        "title":       body.get("title", iid),
-                        "item_id":     iid,
-                        "qty":         0,
-                        "revenue":     0,
-                        "ads_qty":     0,
-                        "status":      body.get("status", "active"),
-                        "stock_total": avail_qty,
-                        "is_full":     is_full,
+                        "title":              body.get("title", iid),
+                        "item_id":            iid,
+                        "qty":                0,
+                        "revenue":            0,
+                        "ads_qty":            0,
+                        "status":             body.get("status", "active"),
+                        "stock_total":        avail_qty,
+                        "is_full":            is_full,
+                        "catalog_product_id": catalog_id,
                     }
                 else:
                     if not products_map[iid].get("status"):
                         products_map[iid]["status"] = body.get("status", "active")
-                    products_map[iid]["stock_total"] = avail_qty
-                    products_map[iid]["is_full"]     = is_full
+                    products_map[iid]["stock_total"]        = avail_qty
+                    products_map[iid]["is_full"]            = is_full
+                    products_map[iid]["catalog_product_id"] = catalog_id
     except Exception as e:
         print(f"[ITEMS] Erro ao buscar todos os anúncios: {e}")
 
@@ -1677,6 +1680,43 @@ def get_item_visits(user_id, item_id):
         })
     except Exception as e:
         return jsonify({"visits": 0, "error": str(e)})
+
+
+@app.route("/api/price-suggestion/<user_id>/<item_id>")
+def get_price_suggestion(user_id, item_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    try:
+        r = requests.get(
+            f"https://api.mercadolibre.com/items/{item_id}/price_suggestion",
+            headers={"Authorization": "Bearer " + token},
+            timeout=8
+        )
+        if not r.ok:
+            return jsonify({"error": r.status_code, "available": False})
+
+        data = r.json()
+
+        # Extrai campos principais
+        suggested     = data.get("suggested_price", data.get("price_suggestion", {}).get("price", 0)) or 0
+        price_min     = data.get("min_price", data.get("price_range", {}).get("min", 0)) or 0
+        price_max     = data.get("max_price", data.get("price_range", {}).get("max", 0)) or 0
+        median        = data.get("median_price", data.get("price_suggestion", {}).get("median_price", 0)) or 0
+
+        return jsonify({
+            "item_id":       item_id,
+            "available":     True,
+            "suggested":     round(suggested, 2),
+            "price_min":     round(price_min, 2),
+            "price_max":     round(price_max, 2),
+            "median":        round(median, 2),
+            "raw":           data  # para debug
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e), "available": False})
 
 
 @app.route("/api/item-promos/<user_id>/<item_id>")
