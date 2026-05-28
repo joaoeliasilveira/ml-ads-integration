@@ -516,11 +516,11 @@ def get_sales(user_id):
             if not scroll_id or len(batch) < 100:
                 break
 
-        # Busca títulos dos itens que ainda não estão no products_map
-        missing_ids = [iid for iid in all_item_ids if iid not in products_map]
-        # Processa em chunks de 20
-        for i in range(0, len(missing_ids), 20):
-            chunk = missing_ids[i:i+20]
+        # Busca dados de TODOS os itens (inclusive os que já têm vendas, para pegar stock)
+        # Adiciona também itens do products_map que vieram dos pedidos
+        all_ids_to_fetch = list(set(all_item_ids) | set(k for k in products_map if k.startswith('MLB')))
+        for i in range(0, len(all_ids_to_fetch), 20):
+            chunk = all_ids_to_fetch[i:i+20]
             r_t = requests.get(
                 "https://api.mercadolibre.com/items",
                 params={"ids": ",".join(chunk), "attributes": "id,title,price,status,available_quantity,shipping,fulfillment"},
