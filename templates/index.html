@@ -308,7 +308,74 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);min-hei
 .promo-detail-label{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em}
 .promo-detail-value{font-size:13px;font-weight:500;color:var(--tx)}
 
-.btn-theme{
+.btn-bell{
+  position:relative;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+  color:#fff;width:32px;height:32px;border-radius:var(--radius-sm);
+  cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;
+  transition:background 0.15s;flex-shrink:0;
+}
+.btn-bell:hover{background:rgba(255,255,255,.25)}
+.bell-badge{
+  position:absolute;top:-5px;right:-5px;
+  background:#e74c3c;color:#fff;font-size:9px;font-weight:700;
+  min-width:16px;height:16px;border-radius:99px;
+  display:flex!important;align-items:center;justify-content:center;
+  padding:0 3px;border:2px solid transparent;
+}
+
+.alerts-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:290;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.alerts-overlay.open{opacity:1;pointer-events:all}
+
+.alerts-panel{
+  position:fixed;top:0;right:-420px;width:400px;height:100vh;
+  background:var(--sf);border-left:1.5px solid var(--br);
+  z-index:300;transition:right .3s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+  box-shadow:-4px 0 24px rgba(0,0,0,.1);
+}
+.alerts-panel.open{right:0}
+body.dark .alerts-panel{background:#16161c;border-color:rgba(255,255,255,.1)}
+
+.alerts-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1.5px solid var(--br);
+  background:linear-gradient(135deg,var(--td),var(--tl));color:#fff;
+  flex-shrink:0;
+}
+body.dark .alerts-header{background:linear-gradient(135deg,#1a2a1a,#1e3a2a)}
+
+.alerts-body{flex:1;overflow-y:auto;padding:16px}
+.alerts-loading{display:flex;align-items:center;gap:10px;color:var(--mu);padding:20px 0;font-size:13px}
+
+.alert-item{
+  background:var(--s2);border:1.5px solid var(--br);
+  border-radius:var(--radius-sm);padding:12px 14px;
+  margin-bottom:10px;cursor:pointer;transition:border-color .15s;
+}
+.alert-item:hover{border-color:var(--tl)}
+.alert-item.critical{border-left:4px solid var(--red);background:rgba(231,76,60,.04)}
+.alert-item.warning{border-left:4px solid var(--amber);background:rgba(230,126,34,.04)}
+body.dark .alert-item{background:#1e1e26;border-color:rgba(255,255,255,.08)}
+body.dark .alert-item.critical{background:rgba(255,92,122,.06)}
+body.dark .alert-item.warning{background:rgba(245,166,35,.06)}
+
+.alert-item-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.alert-seller{font-size:11px;font-weight:700;color:var(--tl)}
+body.dark .alert-seller{color:#2ecc9a}
+.alert-type-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;text-transform:uppercase}
+.alert-critical-badge{background:rgba(231,76,60,.15);color:var(--red)}
+.alert-warning-badge{background:rgba(230,126,34,.15);color:var(--amber)}
+.alert-message{font-size:12px;color:var(--tx);font-weight:500}
+body.dark .alert-message{color:#f0f0f5}
+.alert-detail{font-size:11px;color:var(--mu);margin-top:3px}
+
+.alerts-empty{text-align:center;padding:40px 20px;color:var(--mu)}
+.alerts-section-label{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;margin-top:4px}
+
+
   background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
   color:#fff;width:32px;height:32px;border-radius:var(--radius-sm);
   cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;
@@ -417,7 +484,23 @@ body.dark .detail-name{color:#f0f0f5}
       </div>
     </div>
     <button class="btn-connect" onclick="window.location='/auth'">+ Conectar Seller</button>
+    <button class="btn-bell" id="btn-bell" onclick="toggleAlerts()" title="Alertas">
+      🔔
+      <span class="bell-badge" id="bell-badge" style="display:none">0</span>
+    </button>
     <button class="btn-theme" id="btn-theme" onclick="toggleTheme()" title="Alternar tema">🌙</button>
+  </div>
+</div>
+
+<!-- PAINEL DE ALERTAS -->
+<div class="alerts-overlay" id="alerts-overlay" onclick="closeAlerts()"></div>
+<div class="alerts-panel" id="alerts-panel">
+  <div class="alerts-header">
+    <div style="font-size:15px;font-weight:700">🔔 Alertas</div>
+    <button onclick="closeAlerts()" style="background:none;border:none;cursor:pointer;font-size:18px;color:inherit;opacity:0.6">✕</button>
+  </div>
+  <div class="alerts-body" id="alerts-body">
+    <div class="alerts-loading"><div class="spinner"></div><span>Verificando alertas...</span></div>
   </div>
 </div>
 
@@ -462,7 +545,131 @@ body.dark .detail-name{color:#f0f0f5}
 </div>
 
 <script>
-// ── THEME TOGGLE ──
+// ── ALERTAS ──
+var alertsLoaded = false;
+var allAlerts = [];
+
+function toggleAlerts(){
+  var panel = document.getElementById('alerts-panel');
+  var overlay = document.getElementById('alerts-overlay');
+  var isOpen = panel.classList.contains('open');
+  if(isOpen){
+    closeAlerts();
+  } else {
+    panel.classList.add('open');
+    overlay.classList.add('open');
+    if(!alertsLoaded) loadAlerts();
+  }
+}
+
+function closeAlerts(){
+  document.getElementById('alerts-panel').classList.remove('open');
+  document.getElementById('alerts-overlay').classList.remove('open');
+}
+
+async function loadAlerts(){
+  alertsLoaded = true;
+  allAlerts = [];
+  var body = document.getElementById('alerts-body');
+  body.innerHTML = '<div class="alerts-loading"><div class="spinner"></div><span>Verificando alertas em todos os sellers...</span></div>';
+
+  var sellers = allSellers || [];
+  if(!sellers.length){
+    body.innerHTML = '<div class="alerts-empty">📡<br><br>Nenhum seller conectado.</div>';
+    return;
+  }
+
+  var dates = getPeriodDates();
+
+  for(var i=0; i<sellers.length; i++){
+    var s = sellers[i];
+    var sName = sellerNames[s.user_id] || s.nickname || s.user_id;
+    try {
+      // ADS
+      var ads = await fetch('/api/ads/'+s.user_id+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();}).catch(function(){return null;});
+      if(ads && ads.summary){
+        var acos = parseFloat(ads.summary.acos)||0;
+        var roas = parseFloat(ads.summary.roas)||0;
+        if(acos > 25)
+          allAlerts.push({seller:sName,uid:s.user_id,level:'critical',type:'ACOS',message:'ACOS crítico: '+acos+'%',detail:'Meta: ≤20% · Crítico: >25%'});
+        else if(acos > 20)
+          allAlerts.push({seller:sName,uid:s.user_id,level:'warning',type:'ACOS',message:'ACOS alto: '+acos+'%',detail:'Meta: ≤20% · Atenção: >20%'});
+        if(roas > 0 && roas < 2)
+          allAlerts.push({seller:sName,uid:s.user_id,level:'critical',type:'ROAS',message:'ROAS crítico: '+roas+'x',detail:'Meta: ≥3x · Crítico: <2x'});
+        else if(roas > 0 && roas < 3)
+          allAlerts.push({seller:sName,uid:s.user_id,level:'warning',type:'ROAS',message:'ROAS abaixo da meta: '+roas+'x',detail:'Meta: ≥3x · Atenção: <3x'});
+      }
+      // Perguntas
+      var qs = await fetch('/api/questions/'+s.user_id).then(function(r){return r.json();}).catch(function(){return null;});
+      if(qs && qs.total_unanswered > 0)
+        allAlerts.push({seller:sName,uid:s.user_id,level:'critical',type:'PERGUNTAS',message:qs.total_unanswered+' pergunta(s) sem resposta',detail:'Perguntas sem resposta impactam a reputação'});
+    } catch(e){}
+  }
+
+  renderAlerts();
+}
+
+function renderAlerts(){
+  var body = document.getElementById('alerts-body');
+  var badge = document.getElementById('bell-badge');
+
+  // Atualiza badge
+  if(allAlerts.length > 0){
+    badge.style.display = 'flex';
+    badge.textContent = allAlerts.length;
+  } else {
+    badge.style.display = 'none';
+  }
+
+  if(!allAlerts.length){
+    body.innerHTML = '<div class="alerts-empty">✅<br><br><strong>Tudo certo!</strong><br><span style="font-size:12px">Nenhum alerta no momento.</span></div>';
+    return;
+  }
+
+  var criticals = allAlerts.filter(function(a){return a.level==='critical';});
+  var warnings  = allAlerts.filter(function(a){return a.level==='warning';});
+
+  var html = '';
+  if(criticals.length){
+    html += '<div class="alerts-section-label">🔴 Críticos ('+criticals.length+')</div>';
+    html += criticals.map(function(a){
+      return '<div class="alert-item critical" onclick="openSellerFromAlert(\''+a.uid+'\')">'+
+        '<div class="alert-item-header">'+
+          '<span class="alert-seller">'+a.seller+'</span>'+
+          '<span class="alert-type-badge alert-critical-badge">'+a.type+'</span>'+
+        '</div>'+
+        '<div class="alert-message">'+a.message+'</div>'+
+        '<div class="alert-detail">'+a.detail+'</div>'+
+      '</div>';
+    }).join('');
+  }
+  if(warnings.length){
+    html += '<div class="alerts-section-label" style="margin-top:'+(criticals.length?'16px':'4px')+'">⚠️ Atenção ('+warnings.length+')</div>';
+    html += warnings.map(function(a){
+      return '<div class="alert-item warning" onclick="openSellerFromAlert(\''+a.uid+'\')">'+
+        '<div class="alert-item-header">'+
+          '<span class="alert-seller">'+a.seller+'</span>'+
+          '<span class="alert-type-badge alert-warning-badge">'+a.type+'</span>'+
+        '</div>'+
+        '<div class="alert-message">'+a.message+'</div>'+
+        '<div class="alert-detail">'+a.detail+'</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  body.innerHTML = html;
+}
+
+function openSellerFromAlert(uid){
+  closeAlerts();
+  var seller = allSellers.find(function(s){return String(s.user_id)===String(uid);});
+  if(seller) openSeller(seller);
+}
+
+// Recarrega alertas ao carregar sellers
+var _origLoadList = typeof loadList === 'function' ? loadList : null;
+
+
 var isDark = localStorage.getItem('petina_theme') === 'dark';
 function applyTheme(){
   if(isDark){
@@ -625,6 +832,10 @@ async function loadList(){
   }
 
   document.getElementById('list-sub').textContent = allSellers.length + ' seller(s) — clique para abrir o painel';
+
+  // Recarrega alertas em background
+  alertsLoaded = false;
+  setTimeout(function(){ loadAlerts(); }, 1500);
 
   var html = allSellers.map(function(s){
     var displayName = sellerNames[s.user_id] || s.nickname || 'Seller';
