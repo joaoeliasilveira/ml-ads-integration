@@ -1686,17 +1686,33 @@ def get_item_promos(user_id, item_id):
         return jsonify({"error": "Seller nao autorizado"}), 404
 
     try:
-        # Busca todas as promoções ativas do seller
-        r = requests.get(
-            f"https://api.mercadolibre.com/seller-promotions/users/{user_id}/promotions",
-            params={"app_version": "v2", "status": "started"},
+        # Busca promoções usando a mesma lógica que funciona em get_promotions
+        all_promos = []
+        r1 = requests.get(
+            f"https://api.mercadolibre.com/seller-promotions/users/{user_id}",
+            params={"app_version": "v2"},
             headers={"Authorization": "Bearer " + token},
             timeout=8
         )
-        if not r.ok:
-            return jsonify({"promos": [], "error": r.status_code})
+        if r1.ok and r1.text:
+            d = r1.json()
+            raw = d if isinstance(d, list) else d.get("results", d.get("promotions", []))
+            all_promos = [p for p in raw if p.get("status") in ("started", "active")]
 
-        all_promos = r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        if not all_promos:
+            r2 = requests.get(
+                f"https://api.mercadolibre.com/seller-promotions/users/{user_id}/promotions",
+                params={"app_version": "v2"},
+                headers={"Authorization": "Bearer " + token},
+                timeout=8
+            )
+            if r2.ok and r2.text:
+                d = r2.json()
+                raw = d if isinstance(d, list) else d.get("results", d.get("promotions", []))
+                all_promos = [p for p in raw if p.get("status") in ("started", "active")]
+
+        if not all_promos:
+            return jsonify({"promos": []})
         type_map   = {"SMART": "Smart", "DEAL": "Deal", "PRICE_MATCHING_MELI_ALL": "Price Match",
                       "LIGHTNING": "Relâmpago", "SELLER_CAMPAIGN": "Campanha"}
         result = []
