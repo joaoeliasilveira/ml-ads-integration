@@ -959,6 +959,10 @@ function nameKeydown(e, userId){
 
 function selectSeller(sellerId){
   currentSellerId = sellerId;
+  window._currentSellerId = sellerId;
+  var _d = getPeriodDates();
+  window._currentDateFrom = _d.date_from;
+  window._currentDateTo   = _d.date_to;
   loaded = {};
   destroyCharts();
   var seller = allSellers.find(function(s){ return String(s.user_id)===String(sellerId); });
@@ -1611,10 +1615,49 @@ function openProdModal(p){
           (window._currentProdGmv>0?Math.round(totalRev/window._currentProdGmv*100):0)+'%'+
         '</div>'+
       '</div>'+
-    '</div>'+stockHTML;
+    '</div>'+stockHTML+
+    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📊 Visitas &amp; Conversão</div><div id="prod-visits-section"></div></div>' : '');
   var overlay = document.getElementById('prod-modal-overlay');
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  // Carrega visitas sob demanda
+  if(p.item_id && window._currentSellerId){
+    var visitsEl = document.getElementById('prod-visits-section');
+    if(visitsEl){
+      visitsEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Carregando visitas...</div>';
+      var df = window._currentDateFrom || '';
+      var dt = window._currentDateTo   || '';
+      fetch('/api/item-visits/'+window._currentSellerId+'/'+p.item_id+'?date_from='+df+'&date_to='+dt)
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var visits = d.visits || 0;
+          var qty    = p.qty    || 0;
+          var conv   = visits > 0 ? (qty / visits * 100).toFixed(1) : '—';
+          var visitsPerSale = qty > 0 && visits > 0 ? Math.round(visits / qty) : '—';
+          var convColor = conv === '—' ? 'var(--text3)' : parseFloat(conv) >= 3 ? '#2ecc9a' : parseFloat(conv) >= 1 ? '#f5a623' : '#e05555';
+          visitsEl.innerHTML =
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
+              '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">👁 Visitas</div>'+
+                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:#f0f0f5">'+visits.toLocaleString('pt-BR')+'</div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">no período</div>'+
+              '</div>'+
+              '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% Conversão</div>'+
+                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+convColor+'">'+conv+(conv!=='—'?'%':'')+'</div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(conv!=='—'?'meta: ≥ 3%':'sem visitas no período')+'</div>'+
+              '</div>'+
+              '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Visitas / Venda</div>'+
+                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:#f0f0f5">'+visitsPerSale+'</div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(visitsPerSale!=='—'?'visitas por unidade vendida':'—')+'</div>'+
+              '</div>'+
+            '</div>';
+        })
+        .catch(function(){ visitsEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar visitas</div>'; });
+    }
+  }
 }
 
 function closeProdModal(e){
