@@ -477,7 +477,7 @@ def get_sales(user_id):
     for d in daily_sales:
         d["gmv"] = round(d["gmv"], 2)
 
-    # Ranking de produtos
+    # Ranking de produtos — começa pelos pedidos do período
     products_map = {}
     for o in orders:
         for item in o.get("order_items", []):
@@ -490,6 +490,58 @@ def get_sales(user_id):
                 products_map[key] = {"title": title, "item_id": item_id, "qty": 0, "revenue": 0, "ads_qty": 0}
             products_map[key]["qty"]     += qty
             products_map[key]["revenue"] += qty * price
+
+    # Busca TODOS os anúncios ativos do seller para incluir produtos sem venda no período
+    try:
+        all_item_ids = []
+        scroll_id = None
+        for _ in range(20):  # máx 20 páginas = 2000 itens
+            params = {"limit": 100}
+            if scroll_id:
+                params["scroll_id"] = scroll_id
+            r_items = requests.get(
+                f"https://api.mercadolibre.com/users/{user_id}/items/search",
+                params=params,
+                headers={"Authorization": "Bearer " + token},
+                timeout=10
+            )
+            if not r_items.ok:
+                break
+            items_data = r_items.json()
+            batch = items_data.get("results", [])
+            if not batch:
+                break
+            all_item_ids.extend(batch)
+            scroll_id = items_data.get("scroll_id")
+            if not scroll_id or len(batch) < 100:
+                break
+
+        # Busca títulos dos itens que ainda não estão no products_map
+        missing_ids = [iid for iid in all_item_ids if iid not in products_map]
+        # Processa em chunks de 20
+        for i in range(0, len(missing_ids), 20):
+            chunk = missing_ids[i:i+20]
+            r_t = requests.get(
+                "https://api.mercadolibre.com/items",
+                params={"ids": ",".join(chunk), "attributes": "id,title,price,status"},
+                headers={"Authorization": "Bearer " + token},
+                timeout=10
+            )
+            if not r_t.ok:
+                continue
+            for entry in r_t.json():
+                body = entry.get("body", {})
+                iid  = str(body.get("id", ""))
+                if iid and iid not in products_map:
+                    products_map[iid] = {
+                        "title":   body.get("title", iid),
+                        "item_id": iid,
+                        "qty":     0,
+                        "revenue": 0,
+                        "ads_qty": 0
+                    }
+    except Exception as e:
+        print(f"[ITEMS] Erro ao buscar todos os anúncios: {e}")
 
     # Busca unidades vendidas via ADS por item (direct + indirect units)
     try:
