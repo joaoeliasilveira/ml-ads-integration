@@ -1337,14 +1337,14 @@ async function loadPromoItems(promoId, promoType, startDate, idx){
     var data = await fetch(url).then(function(r){return r.json();});
     var items = data.items || [];
 
-    var statusMap = {'active':'Ativa','candidate':'Candidata','paused':'Pausada','finished':'Encerrada','suspended':'Suspensa'};
+    var statusMap = {'active':'Ativa','candidate':'Candidata','paused':'Pausada','finished':'Encerrada','suspended':'Suspensa','started':'Incluído'};
 
     if(!items.length){
       container.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:4px 0">Nenhum produto encontrado nesta promoção.</div>';
     } else {
       var rows = items.map(function(it){
         var stLabel = statusMap[it.status] || it.status;
-        var stBadge = it.status==='active'?'badge-green':it.status==='candidate'?'badge-amber':'badge-gray';
+        var stBadge = (it.status==='active'||it.status==='started')?'badge-green':it.status==='candidate'?'badge-amber':'badge-gray';
         var desconto = it.original_price > 0 ? Math.round((1 - it.price/it.original_price)*100) : 0;
         var title = it.title || it.item_id;
         return '<tr>'+
