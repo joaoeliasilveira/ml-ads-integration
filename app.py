@@ -487,7 +487,7 @@ def get_sales(user_id):
             price   = item.get("unit_price", 0)
             key     = item_id or title
             if key not in products_map:
-                products_map[key] = {"title": title, "item_id": item_id, "qty": 0, "revenue": 0, "ads_qty": 0}
+                products_map[key] = {"title": title, "item_id": item_id, "qty": 0, "revenue": 0, "ads_qty": 0, "status": "active"}
             products_map[key]["qty"]     += qty
             products_map[key]["revenue"] += qty * price
 
@@ -538,8 +538,11 @@ def get_sales(user_id):
                         "item_id": iid,
                         "qty":     0,
                         "revenue": 0,
-                        "ads_qty": 0
+                        "ads_qty": 0,
+                        "status":  body.get("status", "active")
                     }
+                elif iid in products_map and not products_map[iid].get("status"):
+                    products_map[iid]["status"] = body.get("status", "active")
     except Exception as e:
         print(f"[ITEMS] Erro ao buscar todos os anúncios: {e}")
 
