@@ -112,7 +112,7 @@ def get_sellers():
     conn.close()
     return jsonify([dict(s) for s in sellers])
 
-@app.route("/api/sellers/<user_id>", methods=["DELETE"])
+@app.route("/api/sellers/<user_id>", methods=["DELETE", "GET"])
 def delete_seller(user_id):
     conn = get_db()
     cur = conn.cursor()
@@ -120,7 +120,7 @@ def delete_seller(user_id):
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "removed": user_id})
 
 def refresh_token_if_needed(user_id, access_token, refresh_token, updated_at):
     now = datetime.now(timezone.utc)
@@ -1235,6 +1235,21 @@ def notifications():
         res_id  = payload.get("resource", "")
         user_id = str(payload.get("user_id", ""))
         print(f"[NOTIFICATION] topic={topic} resource={res_id} user_id={user_id}")
+
+        # Remove seller automaticamente quando ML notifica revogacao de acesso
+        if topic in ("application", "authorization") and "unauthorized" in str(res_id).lower():
+            if user_id:
+                try:
+                    conn = get_db()
+                    cur = conn.cursor()
+                    cur.execute("DELETE FROM sellers WHERE user_id = %s", (user_id,))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    print(f"[NOTIFICATION] Seller {user_id} removido por revogacao")
+                except Exception as db_err:
+                    print(f"[NOTIFICATION][DB ERRO] {db_err}")
+
     except Exception as e:
         print(f"[NOTIFICATION][ERRO] {e}")
 
