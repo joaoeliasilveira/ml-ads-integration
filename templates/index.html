@@ -1518,6 +1518,21 @@ function setProdSort(s){
   if(el._rebuildTable) el._rebuildTable(searchVal);
 }
 
+function setProdCatalog(f){
+  var el = document.getElementById('tab-produtos');
+  if(!el) return;
+  el._catalogFilter = f;
+  var btnAll = document.getElementById('cat-all');
+  var btnYes = document.getElementById('cat-yes');
+  var btnNo  = document.getElementById('cat-no');
+  var active = 'var(--td)'; var inactive = 'transparent';
+  if(btnAll){ btnAll.style.background = f==='all'?active:inactive; btnAll.style.color = f==='all'?'#fff':'var(--text2)'; btnAll.style.fontWeight = f==='all'?'600':'400'; }
+  if(btnYes){ btnYes.style.background = f==='yes'?active:inactive; btnYes.style.color = f==='yes'?'#fff':'var(--text2)'; btnYes.style.fontWeight = f==='yes'?'600':'400'; }
+  if(btnNo){  btnNo.style.background  = f==='no' ?active:inactive; btnNo.style.color  = f==='no' ?'#fff':'var(--text2)'; btnNo.style.fontWeight  = f==='no' ?'600':'400'; }
+  var searchVal = (document.getElementById('prod-search')||{}).value || '';
+  if(el._rebuildTable) el._rebuildTable(searchVal);
+}
+
 function renderProdutos(el, data){
   var products = data.top_products || [];
   var sortBy = 'revenue';
@@ -1558,8 +1573,13 @@ function renderProdutos(el, data){
   }
 
   function rebuildTable(searchVal){
-    var q = (searchVal||'').toLowerCase();
-    var filtered = q ? products.filter(function(p){ return p.title.toLowerCase().includes(q); }) : products;
+    var q  = (searchVal||'').toLowerCase();
+    var cf = el._catalogFilter || 'all';
+    var filtered = products.filter(function(p){
+      var matchQ   = !q || p.title.toLowerCase().includes(q);
+      var matchCat = cf==='all' ? true : cf==='yes' ? !!p.catalog_product_id : !p.catalog_product_id;
+      return matchQ && matchCat;
+    });
     var tbody = document.getElementById('prod-tbody');
     var subtitle = document.getElementById('prod-subtitle');
     if(tbody) tbody.innerHTML = renderTable(filtered);
@@ -1583,6 +1603,13 @@ function renderProdutos(el, data){
                                     '<button id="sort-revenue" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">💰 Faturamento</button>'+
             '<button id="sort-qty" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📦 Volume</button>'+
           '</div>'+
+          (products.some(function(p){return !!p.catalog_product_id;})?
+            '<div style="display:flex;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
+              '<button id="cat-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos</button>'+
+              '<button id="cat-yes" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📋 Catálogo</button>'+
+              '<button id="cat-no" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">Sem Catálogo</button>'+
+            '</div>'
+          :'')+
           '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:220px">'+
         '</div>'+
       '</div>'+
@@ -1596,10 +1623,16 @@ function renderProdutos(el, data){
 
   // Bind botões de sort após render
   setTimeout(function(){
-    var btnR = document.getElementById('sort-revenue');
-    var btnQ = document.getElementById('sort-qty');
-    if(btnR) btnR.addEventListener('click', function(){ setProdSort('revenue'); });
-    if(btnQ) btnQ.addEventListener('click', function(){ setProdSort('qty'); });
+    var btnR   = document.getElementById('sort-revenue');
+    var btnQ   = document.getElementById('sort-qty');
+    var btnAll = document.getElementById('cat-all');
+    var btnYes = document.getElementById('cat-yes');
+    var btnNo  = document.getElementById('cat-no');
+    if(btnR)   btnR.addEventListener('click',   function(){ setProdSort('revenue'); });
+    if(btnQ)   btnQ.addEventListener('click',   function(){ setProdSort('qty'); });
+    if(btnAll) btnAll.addEventListener('click', function(){ setProdCatalog('all'); });
+    if(btnYes) btnYes.addEventListener('click', function(){ setProdCatalog('yes'); });
+    if(btnNo)  btnNo.addEventListener('click',  function(){ setProdCatalog('no');  });
   }, 0);
 }
 
