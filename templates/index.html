@@ -1325,9 +1325,10 @@ function renderProductRows(prods){
 function renderReputacao(el, data){
   var rep = data.reputation || {};
   var ratings = rep.ratings || {};
-  var posRate = Math.round((ratings.positive||0)*100);
-  var neuRate = Math.round((ratings.neutral||0)*100);
-  var negRate = Math.round((ratings.negative||0)*100);
+  var rTotal = ratings.total || (ratings.positive||0)+(ratings.neutral||0)+(ratings.negative||0) || 1;
+  var posRate = Math.round(((ratings.positive||0)/rTotal)*100);
+  var neuRate = Math.round(((ratings.neutral||0)/rTotal)*100);
+  var negRate = Math.round(((ratings.negative||0)/rTotal)*100);
   var levelMap = {'1_red':['Vermelho','badge-red'],'2_orange':['Laranja','badge-red'],'3_yellow':['Amarelo','badge-amber'],'4_light_green':['Verde Claro','badge-green'],'5_green':['Verde','badge-green']};
   var psMap = {'platinum':['Platinum','badge-blue'],'gold':['Gold','badge-amber'],'silver':['Silver','badge-green'],'':['N/D','badge-gray']};
   var levelInfo = levelMap[rep.level] || [rep.level||'N/D','badge-gray'];
@@ -1347,7 +1348,7 @@ function renderReputacao(el, data){
       '<div class="metric-card"><div class="metric-label">Vendas Concluídas</div><div class="metric-value">'+fmtK(rep.sales_completed||0)+'</div><div class="metric-delta">histórico total</div></div>'+
     '</div>'+
     '<div class="two-col">'+
-      '<div class="card"><div class="card-title">Avaliações dos Compradores</div><div class="card-sub">Classificação das avaliações recebidas</div>'+
+      '<div class="card"><div class="card-title">Avaliações dos Compradores</div><div class="card-sub">'+(ratings.total||0)+' avaliação(ões) recebida(s)</div>'+
         '<div class="rep-bar-wrap"><div class="rep-bar-label">✅ Positivas</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+posRate+'%;background:var(--green)"></div></div><div class="rep-bar-val">'+posRate+'%</div></div>'+
         '<div class="rep-bar-wrap"><div class="rep-bar-label">😐 Neutras</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+neuRate+'%;background:var(--amber)"></div></div><div class="rep-bar-val">'+neuRate+'%</div></div>'+
         '<div class="rep-bar-wrap" style="margin-bottom:0"><div class="rep-bar-label">❌ Negativas</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+negRate+'%;background:var(--red)"></div></div><div class="rep-bar-val">'+negRate+'%</div></div>'+
