@@ -447,15 +447,11 @@ def get_sales(user_id):
     prev_total = count_sales(prev_orders)
     prev_gmv = sum_gmv(prev_orders)
 
-    # Visitas — endpoint time_window (correto para apps de terceiros)
+    # Visitas — endpoint items_visits com date_from/date_to
     try:
-        from datetime import date as _ddate
-        _d_from = _ddate.fromisoformat(date_from)
-        _d_to   = _ddate.fromisoformat(date_to)
-        _days   = (_d_to - _d_from).days + 1
         visits_resp = requests.get(
-            "https://api.mercadolibre.com/users/" + user_id + "/items_visits/time_window",
-            params={"last": _days, "unit": "day", "ending": date_to},
+            "https://api.mercadolibre.com/users/" + user_id + "/items_visits",
+            params={"date_from": date_from, "date_to": date_to},
             headers={"Authorization": "Bearer " + token}
         )
         visits_data  = visits_resp.json() if visits_resp.ok and visits_resp.text else {}
