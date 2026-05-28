@@ -1252,7 +1252,53 @@ def notifications():
     return "", 200
 
 
-@app.route("/api/debug-messages/<user_id>")
+@app.route("/api/questions/<user_id>")
+def get_questions(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    # Total de perguntas
+    r_all = requests.get(
+        "https://api.mercadolibre.com/questions/search",
+        params={"seller_id": user_id, "limit": 50, "sort_fields": "date_created", "sort_types": "DESC"},
+        headers={"Authorization": "Bearer " + token}
+    )
+    all_data = r_all.json() if r_all.ok and r_all.text else {}
+
+    # Perguntas sem resposta
+    r_unans = requests.get(
+        "https://api.mercadolibre.com/questions/search",
+        params={"seller_id": user_id, "status": "UNANSWERED", "limit": 50},
+        headers={"Authorization": "Bearer " + token}
+    )
+    unans_data = r_unans.json() if r_unans.ok and r_unans.text else {}
+
+    questions = all_data.get("questions", [])
+    unanswered = unans_data.get("questions", [])
+
+    result = []
+    for q in questions:
+        result.append({
+            "id":           q.get("id"),
+            "text":         q.get("text", ""),
+            "status":       q.get("status", ""),
+            "date_created": q.get("date_created", "")[:16].replace("T", " "),
+            "item_id":      q.get("item_id", ""),
+            "item_title":   q.get("item_title", ""),
+            "answer":       q.get("answer", {}).get("text", "") if q.get("answer") else "",
+            "answer_date":  q.get("answer", {}).get("date_created", "")[:16].replace("T", " ") if q.get("answer") else "",
+        })
+
+    return jsonify({
+        "seller_id":        user_id,
+        "nickname":         seller["nickname"],
+        "total":            all_data.get("total", 0),
+        "total_unanswered": unans_data.get("total", 0),
+        "questions":        result
+    })
+
+
 def debug_messages(user_id):
     token, seller = get_seller_token(user_id)
     if not seller:
