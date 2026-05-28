@@ -869,27 +869,10 @@ function renderVendas(el, data, isToday){
   var daily = data.daily_sales || [];
   var convColor = s.conversion>=3?'var(--green)':s.conversion>=1?'var(--amber)':'var(--red)';
 
-  // Monta dados horários a partir dos pedidos brutos (quando "Hoje")
-  // A API retorna data.orders[] com campo date_created
-  var hourlyData = null;
-  if(isToday){
-    var hourBuckets = {};
-    for(var h=0;h<24;h++) hourBuckets[h]={gmv:0,orders:0};
-    var orders = data.orders || [];
-    orders.forEach(function(o){
-      var dt = new Date(o.date_created||o.date_closed||'');
-      if(!isNaN(dt)){
-        var hr = dt.getHours();
-        hourBuckets[hr].orders++;
-        var val = 0;
-        if(o.payments&&o.payments.length) o.payments.forEach(function(p){val+=p.total_paid_amount||0;});
-        else val = o.paid_amount||o.total_amount||0;
-        hourBuckets[hr].gmv += val;
-      }
-    });
-    hourlyData = [];
-    for(var h=0;h<24;h++) hourlyData.push({hour:h, gmv:hourBuckets[h].gmv, orders:hourBuckets[h].orders});
-  }
+  // Dados horários vindos direto do backend (quando período = hoje)
+  var hourlyData = (isToday && data.hourly_sales && data.hourly_sales.length)
+    ? data.hourly_sales
+    : null;
 
   el.innerHTML =
     '<div class="section-label">Resumo de Desempenho</div>'+
@@ -963,7 +946,7 @@ function renderVendas(el, data, isToday){
 
     var chartLabels, chartGmv, chartOrders;
     if(isToday && hourlyData){
-      chartLabels = hourlyData.map(function(h){ return h.hour+'h'; });
+      chartLabels = hourlyData.map(function(h){ return (h.hour<10?'0':'')+h.hour+'h'; });
       chartGmv    = hourlyData.map(function(h){ return h.gmv; });
       chartOrders = hourlyData.map(function(h){ return h.orders; });
     } else {
