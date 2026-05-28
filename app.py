@@ -656,10 +656,11 @@ def get_promotions(user_id):
             "name": p.get("name", p.get("description", p.get("deal_print_id", "Promocao"))),
             "type": p.get("type", p.get("deal_type", p.get("promotion_type", ""))),
             "status": p.get("status", ""),
-            "discount": p.get("value", p.get("discount_meli_amount", p.get("percent_off", 0))),
+            "discount": p.get("percent_off", p.get("value", p.get("discount_meli_amount", p.get("discount", 0)))),
             "start_date": str(p.get("start_date", p.get("from_date", p.get("from", ""))))[:10],
             "end_date": str(p.get("finish_date", p.get("to_date", p.get("to", ""))))[:10],
-            "items_count": p.get("items_count", p.get("affected_items", 0))
+            "items_count": p.get("items_count", p.get("affected_items", p.get("quantity", 0))),
+            "_raw_keys": list(p.keys())
         })
 
     return jsonify({
