@@ -1760,7 +1760,7 @@ def get_item_promos(user_id, item_id):
                     "status":      status,
                     "discount_pct": discount_pct,
                     "start_date":  str(promo.get("start_date", ""))[:10],
-                    "end_date":    str(promo.get("end_date", ""))[:10],
+                    "end_date":    str(promo.get("end_date", promo.get("finish_date", promo.get("to_date", promo.get("to", "")))))[:10],
                     "original_price": orig,
                     "promo_price":    price if status == "started" else sugg,
                 })
