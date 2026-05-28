@@ -1711,6 +1711,32 @@ function setProdSort(s){
   if(el._rebuildTable) el._rebuildTable(searchVal);
 }
 
+function toggleProdFilters(){
+  var panel  = document.getElementById('prod-filters-panel');
+  var chev   = document.getElementById('prod-filter-chevron');
+  var btn    = document.getElementById('prod-filter-toggle');
+  if(!panel) return;
+  var isOpen = panel.style.maxHeight && panel.style.maxHeight !== '0px';
+  panel.style.maxHeight = isOpen ? '0px' : '200px';
+  if(chev) chev.style.transform = isOpen ? '' : 'rotate(180deg)';
+  if(btn)  btn.style.borderColor = isOpen ? 'var(--border2)' : 'var(--tl)';
+}
+
+function setProdStatus(f){
+  var el = document.getElementById('tab-produtos');
+  if(!el) return;
+  el._statusFilter = f;
+  var btnAll    = document.getElementById('status-all');
+  var btnActive = document.getElementById('status-active');
+  var btnPaused = document.getElementById('status-paused');
+  var active = 'var(--td)', inactive = 'transparent';
+  if(btnAll)    { btnAll.style.background    = f==='all'   ?active:inactive; btnAll.style.color    = f==='all'   ?'#fff':'var(--text2)'; btnAll.style.fontWeight    = f==='all'   ?'600':'400'; }
+  if(btnActive) { btnActive.style.background = f==='active'?active:inactive; btnActive.style.color = f==='active'?'#fff':'var(--text2)'; btnActive.style.fontWeight = f==='active'?'600':'400'; }
+  if(btnPaused) { btnPaused.style.background = f==='paused'?active:inactive; btnPaused.style.color = f==='paused'?'#fff':'var(--text2)'; btnPaused.style.fontWeight = f==='paused'?'600':'400'; }
+  var searchVal = (document.getElementById('prod-search')||{}).value || '';
+  if(el._rebuildTable) el._rebuildTable(searchVal);
+}
+
 function setProdCatalog(f){
   var el = document.getElementById('tab-produtos');
   if(!el) return;
@@ -1768,10 +1794,12 @@ function renderProdutos(el, data){
   function rebuildTable(searchVal){
     var q  = (searchVal||'').toLowerCase();
     var cf = el._catalogFilter || 'all';
+    var sf = el._statusFilter  || 'all';
     var filtered = products.filter(function(p){
-      var matchQ   = !q || p.title.toLowerCase().includes(q);
-      var matchCat = cf==='all' ? true : cf==='yes' ? !!p.catalog_product_id : !p.catalog_product_id;
-      return matchQ && matchCat;
+      var matchQ      = !q  || p.title.toLowerCase().includes(q);
+      var matchCat    = cf==='all' ? true : cf==='yes' ? !!p.catalog_product_id : !p.catalog_product_id;
+      var matchStatus = sf==='all' ? true : sf==='active' ? p.status==='active' : p.status==='paused';
+      return matchQ && matchCat && matchStatus;
     });
     var tbody = document.getElementById('prod-tbody');
     var subtitle = document.getElementById('prod-subtitle');
@@ -1786,24 +1814,50 @@ function renderProdutos(el, data){
   el.innerHTML =
     '<div class="section-label">Produtos</div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
-      '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'+
+      // Header principal com título e botão de filtros
+      '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">'+
         '<div>'+
           '<div class="card-title">Todos os Produtos</div>'+
           '<div class="card-sub" style="margin-bottom:0" id="prod-subtitle">'+products.length+' produto(s) encontrado(s)</div>'+
         '</div>'+
-        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-          '<div style="display:flex;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
-                                    '<button id="sort-revenue" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">💰 Faturamento</button>'+
-            '<button id="sort-qty" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📦 Volume</button>'+
+        '<div style="display:flex;gap:8px;align-items:center">'+
+          '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:200px">'+
+          '<button id="prod-filter-toggle" onclick="toggleProdFilters()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-family:Poppins,sans-serif;font-size:12px;color:var(--text2);white-space:nowrap">'+
+            '⚙️ Filtros <span id="prod-filter-chevron" style="transition:transform .2s;display:inline-block">▾</span>'+
+          '</button>'+
+        '</div>'+
+      '</div>'+
+      // Painel expansível de filtros
+      '<div id="prod-filters-panel" style="max-height:0;overflow:hidden;transition:max-height .3s ease">'+
+        '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">'+
+          // Filtro ordenação
+          '<div>'+
+            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Ordenar por</div>'+
+            '<div style="display:flex;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
+              '<button id="sort-revenue" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">💰 Faturamento</button>'+
+              '<button id="sort-qty" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📦 Volume</button>'+
+            '</div>'+
           '</div>'+
+          // Filtro catálogo (condicional)
           (products.some(function(p){return !!p.catalog_product_id;})?
-            '<div style="display:flex;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
-              '<button id="cat-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos</button>'+
-              '<button id="cat-yes" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📋 Catálogo</button>'+
-              '<button id="cat-no" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">Sem Catálogo</button>'+
+            '<div>'+
+              '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Catálogo ML</div>'+
+              '<div style="display:flex;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
+                '<button id="cat-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos</button>'+
+                '<button id="cat-yes" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📋 Catálogo</button>'+
+                '<button id="cat-no" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">Sem Catálogo</button>'+
+              '</div>'+
             '</div>'
           :'')+
-          '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:220px">'+
+          // Filtro status
+          '<div>'+
+            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Status</div>'+
+            '<div style="display:flex;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
+              '<button id="status-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos</button>'+
+              '<button id="status-active" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">✅ Ativos</button>'+
+              '<button id="status-paused" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">⏸ Pausados</button>'+
+            '</div>'+
+          '</div>'+
         '</div>'+
       '</div>'+
       '<div style="overflow-x:auto">'+
@@ -1826,6 +1880,12 @@ function renderProdutos(el, data){
     if(btnAll) btnAll.addEventListener('click', function(){ setProdCatalog('all'); });
     if(btnYes) btnYes.addEventListener('click', function(){ setProdCatalog('yes'); });
     if(btnNo)  btnNo.addEventListener('click',  function(){ setProdCatalog('no');  });
+    var btnSAll    = document.getElementById('status-all');
+    var btnSActive = document.getElementById('status-active');
+    var btnSPaused = document.getElementById('status-paused');
+    if(btnSAll)    btnSAll.addEventListener('click',    function(){ setProdStatus('all'); });
+    if(btnSActive) btnSActive.addEventListener('click', function(){ setProdStatus('active'); });
+    if(btnSPaused) btnSPaused.addEventListener('click', function(){ setProdStatus('paused'); });
   }, 0);
 }
 
