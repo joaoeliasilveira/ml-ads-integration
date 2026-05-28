@@ -1483,32 +1483,41 @@ def get_promo_items(user_id, promo_id):
 
 @app.route("/api/debug-promo-items/<user_id>/<promo_id>")
 def debug_promo_items(user_id, promo_id):
-    token, seller = get_seller_token(user_id)
-    if not seller:
-        return jsonify({"error": "Seller nao encontrado"}), 404
+    try:
+        token, seller = get_seller_token(user_id)
+        if not seller:
+            return jsonify({"error": "Seller nao encontrado"}), 404
 
-    def safe_json(r):
-        try: return r.json() if r.text and r.text.strip() else {}
-        except: return {"raw": r.text[:2000] if r.text else ""}
+        results = {}
+        for ptype in ["SMART", "DEAL", "PRICE_MATCHING_MELI_ALL", "LIGHTNING", "SELLER_CAMPAIGN"]:
+            try:
+                url = f"https://api.mercadolibre.com/seller-promotions/promotions/{promo_id}/items"
+                r = requests.get(url,
+                    params={"promotion_type": ptype, "app_version": "v2"},
+                    headers={"Authorization": "Bearer " + token}, timeout=8)
+                try:
+                    raw = r.json()
+                except Exception:
+                    raw = {"raw_text": r.text[:500]}
 
-    results = {}
-    for ptype in ["SMART", "DEAL", "PRICE_MATCHING_MELI_ALL", "LIGHTNING", "SELLER_CAMPAIGN"]:
-        url = f"https://api.mercadolibre.com/seller-promotions/promotions/{promo_id}/items"
-        # Sem filtro de status para pegar candidates também
-        r = requests.get(url,
-            params={"promotion_type": ptype, "app_version": "v2"},
-            headers={"Authorization": "Bearer " + token}, timeout=8)
-        raw = safe_json(r)
-        # Mostra os primeiros 2 itens completos para inspecionar estrutura
-        items_sample = raw.get("results", raw.get("items", []))[:2] if isinstance(raw, dict) else []
-        results[ptype] = {
-            "http_status": r.status_code,
-            "total": raw.get("paging", {}).get("total", len(items_sample)) if isinstance(raw, dict) else 0,
-            "first_items_raw": items_sample,
-            "response_keys": list(raw.keys()) if isinstance(raw, dict) else []
-        }
+                items_sample = []
+                if isinstance(raw, dict):
+                    items_sample = raw.get("results", raw.get("items", []))[:2]
+                elif isinstance(raw, list):
+                    items_sample = raw[:2]
 
-    return jsonify({"promo_id": promo_id, "user_id": user_id, "results": results})
+                results[ptype] = {
+                    "http_status": r.status_code,
+                    "response_keys": list(raw.keys()) if isinstance(raw, dict) else [],
+                    "first_items_raw": items_sample,
+                    "raw_preview": str(raw)[:800]
+                }
+            except Exception as e:
+                results[ptype] = {"error": str(e)}
+
+        return jsonify({"promo_id": promo_id, "user_id": user_id, "results": results})
+    except Exception as e:
+        return jsonify({"fatal_error": str(e)}), 500
 
 
 if __name__ == "__main__":
