@@ -1481,6 +1481,7 @@ def get_promo_items(user_id, promo_id):
 
 
 
+@app.route("/api/debug-promo-items/<user_id>/<promo_id>")
 def debug_promo_items(user_id, promo_id):
     token, seller = get_seller_token(user_id)
     if not seller:
