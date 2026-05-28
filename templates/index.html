@@ -1554,7 +1554,7 @@ function openProdModal(p){
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
         '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid '+(stock===0?'rgba(220,60,60,0.3)':isFull?'rgba(42,157,143,0.3)':'rgba(255,255,255,0.07)')+' !important">'+
           '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Estoque Atual</div>'+
-          '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(stock===0?'var(--red)':stock<=5?'var(--amber)':'var(--text)')+'">'+stock+' un</div>'+
+          '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(stock===0?'#e05555':stock<=5?'#f5a623':'#f0f0f5')+'">'+stock+' un</div>'+
           '<div style="font-size:10px;margin-top:4px;color:'+(isFull?'var(--tl)':stock===0?'var(--red)':stock<=5?'var(--amber)':'var(--text3)')+'">'+
             (stock===0?'⚠ Sem estoque':stock<=5?'⚠ Estoque crítico':isFull?'Full ML':'Estoque próprio')+
           '</div>'+
