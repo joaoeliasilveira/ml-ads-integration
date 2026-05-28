@@ -352,6 +352,10 @@ body.dark .btn-promo-items:hover{background:#26262f}
   transform:translateY(16px);transition:transform .2s;
 }
 .prod-modal-overlay.open .prod-modal{transform:translateY(0)}
+body.dark .prod-modal{background:#1e1e26 !important;border-color:rgba(255,255,255,.1) !important}
+body.dark .prod-modal-card{background:#26262f !important;border-color:rgba(255,255,255,.07) !important}
+body.dark .prod-modal-title{color:#f0f0f5 !important;border-color:rgba(255,255,255,.1) !important}
+body.dark .prod-modal-close{background:#26262f !important;border-color:rgba(255,255,255,.15) !important;color:#f0f0f5 !important}
 
 .alerts-panel{
   position:fixed;top:0;right:-420px;width:400px;height:100vh;
@@ -1542,34 +1546,34 @@ function openProdModal(p){
   var hasAds     = adsQty > 0;
   var totalRev   = p.revenue || 0;
   document.getElementById('prod-modal-content').innerHTML =
-    '<div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">'+
+    '<div class="prod-modal-title" style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">'+
       '<div style="font-size:15px;font-weight:600;line-height:1.3;flex:1">'+p.title+'</div>'+
-      '<button onclick="closeProdModal()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:18px;line-height:1">×</button>'+
+      '<button class="prod-modal-close" onclick="closeProdModal()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:18px;line-height:1">×</button>'+
     '</div>'+
     '<div style="padding:20px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
-      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+      '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
         '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total</div>'+
         '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtDec(totalRev)+'</div>'+
       '</div>'+
-      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+      '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
         '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total Unidades</div>'+
         '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtFull(p.qty)+'</div>'+
       '</div>'+
-      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(78,205,196,0.2)">'+
+      '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(78,205,196,0.2)">'+
         '<div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px">🌿 Orgânico + Promo</div>'+
         '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtFull(organicQty)+' un</div>'+
         '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(organicQty/p.qty*100):0)+'% do total</div>'+
       '</div>'+
-      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(42,157,143,0.2)">'+
+      '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(42,157,143,0.2)">'+
         '<div style="font-size:10px;color:var(--tl);text-transform:uppercase;margin-bottom:6px">📣 Via ADS</div>'+
         '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(hasAds?'var(--tl)':'var(--text3)')+'">'+fmtFull(adsQty)+' un</div>'+
         '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(adsQty/p.qty*100):0)+'% do total</div>'+
       '</div>'+
-      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+      '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
         '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio / Un</div>'+
         '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtDec(p.qty>0?totalRev/p.qty:0)+'</div>'+
       '</div>'+
-      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+      '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
         '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% do Faturamento</div>'+
         '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+
           (window._currentProdGmv>0?Math.round(totalRev/window._currentProdGmv*100):0)+'%'+
