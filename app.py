@@ -1679,6 +1679,83 @@ def get_item_visits(user_id, item_id):
         return jsonify({"visits": 0, "error": str(e)})
 
 
+@app.route("/api/item-promos/<user_id>/<item_id>")
+def get_item_promos(user_id, item_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    try:
+        # Busca todas as promoções ativas do seller
+        r = requests.get(
+            f"https://api.mercadolibre.com/seller-promotions/users/{user_id}/promotions",
+            params={"app_version": "v2", "status": "started"},
+            headers={"Authorization": "Bearer " + token},
+            timeout=8
+        )
+        if not r.ok:
+            return jsonify({"promos": [], "error": r.status_code})
+
+        all_promos = r.json() if isinstance(r.json(), list) else r.json().get("results", [])
+        type_map   = {"SMART": "Smart", "DEAL": "Deal", "PRICE_MATCHING_MELI_ALL": "Price Match",
+                      "LIGHTNING": "Relâmpago", "SELLER_CAMPAIGN": "Campanha"}
+        result = []
+
+        for promo in all_promos:
+            promo_id   = promo.get("id", "")
+            promo_type = promo.get("type", "SMART")
+            if not promo_id:
+                continue
+
+            # Busca itens dessa promoção para ver se o item está incluído
+            r_items = requests.get(
+                f"https://api.mercadolibre.com/seller-promotions/promotions/{promo_id}/items",
+                params={"promotion_type": promo_type, "app_version": "v2"},
+                headers={"Authorization": "Bearer " + token},
+                timeout=8
+            )
+            if not r_items.ok:
+                continue
+
+            items_data = r_items.json()
+            items_list = items_data.get("results", items_data.get("items", [])) if isinstance(items_data, dict) else []
+
+            for it in items_list:
+                if str(it.get("id", "")) != str(item_id):
+                    continue
+
+                status   = it.get("status", "")
+                orig     = it.get("original_price", 0) or 0
+                price    = it.get("price", 0) or 0
+                sugg     = it.get("suggested_discounted_price", 0) or 0
+
+                # Calcula desconto
+                if status == "started" and orig > 0 and price > 0:
+                    discount_pct = round((orig - price) / orig * 100, 1)
+                elif status == "candidate" and orig > 0 and sugg > 0:
+                    discount_pct = round((orig - sugg) / orig * 100, 1)
+                else:
+                    discount_pct = it.get("seller_percentage", 0) or 0
+
+                result.append({
+                    "promo_id":    promo_id,
+                    "name":        promo.get("name", promo_id),
+                    "type":        type_map.get(promo_type, promo_type),
+                    "status":      status,
+                    "discount_pct": discount_pct,
+                    "start_date":  str(promo.get("start_date", ""))[:10],
+                    "end_date":    str(promo.get("end_date", ""))[:10],
+                    "original_price": orig,
+                    "promo_price":    price if status == "started" else sugg,
+                })
+                break  # achou o item nessa promoção, próxima promoção
+
+        return jsonify({"item_id": item_id, "promos": result})
+
+    except Exception as e:
+        return jsonify({"promos": [], "error": str(e)})
+
+
 @app.route("/api/debug-promo-items/<user_id>/<promo_id>")
 def debug_promo_items(user_id, promo_id):
     try:
