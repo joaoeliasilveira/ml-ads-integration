@@ -1252,6 +1252,90 @@ def notifications():
     return "", 200
 
 
+@app.route("/api/validate/<user_id>")
+def validate(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    results = {}
+    today = datetime.now(timezone.utc).date().isoformat()
+    date_from = (datetime.now(timezone.utc).date() - timedelta(days=7)).isoformat()
+    date_to = today
+
+    def check(name, url, params=None):
+        try:
+            r = requests.get(url, params=params, headers={"Authorization": "Bearer " + token}, timeout=10)
+            data = r.json() if r.text and r.text.strip() else {}
+            ok = r.status_code == 200
+            results[name] = {
+                "status": r.status_code,
+                "ok": ok,
+                "preview": str(data)[:120]
+            }
+        except Exception as e:
+            results[name] = {"status": 0, "ok": False, "preview": str(e)[:120]}
+
+    # 1. Perfil do seller
+    check("perfil", f"https://api.mercadolibre.com/users/{user_id}")
+
+    # 2. Vendas
+    check("vendas", "https://api.mercadolibre.com/orders/search",
+          {"seller": user_id, "order.date_created.from": date_from+"T00:00:00.000-03:00",
+           "order.date_created.to": date_to+"T23:59:59.000-03:00", "limit": 1})
+
+    # 3. Visitas
+    check("visitas", f"https://api.mercadolibre.com/users/{user_id}/items_visits",
+          {"date_from": date_from, "date_to": date_to})
+
+    # 4. Reputação
+    check("reputacao", f"https://api.mercadolibre.com/users/{user_id}/seller_reputation")
+
+    # 5. ADS - advertiser_id
+    r_adv = requests.get("https://api.mercadolibre.com/advertising/advertisers",
+                         params={"product_id": "PADS"},
+                         headers={"Authorization": "Bearer " + token, "Api-Version": "1"}, timeout=10)
+    adv_data = r_adv.json() if r_adv.ok and r_adv.text else []
+    adv_id = adv_data[0]["id"] if isinstance(adv_data, list) and adv_data else None
+    results["ads_advertiser"] = {"status": r_adv.status_code, "ok": r_adv.status_code == 200, "advertiser_id": adv_id}
+
+    # 6. ADS - campanhas
+    if adv_id:
+        check("ads_campanhas", f"https://api.mercadolibre.com/advertising/advertisers/{adv_id}/product_ads/campaigns")
+    else:
+        results["ads_campanhas"] = {"status": 0, "ok": False, "preview": "advertiser_id nao encontrado"}
+
+    # 7. Promoções
+    check("promocoes", f"https://api.mercadolibre.com/seller-promotions/users/{user_id}",
+          {"app_version": "v2"})
+
+    # 8. Produtos (itens do seller)
+    check("produtos", "https://api.mercadolibre.com/orders/search",
+          {"seller": user_id, "limit": 1})
+
+    # 9. Faturamento / saldo
+    check("faturamento", f"https://api.mercadolibre.com/users/{user_id}/mercadopago_account/balance")
+
+    # 10. Mensagens
+    check("mensagens", f"https://api.mercadolibre.com/messages/unread",
+          {"user_id": user_id})
+
+    # 11. Envios
+    check("envios", "https://api.mercadolibre.com/shipments/search",
+          {"seller_id": user_id, "limit": 1})
+
+    # Resumo
+    total = len(results)
+    ok_count = sum(1 for v in results.values() if v.get("ok"))
+
+    return jsonify({
+        "seller": seller["nickname"],
+        "user_id": user_id,
+        "score": f"{ok_count}/{total}",
+        "results": results
+    })
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
