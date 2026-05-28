@@ -1488,15 +1488,24 @@ def debug_promo_items(user_id, promo_id):
 
     def safe_json(r):
         try: return r.json() if r.text and r.text.strip() else {}
-        except: return {"raw": r.text[:400] if r.text else ""}
+        except: return {"raw": r.text[:2000] if r.text else ""}
 
     results = {}
     for ptype in ["SMART", "DEAL", "PRICE_MATCHING_MELI_ALL", "LIGHTNING", "SELLER_CAMPAIGN"]:
         url = f"https://api.mercadolibre.com/seller-promotions/promotions/{promo_id}/items"
+        # Sem filtro de status para pegar candidates também
         r = requests.get(url,
-            params={"promotion_type": ptype, "app_version": "v2", "status_item": "active"},
+            params={"promotion_type": ptype, "app_version": "v2"},
             headers={"Authorization": "Bearer " + token}, timeout=8)
-        results[ptype] = {"status": r.status_code, "response": str(safe_json(r))[:400]}
+        raw = safe_json(r)
+        # Mostra os primeiros 2 itens completos para inspecionar estrutura
+        items_sample = raw.get("results", raw.get("items", []))[:2] if isinstance(raw, dict) else []
+        results[ptype] = {
+            "http_status": r.status_code,
+            "total": raw.get("paging", {}).get("total", len(items_sample)) if isinstance(raw, dict) else 0,
+            "first_items_raw": items_sample,  # JSON completo para ver campos disponíveis
+            "response_keys": list(raw.keys()) if isinstance(raw, dict) else []
+        }
 
     return jsonify({"promo_id": promo_id, "user_id": user_id, "results": results})
 
