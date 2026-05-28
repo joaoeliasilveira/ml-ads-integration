@@ -585,6 +585,7 @@ body {
       <button class="tab-btn active" id="tab-vendas-btn" onclick="switchTab('vendas')">💰 Vendas</button>
       <button class="tab-btn" id="tab-campanhas-btn" onclick="switchTab('campanhas')">📣 Campanhas</button>
       <button class="tab-btn" id="tab-promocoes-btn" onclick="switchTab('promocoes')">🎯 Promoções</button>
+      <button class="tab-btn" id="tab-perguntas-btn" onclick="switchTab('perguntas')">💬 Perguntas</button>
       <button class="tab-btn" id="tab-reputacao-btn" onclick="switchTab('reputacao')">⭐ Reputação</button>
       <button class="tab-btn" id="tab-produtos-btn" onclick="switchTab('produtos')">📦 Produtos</button>
     </div>
@@ -592,6 +593,7 @@ body {
     <div class="tab-content active" id="tab-vendas"><div class="loading-state"><div class="spinner"></div><span>Carregando vendas...</span></div></div>
     <div class="tab-content" id="tab-campanhas"><div class="loading-state"><div class="spinner"></div><span>Carregando campanhas...</span></div></div>
     <div class="tab-content" id="tab-promocoes"><div class="loading-state"><div class="spinner"></div><span>Carregando promoções...</span></div></div>
+    <div class="tab-content" id="tab-perguntas"><div class="loading-state"><div class="spinner"></div><span>Carregando perguntas...</span></div></div>
     <div class="tab-content" id="tab-reputacao"><div class="loading-state"><div class="spinner"></div><span>Carregando reputação...</span></div></div>
     <div class="tab-content" id="tab-produtos"><div class="loading-state"><div class="spinner"></div><span>Carregando produtos...</span></div></div>
   </div>
@@ -885,6 +887,9 @@ async function loadTab(tab){
     } else if(tab === 'reputacao'){
       var rep = await fetch('/api/reputation/'+currentSellerId).then(function(r){return r.json();});
       renderReputacao(el, rep);
+    } else if(tab === 'perguntas'){
+      var qs = await fetch('/api/questions/'+currentSellerId).then(function(r){return r.json();});
+      renderPerguntas(el, qs);
     }
   } catch(e){
     el.innerHTML = '<div class="loading-state"><span style="color:var(--red)">Erro ao carregar dados. Tente novamente.</span></div>';
@@ -1206,6 +1211,44 @@ function togglePromoCard(i){
   body.classList.toggle('open');
   card.classList.toggle('open');
   chev.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+function renderPerguntas(el, data){
+  var qs = data.questions || [];
+  var total = data.total || 0;
+  var totalUnans = data.total_unanswered || 0;
+  var unansColor = totalUnans > 0 ? 'var(--red)' : 'var(--green)';
+
+  var rows = qs.length === 0
+    ? '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:32px"><div style="font-size:32px;margin-bottom:12px;opacity:0.3">💬</div><div>Nenhuma pergunta encontrada</div></td></tr>'
+    : qs.map(function(q){
+        var stBadge = q.status === 'UNANSWERED' ? 'badge-red' : 'badge-green';
+        var stLabel = q.status === 'UNANSWERED' ? 'Sem resposta' : 'Respondida';
+        var dt = q.date_created ? q.date_created.split(' ') : ['—',''];
+        var dtBR = dt[0] ? dt[0].split('-').reverse().join('/') + (dt[1] ? ' ' + dt[1] : '') : '—';
+        return '<tr>'+
+          '<td style="min-width:300px"><div style="font-size:13px;color:var(--text);margin-bottom:4px">'+q.text+'</div>'+
+            (q.answer ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">↩ '+q.answer+'</div>' : '')+
+          '</td>'+
+          '<td style="font-size:11px;color:var(--text3);white-space:nowrap">'+dtBR+'</td>'+
+          '<td><span style="font-size:10px;color:var(--text3)">'+( q.item_id||'—')+'</span></td>'+
+          '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
+        '</tr>';
+      }).join('');
+
+  el.innerHTML =
+    '<div class="section-label">Resumo</div>'+
+    '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:20px">'+
+      '<div class="metric-card"><div class="metric-label">Total de Perguntas</div><div class="metric-value">'+total+'</div><div class="metric-delta">histórico recente</div></div>'+
+      '<div class="metric-card"><div class="metric-label">Sem Resposta</div><div class="metric-value" style="color:'+unansColor+'">'+totalUnans+'</div><div class="metric-delta">'+(totalUnans>0?'⚠ requer atenção':'✅ em dia')+'</div></div>'+
+    '</div>'+
+    '<div class="section-label">Perguntas Recentes</div>'+
+    '<div class="card" style="padding:0;overflow:hidden">'+
+      '<div style="overflow-x:auto"><table class="data-table">'+
+        '<thead><tr><th>Pergunta / Resposta</th><th>Data</th><th>Item ID</th><th>Status</th></tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+      '</table></div>'+
+    '</div>';
 }
 
 function renderProdutos(el, data){
