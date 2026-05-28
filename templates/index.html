@@ -528,7 +528,10 @@ body.dark .detail-name{color:#f0f0f5}
 <div class="alerts-panel" id="alerts-panel">
   <div class="alerts-header">
     <div style="font-size:15px;font-weight:700">🔔 Alertas</div>
-    <button onclick="closeAlerts()" style="background:none;border:none;cursor:pointer;font-size:18px;color:inherit;opacity:0.6">✕</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="injectTestAlerts()" title="Testar notificações" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);cursor:pointer;font-size:11px;color:inherit;border-radius:6px;padding:4px 10px;font-family:Poppins,sans-serif">🧪 Teste</button>
+      <button onclick="closeAlerts()" style="background:none;border:none;cursor:pointer;font-size:18px;color:inherit;opacity:0.6">✕</button>
+    </div>
   </div>
   <div class="alerts-body" id="alerts-body">
     <div class="alerts-loading"><div class="spinner"></div><span>Verificando alertas...</span></div>
@@ -586,6 +589,45 @@ body.dark .detail-name{color:#f0f0f5}
 // ── ALERTAS ──
 var alertsLoaded = false;
 var allAlerts = [];
+
+function injectTestAlerts(){
+  alertsLoaded = true;
+  var seller = (allSellers && allSellers[0]) ? (sellerNames[allSellers[0].user_id] || allSellers[0].nickname || 'Seller Teste') : 'Seller Teste';
+  var uid    = (allSellers && allSellers[0]) ? allSellers[0].user_id : '0';
+  allAlerts = [
+    {
+      seller: seller, uid: uid, level: 'promo', type: 'PROMOÇÃO',
+      message: '🎯 Nova promoção: Ofertas de Inverno',
+      detail: 'Deal · Desc. mín: 10% · 2026-06-01 → 2026-06-15'
+    },
+    {
+      seller: seller, uid: uid, level: 'critical', type: 'ACOS',
+      message: 'ACOS crítico: 32%',
+      detail: 'Meta: ≤20% · Crítico: >25%'
+    },
+    {
+      seller: seller, uid: uid, level: 'warning', type: 'ROAS',
+      message: 'ROAS abaixo da meta: 2.4x',
+      detail: 'Meta: ≥3x · Atenção: <3x'
+    },
+    {
+      seller: seller, uid: uid, level: 'warning', type: 'ACOS',
+      message: 'ACOS alto: 22%',
+      detail: 'Meta: ≤20% · Atenção: >20%'
+    },
+    {
+      seller: seller, uid: uid, level: 'critical', type: 'ROAS',
+      message: 'ROAS crítico: 1.1x',
+      detail: 'Meta: ≥3x · Crítico: <2x'
+    },
+    {
+      seller: seller, uid: uid, level: 'critical', type: 'PERGUNTAS',
+      message: '5 pergunta(s) sem resposta',
+      detail: 'Perguntas sem resposta impactam a reputação'
+    }
+  ];
+  renderAlerts();
+}
 
 function toggleAlerts(){
   var panel = document.getElementById('alerts-panel');
