@@ -523,7 +523,7 @@ def get_sales(user_id):
             chunk = missing_ids[i:i+20]
             r_t = requests.get(
                 "https://api.mercadolibre.com/items",
-                params={"ids": ",".join(chunk), "attributes": "id,title,price,status"},
+                params={"ids": ",".join(chunk), "attributes": "id,title,price,status,available_quantity,shipping,fulfillment"},
                 headers={"Authorization": "Bearer " + token},
                 timeout=10
             )
@@ -532,17 +532,25 @@ def get_sales(user_id):
             for entry in r_t.json():
                 body = entry.get("body", {})
                 iid  = str(body.get("id", ""))
+                is_full   = bool(body.get("fulfillment", {}).get("fulfillment_id") or
+                                  (body.get("shipping", {}) or {}).get("fulfillment"))
+                avail_qty = body.get("available_quantity", 0) or 0
                 if iid and iid not in products_map:
                     products_map[iid] = {
-                        "title":   body.get("title", iid),
-                        "item_id": iid,
-                        "qty":     0,
-                        "revenue": 0,
-                        "ads_qty": 0,
-                        "status":  body.get("status", "active")
+                        "title":       body.get("title", iid),
+                        "item_id":     iid,
+                        "qty":         0,
+                        "revenue":     0,
+                        "ads_qty":     0,
+                        "status":      body.get("status", "active"),
+                        "stock_total": avail_qty,
+                        "is_full":     is_full,
                     }
-                elif iid in products_map and not products_map[iid].get("status"):
-                    products_map[iid]["status"] = body.get("status", "active")
+                else:
+                    if not products_map[iid].get("status"):
+                        products_map[iid]["status"] = body.get("status", "active")
+                    products_map[iid]["stock_total"] = avail_qty
+                    products_map[iid]["is_full"]     = is_full
     except Exception as e:
         print(f"[ITEMS] Erro ao buscar todos os anúncios: {e}")
 
@@ -585,6 +593,15 @@ def get_sales(user_id):
         ads_q = ads_units_by_item.get(str(iid), 0)
         p["ads_qty"]     = min(ads_q, p["qty"])  # nunca pode ser maior que o total
         p["organic_qty"] = p["qty"] - p["ads_qty"]
+
+    # Calcula projeção de dias de estoque (baseado na taxa diária do período selecionado)
+    period_days = max((ddate.fromisoformat(date_to) - ddate.fromisoformat(date_from)).days + 1, 1)
+    for p in products_map.values():
+        stock = p.get("stock_total", 0) or 0
+        qty   = p.get("qty", 0) or 0
+        daily_rate = qty / period_days if qty > 0 else 0
+        p["daily_rate"] = round(daily_rate, 2)
+        p["days_stock"] = round(stock / daily_rate) if daily_rate > 0 else None
 
     top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)
     for p in top_products:
