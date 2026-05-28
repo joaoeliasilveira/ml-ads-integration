@@ -1503,7 +1503,7 @@ def debug_promo_items(user_id, promo_id):
         results[ptype] = {
             "http_status": r.status_code,
             "total": raw.get("paging", {}).get("total", len(items_sample)) if isinstance(raw, dict) else 0,
-            "first_items_raw": items_sample,  # JSON completo para ver campos disponíveis
+            "first_items_raw": items_sample,
             "response_keys": list(raw.keys()) if isinstance(raw, dict) else []
         }
 
