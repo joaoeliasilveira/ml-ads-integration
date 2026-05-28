@@ -1477,7 +1477,8 @@ function renderProdutos(el, data){
       var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
       var hasAds     = adsQty > 0;
       var pEnc       = encodeURIComponent(JSON.stringify(p));
-      return '<tr style="cursor:pointer" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
+      var pausedStyle = p.status==='paused' ? 'background:rgba(220,60,60,0.06);' : '';
+      return '<tr style="cursor:pointer;'+pausedStyle+'" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
         '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
         '<td>'+
           '<div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
@@ -1611,7 +1612,8 @@ function renderProductRows(prods){
     var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
     var hasAds     = adsQty > 0;
     var pEnc       = encodeURIComponent(JSON.stringify(p));
-    return '<tr style="cursor:pointer" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
+    var pausedStyle = p.status==='paused' ? 'background:rgba(220,60,60,0.06);' : '';
+    return '<tr style="cursor:pointer;'+pausedStyle+'" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
       '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
       '<td><div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
         '<div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;width:180px"><div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"></div></div>'+
