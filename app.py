@@ -1373,7 +1373,98 @@ def validate(user_id):
     return jsonify({"seller": seller["nickname"], "user_id": user_id, "score": f"{ok_count}/{len(results)}", "results": results})
 
 
-@app.route("/api/debug-promo-items/<user_id>/<promo_id>")
+@app.route("/api/promo-items/<user_id>/<promo_id>")
+def get_promo_items(user_id, promo_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    promo_type = request.args.get("type", "SMART")
+    start_date = request.args.get("start_date", "")
+
+    # Busca itens da promoção
+    r = requests.get(
+        f"https://api.mercadolibre.com/seller-promotions/promotions/{promo_id}/items",
+        params={"promotion_type": promo_type, "app_version": "v2"},
+        headers={"Authorization": "Bearer " + token}
+    )
+    if not r.ok:
+        return jsonify({"error": "Nao foi possivel buscar itens", "status": r.status_code}), 400
+
+    data = r.json()
+    items = data.get("results", [])
+
+    if not items:
+        return jsonify({"promo_id": promo_id, "items": [], "total": 0})
+
+    # Para cada item, busca vendas desde o início da promoção
+    date_from = start_date[:10] if start_date else datetime.now(timezone.utc).date().isoformat()
+    date_to   = datetime.now(timezone.utc).date().isoformat()
+
+    # Busca pedidos no período da promoção
+    all_orders = []
+    offset = 0
+    while offset < 2000:
+        r_ord = requests.get(
+            "https://api.mercadolibre.com/orders/search",
+            params={
+                "seller": user_id,
+                "order.date_created.from": date_from + "T00:00:00.000-03:00",
+                "order.date_created.to":   date_to   + "T23:59:59.000-03:00",
+                "limit": 50, "offset": offset, "sort": "date_asc"
+            },
+            headers={"Authorization": "Bearer " + token}
+        )
+        if not r_ord.ok: break
+        batch = r_ord.json().get("results", [])
+        if not batch: break
+        all_orders.extend(batch)
+        if len(batch) < 50: break
+        offset += 50
+
+    SALE_STATUSES = {"confirmed","payment_required","payment_in_process","paid","partially_refunded","partially_paid","pending_cancel","delivered"}
+    sale_orders = [o for o in all_orders if o.get("status") in SALE_STATUSES]
+
+    # Agrupa vendas por item_id
+    sales_by_item = {}
+    for o in sale_orders:
+        for oi in o.get("order_items", []):
+            iid = str(oi.get("item", {}).get("id", ""))
+            qty = oi.get("quantity", 1)
+            price = oi.get("unit_price", 0)
+            if iid not in sales_by_item:
+                sales_by_item[iid] = {"qty": 0, "revenue": 0.0}
+            sales_by_item[iid]["qty"]     += qty
+            sales_by_item[iid]["revenue"] += qty * price
+
+    # Monta resultado
+    result = []
+    for item in items:
+        iid = str(item.get("id", ""))
+        s   = sales_by_item.get(iid, {"qty": 0, "revenue": 0.0})
+        result.append({
+            "item_id":          iid,
+            "status":           item.get("status", ""),
+            "price":            item.get("price", 0),
+            "original_price":   item.get("original_price", 0),
+            "meli_percentage":  item.get("meli_percentage", 0),
+            "seller_percentage":item.get("seller_percentage", 0),
+            "start_date":       str(item.get("start_date",""))[:10],
+            "end_date":         str(item.get("end_date",""))[:10],
+            "qty_sold":         s["qty"],
+            "revenue":          round(s["revenue"], 2),
+        })
+
+    return jsonify({
+        "promo_id":   promo_id,
+        "date_from":  date_from,
+        "date_to":    date_to,
+        "total":      len(result),
+        "items":      result
+    })
+
+
+
 def debug_promo_items(user_id, promo_id):
     token, seller = get_seller_token(user_id)
     if not seller:
