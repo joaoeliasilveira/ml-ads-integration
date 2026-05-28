@@ -396,6 +396,9 @@ body.dark .alert-seller{color:#2ecc9a}
 .alert-type-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;text-transform:uppercase}
 .alert-critical-badge{background:rgba(231,76,60,.15);color:var(--red)}
 .alert-warning-badge{background:rgba(230,126,34,.15);color:var(--amber)}
+.alert-promo-badge{background:rgba(78,205,196,.15);color:var(--tl)}
+.alert-item.promo{border-left:4px solid var(--tl);background:rgba(78,205,196,.04)}
+body.dark .alert-item.promo{background:rgba(78,205,196,.06)}
 .alert-message{font-size:12px;color:var(--tx);font-weight:500}
 body.dark .alert-message{color:#f0f0f5}
 .alert-detail{font-size:11px;color:var(--mu);margin-top:3px}
@@ -638,6 +641,45 @@ async function loadAlerts(){
       var qs = await fetch('/api/questions/'+s.user_id).then(function(r){return r.json();}).catch(function(){return null;});
       if(qs && qs.total_unanswered > 0)
         allAlerts.push({seller:sName,uid:s.user_id,level:'critical',type:'PERGUNTAS',message:qs.total_unanswered+' pergunta(s) sem resposta',detail:'Perguntas sem resposta impactam a reputação'});
+
+      // Novas promoções
+      try {
+        var promos = await fetch('/api/promotions/'+s.user_id).then(function(r){return r.json();}).catch(function(){return null;});
+        if(promos && promos.promotions){
+          var seenKey  = 'seen_promos_'+s.user_id;
+          var seenRaw  = localStorage.getItem(seenKey);
+          var seenIds  = seenRaw ? JSON.parse(seenRaw) : [];
+          var newIds   = [];
+          var typeMap  = {SMART:'Smart',DEAL:'Deal',PRICE_MATCHING_MELI_ALL:'Price Match',LIGHTNING:'Relâmpago',SELLER_CAMPAIGN:'Campanha'};
+
+          promos.promotions.forEach(function(promo){
+            var pid = promo.id || '';
+            if(!pid || seenIds.indexOf(pid) !== -1) return;
+            newIds.push(pid);
+            var discount  = promo.discount > 0 ? promo.discount+'%' : '—';
+            var startDate = promo.start_date ? promo.start_date.substring(0,10) : '—';
+            var endDate   = promo.end_date   ? promo.end_date.substring(0,10)   : '—';
+            var typeName  = typeMap[promo.type] || promo.type || '';
+            allAlerts.push({
+              seller:  sName,
+              uid:     s.user_id,
+              level:   'promo',
+              type:    'PROMOÇÃO',
+              message: '🎯 Nova promoção: '+promo.name,
+              detail:  (typeName?typeName+' · ':'')+'Desc. mín: '+discount+' · '+startDate+' → '+endDate,
+              promoId: pid
+            });
+          });
+
+          // Salva todos os IDs vistos (antigos + novos)
+          if(newIds.length){
+            var allSeen = seenIds.concat(newIds);
+            // Mantém só os últimos 200 para não estourar o localStorage
+            if(allSeen.length > 200) allSeen = allSeen.slice(-200);
+            localStorage.setItem(seenKey, JSON.stringify(allSeen));
+          }
+        }
+      } catch(ePromo){}
     } catch(e){}
   }
 
@@ -664,7 +706,21 @@ function renderAlerts(){
   var criticals = allAlerts.filter(function(a){return a.level==='critical';});
   var warnings  = allAlerts.filter(function(a){return a.level==='warning';});
 
+  var promos    = allAlerts.filter(function(a){return a.level==='promo';});
   var html = '';
+  if(promos.length){
+    html += '<div class="alerts-section-label">🎯 Novas Promoções ('+promos.length+')</div>';
+    html += promos.map(function(a){
+      return '<div class="alert-item promo" onclick="openSellerFromAlert(\''+a.uid+'\')" style="cursor:pointer">'+
+        '<div class="alert-item-header">'+
+          '<span class="alert-seller">'+a.seller+'</span>'+
+          '<span class="alert-type-badge alert-promo-badge">'+a.type+'</span>'+
+        '</div>'+
+        '<div class="alert-message">'+a.message+'</div>'+
+        '<div class="alert-detail">'+a.detail+'</div>'+
+      '</div>';
+    }).join('');
+  }
   if(criticals.length){
     html += '<div class="alerts-section-label">🔴 Críticos ('+criticals.length+')</div>';
     html += criticals.map(function(a){
