@@ -1272,7 +1272,7 @@ function renderPromocoes(el, data){
         var desconto = (p.discount && p.discount > 0) ? p.discount+'%' : '—';
         var itens    = (p.items_count && p.items_count > 0) ? p.items_count : '—';
 
-        return '<div class="promo-card" id="promo-card-'+i+'">'+
+        return '<div class="promo-card" id="promo-card-'+i+'" data-promo-id="'+p.id+'" data-promo-type="'+p.type+'" data-start-date="'+(p.start_date||'')+'">'+ 
           // Header clicável
           '<div class="promo-card-header" onclick="togglePromoCard('+i+')">'+
             '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'+
@@ -1292,10 +1292,7 @@ function renderPromocoes(el, data){
               '<div class="promo-detail-item"><div class="promo-detail-label">Duração</div><div class="promo-detail-value">'+duracao+'</div></div>'+
             '</div>'+
             '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br)">'+
-              '<button class="btn-promo-items" id="btn-items-'+i+'" onclick="loadPromoItems(\''+p.id+'\',\''+p.type+'\',\''+p.start_date+'\','+i+')">'+
-                '📦 Ver produtos na promoção'+
-              '</button>'+
-              '<div id="promo-items-'+i+'" style="margin-top:12px"></div>'+
+              '<div id="promo-items-'+i+'" class="promo-items-container"><div style="display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px"><div class="spinner" style="width:16px;height:16px"></div>Carregando produtos...</div></div>'+
             '</div>'+
           '</div>'+
         '</div>';
@@ -1319,38 +1316,40 @@ function togglePromoCard(i){
   body.classList.toggle('open');
   card.classList.toggle('open');
   chev.style.transform = isOpen ? '' : 'rotate(180deg)';
+  // Auto-carregar produtos ao abrir
+  if(!isOpen){
+    var container = document.getElementById('promo-items-'+i);
+    if(container && !container.dataset.loaded){
+      var promoId    = card.dataset.promoId;
+      var promoType  = card.dataset.promoType;
+      var startDate  = card.dataset.startDate;
+      loadPromoItems(promoId, promoType, startDate, i);
+    }
+  }
 }
 
 async function loadPromoItems(promoId, promoType, startDate, idx){
   var container = document.getElementById('promo-items-'+idx);
-  var btn = document.getElementById('btn-items-'+idx);
-  if(!container || !btn) return;
-
-  // Se já carregou, toggle visibilidade
-  if(btn.dataset.loaded === '1'){
-    var isVisible = container.style.display !== 'none';
-    container.style.display = isVisible ? 'none' : 'block';
-    btn.textContent = isVisible ? '📦 Ver produtos na promoção' : '📦 Ocultar produtos';
-    return;
-  }
-
-  btn.textContent = 'Carregando...';
-  btn.disabled = true;
+  if(!container || container.dataset.loaded) return;
 
   try {
     var url = '/api/promo-items/'+currentSellerId+'/'+promoId+'?type='+promoType+'&start_date='+startDate;
     var data = await fetch(url).then(function(r){return r.json();});
     var items = data.items || [];
 
+    var statusMap = {'active':'Ativa','candidate':'Candidata','paused':'Pausada','finished':'Encerrada','suspended':'Suspensa'};
+
     if(!items.length){
-      container.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:8px 0">Nenhum produto encontrado nesta promoção.</div>';
+      container.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:4px 0">Nenhum produto encontrado nesta promoção.</div>';
     } else {
       var rows = items.map(function(it){
+        var stLabel = statusMap[it.status] || it.status;
         var stBadge = it.status==='active'?'badge-green':it.status==='candidate'?'badge-amber':'badge-gray';
         var desconto = it.original_price > 0 ? Math.round((1 - it.price/it.original_price)*100) : 0;
+        var title = it.title || it.item_id;
         return '<tr>'+
-          '<td style="font-family:monospace;font-size:11px;color:var(--mu)">'+it.item_id+'</td>'+
-          '<td><span class="badge '+stBadge+'">'+it.status+'</span></td>'+
+          '<td style="max-width:300px"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div><div style="font-size:10px;color:var(--mu);font-family:monospace">'+it.item_id+'</div></td>'+
+          '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
           '<td>'+fmtDec(it.price)+'</td>'+
           '<td style="color:var(--mu);text-decoration:line-through">'+fmtDec(it.original_price)+'</td>'+
           '<td><span style="color:var(--green);font-weight:600">-'+desconto+'%</span></td>'+
@@ -1360,22 +1359,17 @@ async function loadPromoItems(promoId, promoType, startDate, idx){
       }).join('');
 
       container.innerHTML =
-        '<div style="font-size:11px;color:var(--mu);margin-bottom:8px">Período: '+fmtDate(data.date_from)+' – '+fmtDate(data.date_to)+'</div>'+
+        '<div style="font-size:11px;color:var(--mu);margin-bottom:8px">Vendas desde '+fmtDate(data.date_from)+' até '+fmtDate(data.date_to)+'</div>'+
         '<div style="overflow-x:auto"><table class="data-table">'+
           '<thead><tr>'+
-            '<th>Item ID</th><th>Status</th><th>Preço Promo</th><th>Preço Original</th><th>Desconto</th><th>Qtd Vendida</th><th>Receita</th>'+
+            '<th>Produto</th><th>Status</th><th>Preço Promo</th><th>Original</th><th>Desconto</th><th>Qtd Vendida</th><th>Receita</th>'+
           '</tr></thead>'+
           '<tbody>'+rows+'</tbody>'+
         '</table></div>';
     }
-
-    btn.dataset.loaded = '1';
-    btn.disabled = false;
-    btn.textContent = '📦 Ocultar produtos';
+    container.dataset.loaded = '1';
   } catch(e) {
-    container.innerHTML = '<div style="font-size:12px;color:var(--red);padding:8px 0">Erro ao carregar produtos.</div>';
-    btn.disabled = false;
-    btn.textContent = '📦 Ver produtos na promoção';
+    container.innerHTML = '<div style="font-size:12px;color:var(--red);padding:4px 0">Erro ao carregar produtos.</div>';
   }
 }
 
