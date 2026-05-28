@@ -531,7 +531,7 @@ def get_sales(user_id):
         p["ads_qty"]     = min(ads_q, p["qty"])  # nunca pode ser maior que o total
         p["organic_qty"] = p["qty"] - p["ads_qty"]
 
-    top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)[:10]
+    top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)
     for p in top_products:
         p["revenue"] = round(p["revenue"], 2)
 
