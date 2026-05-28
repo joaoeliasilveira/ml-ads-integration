@@ -1455,16 +1455,35 @@ def get_promo_items(user_id, promo_id):
     # Monta resultado
     result = []
     for item in items:
-        iid = str(item.get("id", ""))
-        s   = sales_by_item.get(iid, {"qty": 0, "revenue": 0.0})
+        iid    = str(item.get("id", ""))
+        s      = sales_by_item.get(iid, {"qty": 0, "revenue": 0.0})
+        status = item.get("status", "")
+        orig   = item.get("original_price", 0) or 0
+
+        # seller_percentage:
+        # - started: vem direto do campo ou calculado pelo preço atual
+        # - candidate: ML não retorna o campo — calcula via suggested_discounted_price
+        seller_pct = item.get("seller_percentage", 0)
+        if not seller_pct and orig > 0:
+            if status == "candidate":
+                suggested = item.get("suggested_discounted_price", 0) or 0
+                if suggested > 0:
+                    seller_pct = round((orig - suggested) / orig * 100, 1)
+            elif status == "started":
+                price = item.get("price", 0) or 0
+                if price > 0:
+                    seller_pct = round((orig - price) / orig * 100, 1)
+
         result.append({
             "item_id":          iid,
             "title":            titles.get(iid, iid),
-            "status":           item.get("status", ""),
+            "status":           status,
             "price":            item.get("price", 0),
-            "original_price":   item.get("original_price", 0),
+            "original_price":   orig,
             "meli_percentage":  item.get("meli_percentage", 0),
-            "seller_percentage":item.get("seller_percentage", 0),
+            "seller_percentage": seller_pct,
+            "suggested_discounted_price": item.get("suggested_discounted_price", 0),
+            "min_discounted_price": item.get("min_discounted_price", 0),
             "start_date":       str(item.get("start_date",""))[:10],
             "end_date":         str(item.get("end_date",""))[:10],
             "qty_sold":         s["qty"],
