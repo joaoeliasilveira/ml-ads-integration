@@ -334,6 +334,43 @@ body.dark .btn-promo-items:hover{background:#26262f}
   padding:0 3px;border:2px solid transparent;
 }
 
+/* Loading Screen — oculta UI durante carregamento */
+#loading-screen ~ #app .topbar,
+#loading-screen ~ #app .sellers-section-title,
+#loading-screen:not(.hidden) ~ #app { opacity:0; }
+#loading-screen.hidden ~ #app { opacity:1; transition:opacity .4s ease; }
+
+/* Loading Screen */
+#loading-screen{
+  position:fixed;inset:0;z-index:9999;
+  background:#0a0a0f;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;
+  transition:opacity .5s ease;
+}
+#loading-screen.fade-out{opacity:0;pointer-events:none;}
+#loading-screen.hidden{display:none;}
+.loading-logo{width:220px;opacity:0;animation:logoFadeIn .8s ease .2s forwards;}
+@keyframes logoFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.loading-spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;}
+.loading-ring{
+  width:48px;height:48px;border-radius:50%;
+  border:3px solid rgba(78,205,196,.15);
+  border-top-color:#2a9d8f;
+  animation:spin .9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{
+  font-family:'Poppins',sans-serif;font-size:14px;color:rgba(255,255,255,.5);
+  letter-spacing:.5px;
+}
+.loading-dots span{
+  display:inline-block;animation:dotBounce 1.2s infinite;
+  font-size:18px;line-height:1;
+}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotBounce{0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
+
 .alerts-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:290;
   opacity:0;pointer-events:none;transition:opacity .25s;
@@ -913,9 +950,17 @@ function showList(){
   loadList();
 }
 
+function hideLoadingScreen(){
+  var ls = document.getElementById('loading-screen');
+  if(!ls || ls.classList.contains('hidden')) return;
+  ls.classList.add('fade-out');
+  setTimeout(function(){ ls.classList.add('hidden'); }, 500);
+}
+
 async function loadList(){
   var resp = await fetch('/api/sellers');
   allSellers = await resp.json();
+  hideLoadingScreen();
   var grid = document.getElementById('sellers-grid');
 
   if(!allSellers.length){
