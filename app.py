@@ -1437,6 +1437,21 @@ def get_promo_items(user_id, promo_id):
             sales_by_item[iid]["qty"]     += qty
             sales_by_item[iid]["revenue"] += qty * price
 
+    # Busca títulos dos itens em batch
+    item_ids = [str(item.get("id","")) for item in items if item.get("id")]
+    titles = {}
+    if item_ids:
+        chunk = ",".join(item_ids[:20])
+        r_titles = requests.get(
+            "https://api.mercadolibre.com/items",
+            params={"ids": chunk, "attributes": "id,title"},
+            headers={"Authorization": "Bearer " + token}
+        )
+        if r_titles.ok and r_titles.text:
+            for entry in r_titles.json():
+                body = entry.get("body", {})
+                titles[str(body.get("id",""))] = body.get("title","")
+
     # Monta resultado
     result = []
     for item in items:
@@ -1444,6 +1459,7 @@ def get_promo_items(user_id, promo_id):
         s   = sales_by_item.get(iid, {"qty": 0, "revenue": 0.0})
         result.append({
             "item_id":          iid,
+            "title":            titles.get(iid, iid),
             "status":           item.get("status", ""),
             "price":            item.get("price", 0),
             "original_price":   item.get("original_price", 0),
