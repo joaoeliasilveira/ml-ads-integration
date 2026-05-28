@@ -837,7 +837,7 @@ function saveNames(){ try { localStorage.setItem('petina_seller_names', JSON.str
 function fmt(n){ return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function fmtDec(n){ return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtFull(n){ return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
-function fmtDate(d){ if(!d) return '—'; var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function fmtDate(d){ if(!d) return '—'; var p=d.split('-'); return p[2]+'/'+p[1]; }
 function fmtK(n){ if(n>=1000000) return (n/1000000).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return String(n); }
 
 var currentPeriodValue = '30';
@@ -1779,16 +1779,35 @@ function openProdModal(p){
             var sLabel = statusMap[pr.status]   || pr.status;
             var discLabel = pr.discount_pct > 0 ? pr.discount_pct+'%' : '—';
             var priceLabel = pr.promo_price > 0 ? ' → R$ '+pr.promo_price.toFixed(2).replace('.',',') : '';
-            return '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;margin-bottom:8px;border-left:3px solid '+sColor+'">'+
-              '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+            var endLabel = pr.end_date && pr.end_date !== '—' ? pr.end_date : 'em aberto';
+            return '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:14px;margin-bottom:8px;border-left:3px solid '+sColor+'">'+
+              '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">'+
                 '<div style="font-weight:600;font-size:13px">'+pr.name+'</div>'+
-                '<span style="font-size:11px;font-weight:600;color:'+sColor+';background:'+sColor+'22;padding:2px 8px;border-radius:4px">'+sLabel+'</span>'+
+                '<span style="font-size:11px;font-weight:600;color:'+sColor+';background:'+sColor+'22;padding:3px 10px;border-radius:4px;white-space:nowrap">'+sLabel+'</span>'+
               '</div>'+
-              '<div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap">'+
-                '<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Tipo</span><div style="font-size:12px;font-weight:500;margin-top:2px">'+pr.type+'</div></div>'+
-                '<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Desconto</span><div style="font-size:14px;font-weight:700;color:'+sColor+';margin-top:2px">'+discLabel+'</div></div>'+
-                (pr.promo_price>0?'<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Preço Promo</span><div style="font-size:12px;font-weight:500;color:'+sColor+';margin-top:2px">R$ '+pr.promo_price.toFixed(2).replace('.',',')+'</div></div>':'')+
-                '<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Período</span><div style="font-size:12px;font-weight:500;margin-top:2px">'+pr.start_date+' → '+pr.end_date+'</div></div>'+
+              '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start">'+
+                '<div>'+
+                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Tipo</div>'+
+                  '<div style="font-size:12px;font-weight:500">'+pr.type+'</div>'+
+                '</div>'+
+                '<div>'+
+                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Desconto</div>'+
+                  '<div style="font-size:15px;font-weight:700;color:'+sColor+'">'+discLabel+'</div>'+
+                '</div>'+
+                (pr.promo_price>0?
+                  '<div>'+
+                    '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Preço Promo</div>'+
+                    '<div style="font-size:12px;font-weight:600;color:'+sColor+'">R$ '+pr.promo_price.toFixed(2).replace('.',',')+'</div>'+
+                  '</div>'
+                :
+                  '<div></div>'
+                )+
+                '<div>'+
+                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Período</div>'+
+                  '<div style="font-size:11px;font-weight:500">'+fmtDate(pr.start_date)+'</div>'+
+                  '<div style="font-size:11px;color:var(--text3)">até '+fmtDate(pr.end_date||'')+'</div>'+
+                '</div>'+
+                '<div></div>'+
               '</div>'+
             '</div>';
           }).join('');
