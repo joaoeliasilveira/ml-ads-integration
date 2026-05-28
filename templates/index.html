@@ -900,6 +900,7 @@ function varBadge(v){
 function renderVendas(el, data, isToday){
   var s = data.summary || {};
   var cmp = data.comparison || {};
+  var convColor = s.conversion>=3?'var(--green)':s.conversion>=1?'var(--amber)':'var(--red)';
   var daily = data.daily_sales || [];
 
   // Dados horários vindos direto do backend (quando período = hoje)
@@ -914,7 +915,8 @@ function renderVendas(el, data, isToday){
       '<div class="metric-card"><div class="metric-label">Unidades Vendidas</div><div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'</div><div class="metric-delta">'+varBadge(cmp.var_unidades)+' vs período anterior</div></div>'+
       '<div class="metric-card"><div class="metric-label">Preço Médio / Unidade</div><div class="metric-value">'+fmt(s.preco_medio_unidade||0)+'</div><div class="metric-delta">'+varBadge(cmp.var_avg_unit)+' vs período anterior</div></div>'+
       '<div class="metric-card"><div class="metric-label">Qtd de Vendas</div><div class="metric-value">'+fmtFull(s.qtd_vendas||0)+'</div><div class="metric-delta">'+varBadge(cmp.var_qtd_vendas)+' vs período anterior</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Preço Médio / Venda</div><div class="metric-value">'+fmt(s.preco_medio_venda||0)+'</div><div class="metric-delta">por pedido</div></div>'+
+      '<div class="metric-card"><div class="metric-label">Visitas</div><div class="metric-value">'+fmtFull(s.total_visits||0)+'</div><div class="metric-delta">nos anúncios</div></div>'+
+      '<div class="metric-card"><div class="metric-label">Conversão</div><div class="metric-value" style="color:'+convColor+'">'+(s.conversion||0)+'%</div><div class="metric-delta">visitas → venda</div></div>'+
 
       '<div class="metric-card"><div class="metric-label">Qtd Canceladas</div><div class="metric-value" style="color:'+(s.qtd_canceladas>0?'var(--red)':'var(--text)')+'">'+fmtFull(s.qtd_canceladas||0)+'</div><div class="metric-delta">no período</div></div>'+
       '<div class="metric-card"><div class="metric-label">Valor Cancelamentos</div><div class="metric-value" style="color:'+(s.valor_canceladas>0?'var(--red)':'var(--text)')+'">'+fmt(s.valor_canceladas||0)+'</div><div class="metric-delta">no período</div></div>'+
