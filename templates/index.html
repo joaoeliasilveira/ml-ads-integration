@@ -340,6 +340,19 @@ body.dark .btn-promo-items:hover{background:#26262f}
 }
 .alerts-overlay.open{opacity:1;pointer-events:all}
 
+.prod-modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.prod-modal-overlay.open{opacity:1;pointer-events:all}
+.prod-modal{
+  background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);
+  width:100%;max-width:620px;max-height:85vh;overflow-y:auto;
+  transform:translateY(16px);transition:transform .2s;
+}
+.prod-modal-overlay.open .prod-modal{transform:translateY(0)}
+
 .alerts-panel{
   position:fixed;top:0;right:-420px;width:400px;height:100vh;
   background:var(--sf);border-left:1.5px solid var(--br);
@@ -552,6 +565,13 @@ body.dark .detail-name{color:#f0f0f5}
     <div class="tab-content" id="tab-perguntas"><div class="loading-state"><div class="spinner"></div><span>Carregando perguntas...</span></div></div>
     <div class="tab-content" id="tab-reputacao"><div class="loading-state"><div class="spinner"></div><span>Carregando reputação...</span></div></div>
     <div class="tab-content" id="tab-produtos"><div class="loading-state"><div class="spinner"></div><span>Carregando produtos...</span></div></div>
+  </div>
+</div>
+
+<!-- Modal de Produto -->
+<div class="prod-modal-overlay" id="prod-modal-overlay" onclick="closeProdModal(event)">
+  <div class="prod-modal" id="prod-modal-box">
+    <div id="prod-modal-content"></div>
   </div>
 </div>
 
@@ -1446,12 +1466,14 @@ function renderProdutos(el, data){
     var s = el._sortBy || sortBy;
     var maxVal = sorted.length>0 ? (sorted[0][s]||1) : 1;
     if(!sorted.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">Nenhum produto encontrado no período</td></tr>';
+    window._currentProdGmv = data.gmv || 0;
     return sorted.map(function(p,i){
       var pct        = Math.round(((p[s]||0)/maxVal)*100);
-      var adsQty     = p.ads_qty     || 0;
+      var adsQty     = p.ads_qty || 0;
       var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
       var hasAds     = adsQty > 0;
-      return '<tr style="cursor:pointer" onclick="toggleProduct(\'prod-'+i+'\')">' +
+      var pEnc       = encodeURIComponent(JSON.stringify(p));
+      return '<tr style="cursor:pointer" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
         '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
         '<td>'+
           '<div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
@@ -1464,44 +1486,6 @@ function renderProdutos(el, data){
         '<td style="color:'+(hasAds?'var(--tl)':'var(--text3)')+';font-weight:'+(hasAds?'500':'400')+'">'+fmtFull(adsQty)+' un</td>'+
         '<td style="font-weight:600">'+fmtDec(p.revenue)+'</td>'+
         '<td style="color:var(--text3);width:20px">›</td>'+
-      '</tr>'+
-      '<tr id="prod-'+i+'" style="display:none">'+
-        '<td colspan="7" style="padding:0">'+
-          '<div style="background:var(--bg3);border-radius:var(--radius-sm);margin:0 8px 8px;padding:16px">'+
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
-              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total</div>'+
-                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtDec(p.revenue)+'</div>'+
-              '</div>'+
-              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total Unidades</div>'+
-                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtFull(p.qty)+'</div>'+
-              '</div>'+
-              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(78,205,196,0.2)">'+
-                '<div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px">🌿 Orgânico + Promo</div>'+
-                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtFull(organicQty)+' un</div>'+
-                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+
-                  (p.qty>0?Math.round(organicQty/p.qty*100):0)+'% do total'+
-                '</div>'+
-              '</div>'+
-              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(42,157,143,0.2)">'+
-                '<div style="font-size:10px;color:var(--tl);text-transform:uppercase;margin-bottom:6px">📣 Via ADS</div>'+
-                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(hasAds?'var(--tl)':'var(--text3)')+'">'+fmtFull(adsQty)+' un</div>'+
-                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+
-                  (p.qty>0?Math.round(adsQty/p.qty*100):0)+'% do total'+
-                '</div>'+
-              '</div>'+
-              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio / Un</div>'+
-                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtDec(p.qty>0?p.revenue/p.qty:0)+'</div>'+
-              '</div>'+
-              '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% do Faturamento</div>'+
-                '<div style="font-size:18px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+pct+'%</div>'+
-              '</div>'+
-            '</div>'+
-          '</div>'+
-        '</td>'+
       '</tr>';
     }).join('');
   }
@@ -1552,6 +1536,57 @@ function renderProdutos(el, data){
   }, 0);
 }
 
+function openProdModal(p){
+  var adsQty     = p.ads_qty || 0;
+  var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
+  var hasAds     = adsQty > 0;
+  var totalRev   = p.revenue || 0;
+  document.getElementById('prod-modal-content').innerHTML =
+    '<div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">'+
+      '<div style="font-size:15px;font-weight:600;line-height:1.3;flex:1">'+p.title+'</div>'+
+      '<button onclick="closeProdModal()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:18px;line-height:1">×</button>'+
+    '</div>'+
+    '<div style="padding:20px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
+      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total</div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtDec(totalRev)+'</div>'+
+      '</div>'+
+      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total Unidades</div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtFull(p.qty)+'</div>'+
+      '</div>'+
+      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(78,205,196,0.2)">'+
+        '<div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px">🌿 Orgânico + Promo</div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtFull(organicQty)+' un</div>'+
+        '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(organicQty/p.qty*100):0)+'% do total</div>'+
+      '</div>'+
+      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(42,157,143,0.2)">'+
+        '<div style="font-size:10px;color:var(--tl);text-transform:uppercase;margin-bottom:6px">📣 Via ADS</div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(hasAds?'var(--tl)':'var(--text3)')+'">'+fmtFull(adsQty)+' un</div>'+
+        '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(adsQty/p.qty*100):0)+'% do total</div>'+
+      '</div>'+
+      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio / Un</div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtDec(p.qty>0?totalRev/p.qty:0)+'</div>'+
+      '</div>'+
+      '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% do Faturamento</div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+
+          (window._currentProdGmv>0?Math.round(totalRev/window._currentProdGmv*100):0)+'%'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  var overlay = document.getElementById('prod-modal-overlay');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProdModal(e){
+  if(e && e.target !== document.getElementById('prod-modal-overlay') && e.type==='click') return;
+  document.getElementById('prod-modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 function toggleProduct(id){
   var row = document.getElementById(id);
   if(row) row.style.display = row.style.display==='none'?'table-row':'none';
@@ -1565,13 +1600,14 @@ function filterProducts(q){
 
 function renderProductRows(prods){
   if(!prods.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Nenhum produto encontrado</td></tr>';
+  var maxVal = (prods[0].revenue||1);
   return prods.map(function(p,i){
-    var maxRev     = prods[0].revenue || 1;
-    var pct        = Math.round((p.revenue/maxRev)*100);
-    var adsQty     = p.ads_qty     || 0;
+    var pct        = Math.round(((p.revenue||0)/maxVal)*100);
+    var adsQty     = p.ads_qty || 0;
     var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
     var hasAds     = adsQty > 0;
-    return '<tr style="cursor:pointer" onclick="toggleProduct(\'pfilt-'+i+'\')">' +
+    var pEnc       = encodeURIComponent(JSON.stringify(p));
+    return '<tr style="cursor:pointer" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
       '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
       '<td><div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
         '<div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;width:180px"><div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"></div></div>'+
@@ -1581,19 +1617,7 @@ function renderProductRows(prods){
       '<td style="color:'+(hasAds?'var(--tl)':'var(--text3)')+';font-weight:'+(hasAds?'500':'400')+'">'+fmtFull(adsQty)+' un</td>'+
       '<td style="font-weight:600">'+fmtDec(p.revenue)+'</td>'+
       '<td style="color:var(--text3);width:20px">›</td>'+
-    '</tr>'+
-    '<tr id="pfilt-'+i+'" style="display:none"><td colspan="7" style="padding:0">'+
-      '<div style="background:var(--bg3);border-radius:var(--radius-sm);margin:0 8px 8px;padding:16px">'+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
-          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total</div><div style="font-size:18px;font-weight:700;color:var(--green)">'+fmtDec(p.revenue)+'</div></div>'+
-          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total Unidades</div><div style="font-size:18px;font-weight:700">'+fmtFull(p.qty)+'</div></div>'+
-          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(78,205,196,0.2)"><div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px">🌿 Orgânico + Promo</div><div style="font-size:18px;font-weight:700;color:var(--green)">'+fmtFull(organicQty)+' un</div><div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(organicQty/p.qty*100):0)+'% do total</div></div>'+
-          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(42,157,143,0.2)"><div style="font-size:10px;color:var(--tl);text-transform:uppercase;margin-bottom:6px">📣 Via ADS</div><div style="font-size:18px;font-weight:700;color:'+(hasAds?'var(--tl)':'var(--text3)')+'">'+fmtFull(adsQty)+' un</div><div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(adsQty/p.qty*100):0)+'% do total</div></div>'+
-          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio</div><div style="font-size:18px;font-weight:700">'+fmtDec(p.qty>0?p.revenue/p.qty:0)+'</div></div>'+
-          '<div style="background:var(--bg4);border-radius:var(--radius-xs);padding:12px"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% Faturamento</div><div style="font-size:18px;font-weight:700">'+pct+'%</div></div>'+
-        '</div>'+
-      '</div>'+
-    '</td></tr>';
+    '</tr>';
   }).join('');
 }
 
