@@ -1345,14 +1345,23 @@ async function loadPromoItems(promoId, promoType, startDate, idx){
       var rows = items.map(function(it){
         var stLabel = statusMap[it.status] || it.status;
         var stBadge = (it.status==='active'||it.status==='started')?'badge-green':it.status==='candidate'?'badge-amber':'badge-gray';
-        var desconto = it.original_price > 0 ? Math.round((1 - it.price/it.original_price)*100) : 0;
+        var desconto, descontoLabel, descontoColor;
+        if(it.status === 'started' || it.status === 'active'){
+          desconto = it.original_price > 0 ? Math.round((1 - it.price/it.original_price)*100) : 0;
+          descontoLabel = '-'+desconto+'%';
+          descontoColor = 'var(--green)';
+        } else {
+          desconto = it.seller_percentage || 0;
+          descontoLabel = 'Mín: '+desconto+'%';
+          descontoColor = 'var(--amber)';
+        }
         var title = it.title || it.item_id;
         return '<tr>'+
           '<td style="max-width:300px"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div><div style="font-size:10px;color:var(--mu);font-family:monospace">'+it.item_id+'</div></td>'+
           '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
           '<td>'+fmtDec(it.price)+'</td>'+
           '<td style="color:var(--mu);text-decoration:line-through">'+fmtDec(it.original_price)+'</td>'+
-          '<td><span style="color:var(--green);font-weight:600">-'+desconto+'%</span></td>'+
+          '<td><span style="color:'+descontoColor+';font-weight:600">'+descontoLabel+'</span></td>'+
           '<td style="font-weight:600">'+it.qty_sold+' un</td>'+
           '<td style="font-weight:600;color:var(--green)">'+fmtDec(it.revenue)+'</td>'+
         '</tr>';
