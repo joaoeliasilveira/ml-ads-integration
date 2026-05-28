@@ -112,7 +112,7 @@ def get_sellers():
     conn.close()
     return jsonify([dict(s) for s in sellers])
 
-@app.route("/api/sellers/<user_id>", methods=["DELETE", "GET"])
+@app.route("/api/sellers/<user_id>", methods=["DELETE"])
 def delete_seller(user_id):
     conn = get_db()
     cur = conn.cursor()
@@ -120,7 +120,7 @@ def delete_seller(user_id):
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"success": True, "removed": user_id})
+    return jsonify({"success": True})
 
 def refresh_token_if_needed(user_id, access_token, refresh_token, updated_at):
     now = datetime.now(timezone.utc)
@@ -447,11 +447,15 @@ def get_sales(user_id):
     prev_total = count_sales(prev_orders)
     prev_gmv = sum_gmv(prev_orders)
 
-    # Visitas — endpoint items_visits com date_from/date_to
+    # Visitas — endpoint time_window (correto para apps de terceiros)
     try:
+        from datetime import date as _ddate
+        _d_from = _ddate.fromisoformat(date_from)
+        _d_to   = _ddate.fromisoformat(date_to)
+        _days   = (_d_to - _d_from).days + 1
         visits_resp = requests.get(
-            "https://api.mercadolibre.com/users/" + user_id + "/items_visits",
-            params={"date_from": date_from, "date_to": date_to},
+            "https://api.mercadolibre.com/users/" + user_id + "/items_visits/time_window",
+            params={"last": _days, "unit": "day", "ending": date_to},
             headers={"Authorization": "Bearer " + token}
         )
         visits_data  = visits_resp.json() if visits_resp.ok and visits_resp.text else {}
@@ -472,27 +476,6 @@ def get_sales(user_id):
     daily_sales = sorted(daily_map.values(), key=lambda x: x["date"])
     for d in daily_sales:
         d["gmv"] = round(d["gmv"], 2)
-
-    # Vendas por hora (apenas quando periodo = hoje)
-    hourly_sales = []
-    if date_from == date_to:
-        hour_map = {h: {"hour": h, "gmv": 0.0, "orders": 0} for h in range(24)}
-        for o in orders:
-            dc = o.get("date_created", "")
-            if not dc:
-                continue
-            try:
-                # date_created vem no formato 2026-05-28T14:32:00.000-04:00
-                # Converte para horario de Brasilia (UTC-3)
-                from datetime import datetime, timezone, timedelta
-                dt_utc = datetime.fromisoformat(dc.replace("Z", "+00:00"))
-                dt_br  = dt_utc.astimezone(timezone(timedelta(hours=-3)))
-                hr = dt_br.hour
-                hour_map[hr]["gmv"]    += order_value(o)
-                hour_map[hr]["orders"] += 1
-            except Exception:
-                pass
-        hourly_sales = [{"hour": h, "gmv": round(hour_map[h]["gmv"], 2), "orders": hour_map[h]["orders"]} for h in range(24)]
 
     # Ranking de produtos
     products_map = {}
@@ -598,9 +581,8 @@ def get_sales(user_id):
                 0
             )
         },
-        "daily_sales":   daily_sales,
-        "hourly_sales":  hourly_sales,
-        "top_products":  top_products
+        "daily_sales":  daily_sales,
+        "top_products": top_products
     })
 
 @app.route("/api/promotions/<user_id>")
@@ -652,10 +634,10 @@ def get_promotions(user_id):
             "name": p.get("name", p.get("description", p.get("deal_print_id", "Promocao"))),
             "type": p.get("type", p.get("deal_type", p.get("promotion_type", ""))),
             "status": p.get("status", ""),
-            "discount": p.get("percent_off", p.get("value", p.get("discount_meli_amount", p.get("discount", 0)))),
+            "discount": p.get("value", p.get("discount_meli_amount", p.get("percent_off", 0))),
             "start_date": str(p.get("start_date", p.get("from_date", p.get("from", ""))))[:10],
             "end_date": str(p.get("finish_date", p.get("to_date", p.get("to", ""))))[:10],
-            "items_count": p.get("items_count", p.get("affected_items", p.get("quantity", 0)))
+            "items_count": p.get("items_count", p.get("affected_items", 0))
         })
 
     return jsonify({
@@ -1231,75 +1213,14 @@ def notifications():
         res_id  = payload.get("resource", "")
         user_id = str(payload.get("user_id", ""))
         print(f"[NOTIFICATION] topic={topic} resource={res_id} user_id={user_id}")
-
-        # Remove seller automaticamente quando ML notifica revogacao de acesso
-        if topic in ("application", "authorization") and "unauthorized" in str(res_id).lower():
-            if user_id:
-                try:
-                    conn = get_db()
-                    cur = conn.cursor()
-                    cur.execute("DELETE FROM sellers WHERE user_id = %s", (user_id,))
-                    conn.commit()
-                    cur.close()
-                    conn.close()
-                    print(f"[NOTIFICATION] Seller {user_id} removido por revogacao")
-                except Exception as db_err:
-                    print(f"[NOTIFICATION][DB ERRO] {db_err}")
-
     except Exception as e:
         print(f"[NOTIFICATION][ERRO] {e}")
 
     return "", 200
 
 
-@app.route("/api/questions/<user_id>")
-def get_questions(user_id):
-    token, seller = get_seller_token(user_id)
-    if not seller:
-        return jsonify({"error": "Seller nao autorizado"}), 404
-
-    # Total de perguntas
-    r_all = requests.get(
-        "https://api.mercadolibre.com/questions/search",
-        params={"seller_id": user_id, "limit": 50, "sort_fields": "date_created", "sort_types": "DESC"},
-        headers={"Authorization": "Bearer " + token}
-    )
-    all_data = r_all.json() if r_all.ok and r_all.text else {}
-
-    # Perguntas sem resposta
-    r_unans = requests.get(
-        "https://api.mercadolibre.com/questions/search",
-        params={"seller_id": user_id, "status": "UNANSWERED", "limit": 50},
-        headers={"Authorization": "Bearer " + token}
-    )
-    unans_data = r_unans.json() if r_unans.ok and r_unans.text else {}
-
-    questions = all_data.get("questions", [])
-    unanswered = unans_data.get("questions", [])
-
-    result = []
-    for q in questions:
-        result.append({
-            "id":           q.get("id"),
-            "text":         q.get("text", ""),
-            "status":       q.get("status", ""),
-            "date_created": q.get("date_created", "")[:16].replace("T", " "),
-            "item_id":      q.get("item_id", ""),
-            "item_title":   q.get("item_title", ""),
-            "answer":       q.get("answer", {}).get("text", "") if q.get("answer") else "",
-            "answer_date":  q.get("answer", {}).get("date_created", "")[:16].replace("T", " ") if q.get("answer") else "",
-        })
-
-    return jsonify({
-        "seller_id":        user_id,
-        "nickname":         seller["nickname"],
-        "total":            all_data.get("total", 0),
-        "total_unanswered": unans_data.get("total", 0),
-        "questions":        result
-    })
-
-
-def debug_messages(user_id):
+@app.route("/api/debug-shipments/<user_id>")
+def debug_shipments(user_id):
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao encontrado"}), 404
@@ -1310,12 +1231,11 @@ def debug_messages(user_id):
 
     results = {}
     endpoints = {
-        "questions":          f"https://api.mercadolibre.com/questions/search?seller_id={user_id}&limit=5",
-        "questions_unanswered": f"https://api.mercadolibre.com/questions/search?seller_id={user_id}&status=UNANSWERED&limit=5",
-        "messages_unread":    f"https://api.mercadolibre.com/messages/unread?user_id={user_id}",
-        "messages_list":      f"https://api.mercadolibre.com/messages?user_id={user_id}&limit=5",
-        "post_sale_messages": f"https://api.mercadolibre.com/messages/packs?user_id={user_id}&limit=5",
-        "claims":             f"https://api.mercadolibre.com/post-purchase/v1/claims/search?seller_id={user_id}&limit=5",
+        "shipments_search":      f"https://api.mercadolibre.com/shipments/search?seller_id={user_id}&limit=5",
+        "shipments_by_seller":   f"https://api.mercadolibre.com/users/{user_id}/shipments?limit=5",
+        "orders_with_shipments": f"https://api.mercadolibre.com/orders/search?seller={user_id}&limit=3",
+        "flex_shipments":        f"https://api.mercadolibre.com/users/{user_id}/flex_handshakes?limit=5",
+        "fbm_stock":             f"https://api.mercadolibre.com/users/{user_id}/fbm_stock_operations?limit=5",
     }
 
     for name, url in endpoints.items():
@@ -1323,117 +1243,6 @@ def debug_messages(user_id):
         results[name] = {"status": r.status_code, "response": str(safe_json(r))[:300]}
 
     return jsonify({"user_id": user_id, "results": results})
-
-
-def debug_financial(user_id):
-    token, seller = get_seller_token(user_id)
-    if not seller:
-        return jsonify({"error": "Seller nao encontrado"}), 404
-
-    def safe_json(r):
-        try: return r.json() if r.text and r.text.strip() else {}
-        except: return {"raw": r.text[:300] if r.text else ""}
-
-    results = {}
-    endpoints = {
-        "balance":           f"https://api.mercadolibre.com/users/{user_id}/mercadopago_account/balance",
-        "money_in_accounts": f"https://api.mercadolibre.com/users/{user_id}/money_in_accounts",
-        "movements":         f"https://api.mercadolibre.com/users/{user_id}/movements",
-        "billing_info":      f"https://api.mercadolibre.com/users/{user_id}/billing_info",
-        "available_balance": f"https://api.mercadolibre.com/users/{user_id}/available_balance",
-        "seller_wallet":     f"https://api.mercadolibre.com/seller-account/{user_id}/balance",
-        "account_balance":   f"https://api.mercadolibre.com/account/balance",
-        "mp_balance":        f"https://api.mercadolibre.com/v1/payments/search?collector_id={user_id}&limit=1",
-    }
-
-    for name, url in endpoints.items():
-        r = requests.get(url, headers={"Authorization": "Bearer " + token}, timeout=8)
-        results[name] = {"status": r.status_code, "response": str(safe_json(r))[:200]}
-
-    return jsonify({"user_id": user_id, "results": results})
-
-
-def validate(user_id):
-    token, seller = get_seller_token(user_id)
-    if not seller:
-        return jsonify({"error": "Seller nao encontrado"}), 404
-
-    results = {}
-    today = datetime.now(timezone.utc).date().isoformat()
-    date_from = (datetime.now(timezone.utc).date() - timedelta(days=7)).isoformat()
-    date_to = today
-
-    def check(name, url, params=None):
-        try:
-            r = requests.get(url, params=params, headers={"Authorization": "Bearer " + token}, timeout=10)
-            data = r.json() if r.text and r.text.strip() else {}
-            ok = r.status_code == 200
-            results[name] = {
-                "status": r.status_code,
-                "ok": ok,
-                "preview": str(data)[:120]
-            }
-        except Exception as e:
-            results[name] = {"status": 0, "ok": False, "preview": str(e)[:120]}
-
-    # 1. Perfil do seller
-    check("perfil", f"https://api.mercadolibre.com/users/{user_id}")
-
-    # 2. Vendas
-    check("vendas", "https://api.mercadolibre.com/orders/search",
-          {"seller": user_id, "order.date_created.from": date_from+"T00:00:00.000-03:00",
-           "order.date_created.to": date_to+"T23:59:59.000-03:00", "limit": 1})
-
-    # 3. Visitas
-    check("visitas", f"https://api.mercadolibre.com/users/{user_id}/items_visits",
-          {"date_from": date_from, "date_to": date_to})
-
-    # 4. Reputação
-    check("reputacao", f"https://api.mercadolibre.com/users/{user_id}/seller_reputation")
-
-    # 5. ADS - advertiser_id
-    r_adv = requests.get("https://api.mercadolibre.com/advertising/advertisers",
-                         params={"product_id": "PADS"},
-                         headers={"Authorization": "Bearer " + token, "Api-Version": "1"}, timeout=10)
-    adv_data = r_adv.json() if r_adv.ok and r_adv.text else []
-    adv_id = adv_data[0]["id"] if isinstance(adv_data, list) and adv_data else None
-    results["ads_advertiser"] = {"status": r_adv.status_code, "ok": r_adv.status_code == 200, "advertiser_id": adv_id}
-
-    # 6. ADS - campanhas
-    if adv_id:
-        check("ads_campanhas", f"https://api.mercadolibre.com/advertising/advertisers/{adv_id}/product_ads/campaigns")
-    else:
-        results["ads_campanhas"] = {"status": 0, "ok": False, "preview": "advertiser_id nao encontrado"}
-
-    # 7. Promoções
-    check("promocoes", f"https://api.mercadolibre.com/seller-promotions/users/{user_id}",
-          {"app_version": "v2"})
-
-    # 8. Produtos (itens do seller)
-    check("produtos", "https://api.mercadolibre.com/orders/search",
-          {"seller": user_id, "limit": 1})
-
-    # 9. Faturamento / saldo
-    check("faturamento", f"https://api.mercadolibre.com/users/{user_id}/mercadopago_account/balance")
-
-    # 10. Mensagens
-    check("mensagens", f"https://api.mercadolibre.com/messages/unread",
-          {"user_id": user_id})
-
-    # 11. Envios
-    check("envios", "https://api.mercadolibre.com/shipments/search",
-          {"seller_id": user_id, "limit": 1})
-
-    # Resumo
-    total = len(results)
-    ok_count = sum(1 for v in results.values() if v.get("ok"))
-
-    return jsonify({
-        "seller": seller["nickname"],
-        "user_id": user_id,
-        "score": f"{ok_count}/{total}",
-        "results": results
-    })
 
 
 if __name__ == "__main__":
