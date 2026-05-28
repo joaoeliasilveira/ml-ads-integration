@@ -894,9 +894,13 @@ function renderVendas(el, data, isToday){
         '<div>'+
           '<div class="card-title">Atual vs Período Anterior</div>'+
           '<div style="font-size:11px;color:var(--text3);margin-top:3px">'+
-            fmtDate(data.period&&data.period.date_from)+' – '+fmtDate(data.period&&data.period.date_to)+
+            (data.period&&data.period.date_from===data.period.date_to
+              ? fmtDate(data.period.date_from)
+              : fmtDate(data.period&&data.period.date_from)+' – '+fmtDate(data.period&&data.period.date_to))+
             ' <span style="margin:0 6px;opacity:0.4">vs</span> '+
-            fmtDate(cmp.prev_period&&cmp.prev_period.date_from)+' – '+fmtDate(cmp.prev_period&&cmp.prev_period.date_to)+
+            (cmp.prev_period&&cmp.prev_period.date_from===cmp.prev_period.date_to
+              ? fmtDate(cmp.prev_period.date_from)
+              : fmtDate(cmp.prev_period&&cmp.prev_period.date_from)+' – '+fmtDate(cmp.prev_period&&cmp.prev_period.date_to))+
           '</div>'+
         '</div>'+
       '</div>'+
@@ -994,7 +998,7 @@ function renderVendas(el, data, isToday){
           }}
         },
         scales: {
-          x: { ticks: { font: { size: 10, family: 'Poppins' }, color: '#5a5a70', maxRotation: 40, maxTicksLimit: 15 }, grid: { display: false } },
+          x: { ticks: { font: { size: 9, family: 'Poppins' }, color: '#5a5a70', maxRotation: 0, autoSkip: !!(isToday && hourlyData) ? false : true, maxTicksLimit: (isToday && hourlyData) ? 24 : 15 }, grid: { display: false } },
           y: {
             position: 'left',
             ticks: { font: { size: 10, family: 'Poppins' }, color: '#2ecc9a', callback: function(v){ return 'R$'+fmtK(v); } },
