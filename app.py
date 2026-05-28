@@ -594,12 +594,28 @@ def get_sales(user_id):
         p["ads_qty"]     = min(ads_q, p["qty"])  # nunca pode ser maior que o total
         p["organic_qty"] = p["qty"] - p["ads_qty"]
 
-    # Calcula projeção de dias de estoque (baseado na taxa diária do período selecionado)
-    period_days = max((ddate.fromisoformat(date_to) - ddate.fromisoformat(date_from)).days + 1, 1)
+    # Busca vendas dos últimos 30 dias fixos para projeção de estoque
+    try:
+        today_dt   = ddate.fromisoformat(date_to)
+        proj_from  = (today_dt - tdelta(days=29)).isoformat()
+        proj_orders, _ = fetch_all_orders(user_id, token, proj_from, date_to)
+        proj_map = {}
+        for o in proj_orders:
+            if o.get("status") not in SALE_STATUSES:
+                continue
+            for oi in o.get("order_items", []):
+                iid = str(oi.get("item", {}).get("id", ""))
+                if iid:
+                    proj_map[iid] = proj_map.get(iid, 0) + oi.get("quantity", 1)
+    except Exception:
+        proj_map = {}
+
+    # Calcula projeção de dias de estoque sempre com base em 30 dias
     for p in products_map.values():
-        stock = p.get("stock_total", 0) or 0
-        qty   = p.get("qty", 0) or 0
-        daily_rate = qty / period_days if qty > 0 else 0
+        stock      = p.get("stock_total", 0) or 0
+        iid        = p.get("item_id", "")
+        qty_30d    = proj_map.get(str(iid), 0) if iid else 0
+        daily_rate = qty_30d / 30 if qty_30d > 0 else 0
         p["daily_rate"] = round(daily_rate, 2)
         p["days_stock"] = round(stock / daily_rate) if daily_rate > 0 else None
 
