@@ -824,27 +824,27 @@ function renderVendas(el, data, isToday){
         '</div>'+
       '</div>'+
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'+
-        '<div style="background:var(--bg3);border-radius:var(--radius-sm);padding:14px 16px">'+
-          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Vendas Brutas</div>'+
-          '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;margin-bottom:6px">'+fmt(s.vendas_brutas||0)+'</div>'+
-          '<div style="display:flex;align-items:center;gap:8px">'+
-            '<span style="font-size:11px;color:var(--text3)">Ant: '+fmt(cmp.prev_vendas_brutas||0)+'</span>'+
+        '<div class="metric-card" style="margin-bottom:0">'+
+          '<div class="metric-label">Vendas Brutas</div>'+
+          '<div class="metric-value">'+fmt(s.vendas_brutas||0)+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
+            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmt(cmp.prev_vendas_brutas||0)+'</span>'+
             '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_vendas_brutas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_vendas_brutas||0)>=0?'▲':'▼')+Math.abs(cmp.var_vendas_brutas||0)+'%</span>'+
           '</div>'+
         '</div>'+
-        '<div style="background:var(--bg3);border-radius:var(--radius-sm);padding:14px 16px">'+
-          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Qtd de Vendas</div>'+
-          '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;margin-bottom:6px">'+fmtFull(s.qtd_vendas||0)+'</div>'+
-          '<div style="display:flex;align-items:center;gap:8px">'+
-            '<span style="font-size:11px;color:var(--text3)">Ant: '+fmtFull(cmp.prev_qtd_vendas||0)+'</span>'+
+        '<div class="metric-card" style="margin-bottom:0">'+
+          '<div class="metric-label">Qtd de Vendas</div>'+
+          '<div class="metric-value">'+fmtFull(s.qtd_vendas||0)+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
+            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmtFull(cmp.prev_qtd_vendas||0)+'</span>'+
             '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_qtd_vendas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_qtd_vendas||0)>=0?'▲':'▼')+Math.abs(cmp.var_qtd_vendas||0)+'%</span>'+
           '</div>'+
         '</div>'+
-        '<div style="background:var(--bg3);border-radius:var(--radius-sm);padding:14px 16px">'+
-          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px">Unidades Vendidas</div>'+
-          '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;margin-bottom:6px">'+fmtFull(s.unidades_vendidas||0)+'</div>'+
-          '<div style="display:flex;align-items:center;gap:8px">'+
-            '<span style="font-size:11px;color:var(--text3)">Ant: '+fmtFull(cmp.prev_unidades||0)+'</span>'+
+        '<div class="metric-card" style="margin-bottom:0">'+
+          '<div class="metric-label">Unidades Vendidas</div>'+
+          '<div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'</div>'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
+            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmtFull(cmp.prev_unidades||0)+'</span>'+
             '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_unidades||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_unidades||0)>=0?'▲':'▼')+Math.abs(cmp.var_unidades||0)+'%</span>'+
           '</div>'+
         '</div>'+
