@@ -1714,7 +1714,8 @@ function openProdModal(p){
         '</div>'+
       '</div>'+
     '</div>'+stockHTML+
-    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📊 Visitas &amp; Conversão</div><div id="prod-visits-section"></div></div>' : '');
+    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📊 Visitas &amp; Conversão</div><div id="prod-visits-section"></div></div>' : '');+
+    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">🎯 Promoções Ativas</div><div id="prod-promos-section"></div></div>' : '');
   var overlay = document.getElementById('prod-modal-overlay');
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1754,6 +1755,42 @@ function openProdModal(p){
             '</div>';
         })
         .catch(function(){ visitsEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar visitas</div>'; });
+    }
+
+    // Carrega promoções sob demanda
+    var promosEl = document.getElementById('prod-promos-section');
+    if(promosEl){
+      promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Verificando promoções...</div>';
+      fetch('/api/item-promos/'+window._currentSellerId+'/'+p.item_id)
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          var promos = d.promos || [];
+          if(!promos.length){
+            promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Produto não está em nenhuma promoção ativa.</div>';
+            return;
+          }
+          var statusMap = {started:'Incluído', candidate:'Candidata'};
+          var statusColor = {started:'#2ecc9a', candidate:'#f5a623'};
+          promosEl.innerHTML = promos.map(function(pr){
+            var sColor = statusColor[pr.status] || 'var(--text3)';
+            var sLabel = statusMap[pr.status]   || pr.status;
+            var discLabel = pr.discount_pct > 0 ? pr.discount_pct+'%' : '—';
+            var priceLabel = pr.promo_price > 0 ? ' → R$ '+pr.promo_price.toFixed(2).replace('.',',') : '';
+            return '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;margin-bottom:8px;border-left:3px solid '+sColor+'">'+
+              '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+                '<div style="font-weight:600;font-size:13px">'+pr.name+'</div>'+
+                '<span style="font-size:11px;font-weight:600;color:'+sColor+';background:'+sColor+'22;padding:2px 8px;border-radius:4px">'+sLabel+'</span>'+
+              '</div>'+
+              '<div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap">'+
+                '<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Tipo</span><div style="font-size:12px;font-weight:500;margin-top:2px">'+pr.type+'</div></div>'+
+                '<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Desconto</span><div style="font-size:14px;font-weight:700;color:'+sColor+';margin-top:2px">'+discLabel+'</div></div>'+
+                (pr.promo_price>0?'<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Preço Promo</span><div style="font-size:12px;font-weight:500;color:'+sColor+';margin-top:2px">R$ '+pr.promo_price.toFixed(2).replace('.',',')+'</div></div>':'')+
+                '<div><span style="font-size:10px;color:var(--text3);text-transform:uppercase">Período</span><div style="font-size:12px;font-weight:500;margin-top:2px">'+pr.start_date+' → '+pr.end_date+'</div></div>'+
+              '</div>'+
+            '</div>';
+          }).join('');
+        })
+        .catch(function(){ promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar promoções</div>'; });
     }
   }
 }
