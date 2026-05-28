@@ -1432,12 +1432,6 @@ function setProdSort(s){
   if(el._rebuildTable) el._rebuildTable(searchVal);
 }
 
-// Event delegation para botões de sort (evita problema de aspas em onclick inline)
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('.sort-btn');
-  if(btn && btn.dataset.sort) setProdSort(btn.dataset.sort);
-});
-
 function renderProdutos(el, data){
   var products = data.top_products || [];
   var sortBy = 'revenue';
@@ -1535,8 +1529,8 @@ function renderProdutos(el, data){
         '</div>'+
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
           '<div style="display:flex;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
-                                    '<button data-sort=\'revenue\' class=\'sort-btn\' id=\'sort-revenue\' style=\'padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600\'>💰 Faturamento</button>'+
-            '<button data-sort=\'qty\' class=\'sort-btn\' id=\'sort-qty\' style=\'padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)\'>📦 Volume</button>'+
+                                    '<button id="sort-revenue" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">💰 Faturamento</button>'+
+            '<button id="sort-qty" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📦 Volume</button>'+
           '</div>'+
           '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:220px">'+
         '</div>'+
@@ -1548,6 +1542,14 @@ function renderProdutos(el, data){
         '</table>'+
       '</div>'+
     '</div>';
+
+  // Bind botões de sort após render
+  setTimeout(function(){
+    var btnR = document.getElementById('sort-revenue');
+    var btnQ = document.getElementById('sort-qty');
+    if(btnR) btnR.addEventListener('click', function(){ setProdSort('revenue'); });
+    if(btnQ) btnQ.addEventListener('click', function(){ setProdSort('qty'); });
+  }, 0);
 }
 
 function toggleProduct(id){
