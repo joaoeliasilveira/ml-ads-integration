@@ -477,6 +477,27 @@ def get_sales(user_id):
     for d in daily_sales:
         d["gmv"] = round(d["gmv"], 2)
 
+    # Vendas por hora (apenas quando periodo = hoje)
+    hourly_sales = []
+    if date_from == date_to:
+        hour_map = {h: {"hour": h, "gmv": 0.0, "orders": 0} for h in range(24)}
+        for o in orders:
+            dc = o.get("date_created", "")
+            if not dc:
+                continue
+            try:
+                # date_created vem no formato 2026-05-28T14:32:00.000-04:00
+                # Converte para horario de Brasilia (UTC-3)
+                from datetime import datetime, timezone, timedelta
+                dt_utc = datetime.fromisoformat(dc.replace("Z", "+00:00"))
+                dt_br  = dt_utc.astimezone(timezone(timedelta(hours=-3)))
+                hr = dt_br.hour
+                hour_map[hr]["gmv"]    += order_value(o)
+                hour_map[hr]["orders"] += 1
+            except Exception:
+                pass
+        hourly_sales = [{"hour": h, "gmv": round(hour_map[h]["gmv"], 2), "orders": hour_map[h]["orders"]} for h in range(24)]
+
     # Ranking de produtos
     products_map = {}
     for o in orders:
@@ -581,8 +602,9 @@ def get_sales(user_id):
                 0
             )
         },
-        "daily_sales":  daily_sales,
-        "top_products": top_products
+        "daily_sales":   daily_sales,
+        "hourly_sales":  hourly_sales,
+        "top_products":  top_products
     })
 
 @app.route("/api/promotions/<user_id>")
