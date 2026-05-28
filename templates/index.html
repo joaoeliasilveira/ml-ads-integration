@@ -356,6 +356,9 @@ body.dark .prod-modal{background:#1e1e26 !important;border-color:rgba(255,255,25
 body.dark .prod-modal-card{background:#26262f !important;border-color:rgba(255,255,255,.07) !important}
 body.dark .prod-modal-title{color:#f0f0f5 !important;border-color:rgba(255,255,255,.1) !important}
 body.dark .prod-modal-close{background:#26262f !important;border-color:rgba(255,255,255,.15) !important;color:#f0f0f5 !important}
+/* Padrão dark para todos os cards dentro de modais de produto */
+body.dark .prod-modal [style*="background:var(--bg3)"]{background:#26262f !important}
+body.dark .prod-modal [style*="background:var(--bg4)"]{background:#1e1e26 !important}
 
 .alerts-panel{
   position:fixed;top:0;right:-420px;width:400px;height:100vh;
@@ -1776,7 +1779,7 @@ function openProdModal(p){
             var sLabel = statusMap[pr.status]   || pr.status;
             var discLabel = pr.discount_pct > 0 ? pr.discount_pct+'%' : '—';
             var priceLabel = pr.promo_price > 0 ? ' → R$ '+pr.promo_price.toFixed(2).replace('.',',') : '';
-            return '<div style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;margin-bottom:8px;border-left:3px solid '+sColor+'">'+
+            return '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;margin-bottom:8px;border-left:3px solid '+sColor+'">'+
               '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
                 '<div style="font-weight:600;font-size:13px">'+pr.name+'</div>'+
                 '<span style="font-size:11px;font-weight:600;color:'+sColor+';background:'+sColor+'22;padding:2px 8px;border-radius:4px">'+sLabel+'</span>'+
