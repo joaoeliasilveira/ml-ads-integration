@@ -481,15 +481,56 @@ def get_sales(user_id):
     products_map = {}
     for o in orders:
         for item in o.get("order_items", []):
-            title = item.get("item", {}).get("title", "Produto")
+            title   = item.get("item", {}).get("title", "Produto")
             item_id = item.get("item", {}).get("id", "")
-            qty   = item.get("quantity", 1)
-            price = item.get("unit_price", 0)
-            key   = item_id or title
+            qty     = item.get("quantity", 1)
+            price   = item.get("unit_price", 0)
+            key     = item_id or title
             if key not in products_map:
-                products_map[key] = {"title": title, "qty": 0, "revenue": 0}
+                products_map[key] = {"title": title, "item_id": item_id, "qty": 0, "revenue": 0, "ads_qty": 0}
             products_map[key]["qty"]     += qty
             products_map[key]["revenue"] += qty * price
+
+    # Busca unidades vendidas via ADS por item (direct + indirect units)
+    try:
+        campaigns, base_url, aid = get_campaigns(user_id, token)
+        ads_units_by_item = {}  # item_id -> ads_qty
+        for camp in campaigns[:10]:
+            camp_id = camp.get("id")
+            # Busca itens da campanha com métricas de unidades
+            r_items = requests.get(
+                f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}/items",
+                params={
+                    "date_from": date_from,
+                    "date_to":   date_to,
+                    "metrics":   "direct_units,indirect_units",
+                    "limit":     100
+                },
+                headers={"Authorization": "Bearer " + token, "Api-Version": "2"},
+                timeout=8
+            )
+            if not r_items.ok:
+                continue
+            items_data = r_items.json()
+            items_list = items_data if isinstance(items_data, list) else items_data.get("results", items_data.get("items", []))
+            for it in items_list:
+                iid = str(it.get("item_id", it.get("id", "")))
+                if not iid:
+                    continue
+                m = it.get("metrics", it) if isinstance(it.get("metrics"), dict) else it
+                direct   = m.get("direct_units", 0) or 0
+                indirect = m.get("indirect_units", 0) or 0
+                ads_units_by_item[iid] = ads_units_by_item.get(iid, 0) + direct + indirect
+    except Exception:
+        ads_units_by_item = {}
+
+    # Aplica ads_qty no products_map
+    for key, p in products_map.items():
+        iid = p.get("item_id", "")
+        ads_q = ads_units_by_item.get(str(iid), 0)
+        p["ads_qty"]     = min(ads_q, p["qty"])  # nunca pode ser maior que o total
+        p["organic_qty"] = p["qty"] - p["ads_qty"]
+
     top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)[:10]
     for p in top_products:
         p["revenue"] = round(p["revenue"], 2)
