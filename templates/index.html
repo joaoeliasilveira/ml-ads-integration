@@ -437,6 +437,17 @@ body.dark .alert-seller{color:#2ecc9a}
 .alert-critical-badge{background:rgba(231,76,60,.15);color:var(--red)}
 .alert-warning-badge{background:rgba(230,126,34,.15);color:var(--amber)}
 .alert-promo-badge{background:rgba(78,205,196,.15);color:var(--tl)}
+.alert-lightning-badge{background:rgba(255,200,0,.2);color:#ffc800;font-weight:700}
+.alert-item.lightning{
+  border-left:4px solid #ffc800;
+  background:rgba(255,200,0,.05);
+  animation:lightningPulse 2s ease-in-out infinite;
+}
+body.dark .alert-item.lightning{background:rgba(255,200,0,.07)}
+@keyframes lightningPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,200,0,0)}
+  50%{box-shadow:0 0 8px 2px rgba(255,200,0,.15)}
+}
 .alert-item.promo{border-left:4px solid var(--tl);background:rgba(78,205,196,.04)}
 body.dark .alert-item.promo{background:rgba(78,205,196,.06)}
 .alert-message{font-size:12px;color:var(--tx);font-weight:500}
@@ -707,13 +718,14 @@ async function loadAlerts(){
             var startDate = promo.start_date ? promo.start_date.substring(0,8).split('-').slice(1).reverse().join('/') : '—';
             var endDate   = promo.end_date   ? promo.end_date.substring(0,8).split('-').slice(1).reverse().join('/')   : '—';
             var typeName  = typeMap[promo.type] || promo.type || '';
+            var isLightning = promo.type === 'LIGHTNING';
             allAlerts.push({
               seller:  sName,
               uid:     s.user_id,
-              level:   'promo',
-              type:    'PROMOÇÃO',
-              message: '🎯 Nova promoção: '+promo.name,
-              detail:  (typeName?typeName+' · ':'')+startDate+' → '+endDate,
+              level:   isLightning ? 'lightning' : 'promo',
+              type:    isLightning ? '⚡ RELÂMPAGO' : 'PROMOÇÃO',
+              message: isLightning ? '⚡ Oferta Relâmpago disponível!' : '🎯 Nova promoção: '+promo.name,
+              detail:  sName+' · '+startDate+' → '+endDate,
               promoId: pid
             });
           });
@@ -750,13 +762,27 @@ function renderAlerts(){
     return;
   }
 
-  var criticals = allAlerts.filter(function(a){return a.level==='critical';});
+  var criticals  = allAlerts.filter(function(a){return a.level==='critical';});
   var warnings  = allAlerts.filter(function(a){return a.level==='warning';});
 
-  var promos    = allAlerts.filter(function(a){return a.level==='promo';});
+  var lightnings = allAlerts.filter(function(a){return a.level==='lightning';});
+  var promos     = allAlerts.filter(function(a){return a.level==='promo';});
   var html = '';
+  if(lightnings.length){
+    html += '<div class="alerts-section-label" style="color:#ffc800">⚡ Oferta Relâmpago ('+lightnings.length+')</div>';
+    html += lightnings.map(function(a){
+      return '<div class="alert-item lightning" onclick="openSellerFromAlert(\''+a.uid+'\')" style="cursor:pointer">'+
+        '<div class="alert-item-header">'+
+          '<span class="alert-seller" style="color:#ffc800;font-weight:700">'+a.seller+'</span>'+
+          '<span class="alert-type-badge alert-lightning-badge">'+a.type+'</span>'+
+        '</div>'+
+        '<div class="alert-message" style="font-weight:600">'+a.message+'</div>'+
+        '<div class="alert-detail">'+a.detail+'</div>'+
+      '</div>';
+    }).join('');
+  }
   if(promos.length){
-    html += '<div class="alerts-section-label">🎯 Novas Promoções ('+promos.length+')</div>';
+    html += '<div class="alerts-section-label"'+(lightnings.length?' style="margin-top:16px"':'')+'>🎯 Novas Promoções ('+promos.length+')</div>';
     html += promos.map(function(a){
       return '<div class="alert-item promo" onclick="openSellerFromAlert(\''+a.uid+'\')" style="cursor:pointer">'+
         '<div class="alert-item-header">'+
