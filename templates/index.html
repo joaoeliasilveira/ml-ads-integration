@@ -464,6 +464,40 @@ body {
 /* ── PROMO TYPE ── */
 .promo-type { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
 
+/* ── PROMO CARDS ── */
+.promo-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  transition: border-color 0.15s;
+}
+.promo-card.open { border-color: var(--border2); }
+.promo-card:hover { border-color: var(--border2); }
+
+.promo-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 14px 16px; cursor: pointer;
+  transition: background 0.12s;
+}
+.promo-card-header:hover { background: var(--bg3); }
+
+.promo-chevron { color: var(--text3); transition: transform 0.2s; flex-shrink: 0; }
+
+.promo-card-body {
+  display: none; padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+.promo-card-body.open { display: block; }
+
+.promo-details-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px; padding-top: 14px;
+}
+.promo-detail-item { display: flex; flex-direction: column; gap: 4px; }
+.promo-detail-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+.promo-detail-value { font-size: 13px; font-weight: 500; color: var(--text); }
+
+
+
 @media (max-width: 900px) {
   .main { padding: 20px 16px; }
   .topbar { padding: 0 16px; }
@@ -1112,21 +1146,50 @@ function renderPromocoes(el, data){
   var typeCards = Object.keys(byType).map(function(t){
     return '<div class="metric-card"><div class="metric-label" style="margin-bottom:8px">'+promoTypeLabel(t)+'</div><div class="metric-value">'+byType[t]+'</div><div class="metric-delta">ativas</div></div>';
   }).join('');
-  var promoRows = promos.map(function(p){
-    var stBadge = p.status==='started'||p.status==='active'?'badge-green':p.status==='paused'?'badge-amber':'badge-gray';
-    var stLabel = p.status==='started'||p.status==='active'?'Ativa':p.status==='paused'?'Pausada':'Encerrada';
-    var inicio = p.start_date ? p.start_date.replace(/-/g,'/') : '—';
-    var fim = p.end_date ? p.end_date.replace(/-/g,'/') : '—';
-    var duracao = '';
-    if(p.start_date&&p.end_date){ var dias=Math.ceil((new Date(p.end_date)-new Date(p.start_date))/(1000*60*60*24)); duracao='<div style="font-size:10px;color:var(--text3);margin-top:2px">'+dias+' dias</div>'; }
-    return '<tr>'+
-      '<td><div style="font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.name+'">'+p.name+'</div><div style="margin-top:4px">'+promoTypeLabel(p.type)+'</div></td>'+
-      '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
-      '<td>'+inicio+'</td>'+
-      '<td>'+fim+duracao+'</td>'+
-    '</tr>';
-  }).join('');
-  var emptyPromos = promos.length===0?'<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:32px"><div style="font-size:32px;margin-bottom:12px;opacity:0.3">🎯</div><div>Nenhuma promoção ativa</div></td></tr>':promoRows;
+
+  var promoCards = promos.length === 0
+    ? '<div style="text-align:center;color:var(--text3);padding:40px"><div style="font-size:36px;margin-bottom:12px;opacity:0.3">🎯</div><div>Nenhuma promoção ativa</div></div>'
+    : promos.map(function(p, i){
+        var stBadge = p.status==='started'||p.status==='active' ? 'badge-green' : p.status==='paused' ? 'badge-amber' : 'badge-gray';
+        var stLabel = p.status==='started'||p.status==='active' ? 'Ativa' : p.status==='paused' ? 'Pausada' : 'Encerrada';
+        var fmtD = function(s){ if(!s) return '—'; var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+        var inicio = fmtD(p.start_date);
+        var fim    = fmtD(p.end_date);
+        var duracao = '—';
+        if(p.start_date && p.end_date){
+          var dias = Math.ceil((new Date(p.end_date) - new Date(p.start_date)) / (1000*60*60*24));
+          duracao = dias + ' dias';
+        }
+        var desconto = (p.discount && p.discount > 0) ? p.discount+'%' : '—';
+        var itens    = (p.items_count && p.items_count > 0) ? p.items_count : '—';
+
+        return '<div class="promo-card" id="promo-card-'+i+'">'+
+          // Header clicável
+          '<div class="promo-card-header" onclick="togglePromoCard('+i+')">'+
+            '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'+
+              '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.name+'</div>'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+
+              promoTypeLabel(p.type)+
+              '<span class="badge '+stBadge+'">'+stLabel+'</span>'+
+              '<svg class="promo-chevron" id="promo-chev-'+i+'" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'+
+            '</div>'+
+          '</div>'+
+          // Body expansível
+          '<div class="promo-card-body" id="promo-body-'+i+'">'+
+            '<div class="promo-details-grid">'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">ID da Promoção</div><div class="promo-detail-value">'+( p.id||'—')+'</div></div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Tipo</div><div class="promo-detail-value">'+promoTypeLabel(p.type)+'</div></div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Status</div><div class="promo-detail-value"><span class="badge '+stBadge+'">'+stLabel+'</span></div></div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Desconto</div><div class="promo-detail-value">'+desconto+'</div></div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Itens participantes</div><div class="promo-detail-value">'+itens+'</div></div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Data de início</div><div class="promo-detail-value">'+inicio+'</div></div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Data de fim</div><div class="promo-detail-value">'+fim+'</div></div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Duração</div><div class="promo-detail-value">'+duracao+'</div></div>'+
+            '</div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
 
   el.innerHTML =
     '<div class="section-label">Resumo</div>'+
@@ -1135,10 +1198,17 @@ function renderPromocoes(el, data){
       typeCards+
     '</div>'+
     '<div class="section-label">Promoções Ativas</div>'+
-    '<div class="card" style="padding:0;overflow:hidden">'+
-      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Central de Promoções</div><div class="card-sub" style="margin-bottom:0">'+total+' promoção(ões) ativa(s)</div></div>'+
-      '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Promoção / Tipo</th><th>Status</th><th>Início</th><th>Fim</th></tr></thead><tbody>'+emptyPromos+'</tbody></table></div>'+
-    '</div>';
+    '<div style="display:flex;flex-direction:column;gap:8px">'+promoCards+'</div>';
+}
+
+function togglePromoCard(i){
+  var body  = document.getElementById('promo-body-'+i);
+  var chev  = document.getElementById('promo-chev-'+i);
+  var card  = document.getElementById('promo-card-'+i);
+  var isOpen = body.classList.contains('open');
+  body.classList.toggle('open');
+  card.classList.toggle('open');
+  chev.style.transform = isOpen ? '' : 'rotate(180deg)';
 }
 
 function renderProdutos(el, data){
