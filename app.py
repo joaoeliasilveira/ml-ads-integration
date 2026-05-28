@@ -1252,7 +1252,35 @@ def notifications():
     return "", 200
 
 
-@app.route("/api/validate/<user_id>")
+@app.route("/api/debug-financial/<user_id>")
+def debug_financial(user_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    def safe_json(r):
+        try: return r.json() if r.text and r.text.strip() else {}
+        except: return {"raw": r.text[:300] if r.text else ""}
+
+    results = {}
+    endpoints = {
+        "balance":           f"https://api.mercadolibre.com/users/{user_id}/mercadopago_account/balance",
+        "money_in_accounts": f"https://api.mercadolibre.com/users/{user_id}/money_in_accounts",
+        "movements":         f"https://api.mercadolibre.com/users/{user_id}/movements",
+        "billing_info":      f"https://api.mercadolibre.com/users/{user_id}/billing_info",
+        "available_balance": f"https://api.mercadolibre.com/users/{user_id}/available_balance",
+        "seller_wallet":     f"https://api.mercadolibre.com/seller-account/{user_id}/balance",
+        "account_balance":   f"https://api.mercadolibre.com/account/balance",
+        "mp_balance":        f"https://api.mercadolibre.com/v1/payments/search?collector_id={user_id}&limit=1",
+    }
+
+    for name, url in endpoints.items():
+        r = requests.get(url, headers={"Authorization": "Bearer " + token}, timeout=8)
+        results[name] = {"status": r.status_code, "response": str(safe_json(r))[:200]}
+
+    return jsonify({"user_id": user_id, "results": results})
+
+
 def validate(user_id):
     token, seller = get_seller_token(user_id)
     if not seller:
