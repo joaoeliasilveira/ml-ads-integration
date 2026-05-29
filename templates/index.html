@@ -881,7 +881,7 @@ function renderAlerts(){
   var badge = document.getElementById('bell-badge');
   var total = lightnings.length+promos.length+criticals.length+warnings.length;
   if(badge){ badge.textContent=total; badge.style.display=total>0?'flex':'none'; }
-  if(!total){ panel.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px 16px;font-size:13px">Tudo certo!</div>'; return; }
+  if(!total){ panel.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px 16px;font-size:13px">Tudo certo!<\/div>'; return; }
   var html='';
   function makeItem(cls,a){
     var badgeCls='alert-critical-badge';
@@ -892,27 +892,27 @@ function renderAlerts(){
     var msgStyle=cls==='lightning'?' style="font-weight:600"':'';
     return '<div class="alert-item '+cls+'" data-uid="'+a.uid+'" style="cursor:pointer">'+
       '<div class="alert-item-header">'+
-        '<span class="alert-seller"'+selStyle+'>'+a.seller+'</span>'+
-        '<span class="alert-type-badge '+badgeCls+'">'+a.type+'</span>'+
-      '</div>'+
-      '<div class="alert-message"'+msgStyle+'>'+a.message+'</div>'+
-      '<div class="alert-detail">'+a.detail+'</div>'+
-    '</div>';
+        '<span class="alert-seller"'+selStyle+'>'+a.seller+'<\/span>'+
+        '<span class="alert-type-badge '+badgeCls+'">'+a.type+'<\/span>'+
+      '<\/div>'+
+      '<div class="alert-message"'+msgStyle+'>'+a.message+'<\/div>'+
+      '<div class="alert-detail">'+a.detail+'<\/div>'+
+    '<\/div>';
   }
   if(lightnings.length){
-    html+='<div class="alerts-section-label" style="color:#ffc800">Oferta Relampago ('+lightnings.length+')</div>';
+    html+='<div class="alerts-section-label" style="color:#ffc800">Oferta Relampago ('+lightnings.length+')<\/div>';
     html+=lightnings.map(function(a){return makeItem('lightning',a);}).join('');
   }
   if(promos.length){
-    html+='<div class="alerts-section-label"'+(lightnings.length?' style="margin-top:16px"':'')+'>Novas Promocoes ('+promos.length+')</div>';
+    html+='<div class="alerts-section-label"'+(lightnings.length?' style="margin-top:16px"':'')+'>Novas Promocoes ('+promos.length+')<\/div>';
     html+=promos.map(function(a){return makeItem('promo',a);}).join('');
   }
   if(criticals.length){
-    html+='<div class="alerts-section-label"'+(lightnings.length||promos.length?' style="margin-top:16px"':'')+'>Criticos ('+criticals.length+')</div>';
+    html+='<div class="alerts-section-label"'+(lightnings.length||promos.length?' style="margin-top:16px"':'')+'>Criticos ('+criticals.length+')<\/div>';
     html+=criticals.map(function(a){return makeItem('critical',a);}).join('');
   }
   if(warnings.length){
-    html+='<div class="alerts-section-label"'+(criticals.length||lightnings.length||promos.length?' style="margin-top:16px"':'')+'>Atencao ('+warnings.length+')</div>';
+    html+='<div class="alerts-section-label"'+(criticals.length||lightnings.length||promos.length?' style="margin-top:16px"':'')+'>Atencao ('+warnings.length+')<\/div>';
     html+=warnings.map(function(a){return makeItem('warning',a);}).join('');
   }
   panel.innerHTML=html;
@@ -1166,10 +1166,10 @@ function closeNotifPanel(){
 async function loadFullStockProducts(){
   var listEl = document.getElementById('full-stock-list');
   if(!allSellers || !allSellers.length){
-    listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum seller conectado.</div>';
+    listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum seller conectado.<\/div>';
     return;
   }
-  listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Carregando produtos Full ML...</div>';
+  listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Carregando produtos Full ML...<\/div>';
   var html = '';
   for(var i=0; i<allSellers.length; i++){
     var s    = allSellers[i];
@@ -1177,15 +1177,15 @@ async function loadFullStockProducts(){
     if(notifPanelLoaded[s.user_id]) {
       var cached = notifPanelLoaded[s.user_id];
       if(cached.length){
-        html += '<div style="font-size:11px;font-weight:600;color:var(--tl);text-transform:uppercase;letter-spacing:.4px;padding:10px 0 6px">'+name+'</div>';
+        html += '<div style="font-size:11px;font-weight:600;color:var(--tl);text-transform:uppercase;letter-spacing:.4px;padding:10px 0 6px">'+name+'<\/div>';
         html += cached.map(function(p){
           var thr = getFullStockThreshold(p.item_id);
           var sc  = (p.stock <= thr && thr > 0) ? '#e05555' : p.stock <= 5 ? '#f5a623' : '#2a9d8f';
           return '<div class="full-product-row">'
-            +'<div class="full-product-name" title="'+p.title+'">'+p.title+'</div>'
-            +'<div class="full-product-stock" style="color:'+sc+'">'+p.stock+' un</div>'
+            +'<div class="full-product-name" title="'+p.title+'">'+p.title+'<\/div>'
+            +'<div class="full-product-stock" style="color:'+sc+'">'+p.stock+' un<\/div>'
             +'<input class="threshold-input" type="number" min="0" placeholder="0" value="'+(thr||'')+'" data-item="'+p.item_id+'">'
-            +'</div>';
+            +'<\/div>';
         }).join('');
       }
       continue;
@@ -1197,20 +1197,20 @@ async function loadFullStockProducts(){
       var prods = d.products || [];
       notifPanelLoaded[s.user_id] = prods;
       if(prods.length){
-        html += '<div style="font-size:11px;font-weight:600;color:var(--tl);text-transform:uppercase;letter-spacing:.4px;padding:10px 0 6px">'+name+'</div>';
+        html += '<div style="font-size:11px;font-weight:600;color:var(--tl);text-transform:uppercase;letter-spacing:.4px;padding:10px 0 6px">'+name+'<\/div>';
         html += prods.map(function(p){
           var thr = getFullStockThreshold(p.item_id);
           var sc  = (p.stock <= thr && thr > 0) ? '#e05555' : p.stock <= 5 ? '#f5a623' : '#2a9d8f';
           return '<div class="full-product-row">'
-            +'<div class="full-product-name" title="'+p.title+'">'+p.title+'</div>'
-            +'<div class="full-product-stock" style="color:'+sc+'">'+p.stock+' un</div>'
+            +'<div class="full-product-name" title="'+p.title+'">'+p.title+'<\/div>'
+            +'<div class="full-product-stock" style="color:'+sc+'">'+p.stock+' un<\/div>'
             +'<input class="threshold-input" type="number" min="0" placeholder="0" value="'+(thr||'')+'" data-item="'+p.item_id+'">'
-            +'</div>';
+            +'<\/div>';
         }).join('');
       }
     } catch(e){ console.log('[Full Stock] ERRO seller', s.user_id, e); }
   }
-  listEl.innerHTML = html || '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum produto Full ML encontrado.</div>';
+  listEl.innerHTML = html || '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum produto Full ML encontrado.<\/div>';
 }
 
 
@@ -1355,7 +1355,7 @@ function reloadCurrentTab(){
   destroyCharts();
   document.querySelectorAll('.tab-content').forEach(function(c){
     if(c.classList.contains('active')){
-      c.innerHTML = '<div class="loading-state"><div class="spinner"></div><span>Atualizando...</span></div>';
+      c.innerHTML = '<div class="loading-state"><div class="spinner"><\/div><span>Atualizando...<\/span><\/div>';
     }
   });
   loadTab(activeTab);
@@ -1397,7 +1397,7 @@ async function loadList(){
 
   if(!allSellers.length){
     document.getElementById('list-sub').textContent = '0 sellers conectados';
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📡</div><div class="empty-title">Nenhum seller conectado</div><div class="empty-sub">Conecte seu primeiro seller para começar</div><button class="btn-connect" onclick="window.location=\'/auth\'">+ Conectar Seller</button></div>';
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📡<\/div><div class="empty-title">Nenhum seller conectado<\/div><div class="empty-sub">Conecte seu primeiro seller para começar<\/div><button class="btn-connect" onclick="window.location=\'/auth\'">+ Conectar Seller<\/button><\/div>';
     return;
   }
 
@@ -1412,34 +1412,34 @@ async function loadList(){
     return '<div class="seller-card" id="card-'+s.user_id+'" onclick="selectSeller(\''+s.user_id+'\')">' +
       '<div class="seller-card-top">' +
         '<div class="seller-card-info">' +
-          '<div class="seller-display-name" id="dname-'+s.user_id+'">'+displayName+'</div>' +
+          '<div class="seller-display-name" id="dname-'+s.user_id+'">'+displayName+'<\/div>' +
           '<input class="seller-display-name-input" id="dinput-'+s.user_id+'" value="'+displayName+'" onblur="saveName(\''+s.user_id+'\')" onkeydown="nameKeydown(event,\''+s.user_id+'\')" onclick="event.stopPropagation()">' +
-          '<div class="seller-real-name">'+s.nickname+' · '+s.user_id+'</div>' +
-        '</div>' +
+          '<div class="seller-real-name">'+s.nickname+' · '+s.user_id+'<\/div>' +
+        '<\/div>' +
         '<div class="seller-card-actions">' +
 
-          '<button class="btn-icon" title="Renomear" onclick="event.stopPropagation();editName(\''+s.user_id+'\')">✏️</button>' +
-          '<button class="btn-icon danger" title="Remover" data-seller-id="'+s.user_id+'" data-seller-name="'+displayName.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();removeSeller(this)">✕</button>' +
-        '</div>' +
-      '</div>' +
+          '<button class="btn-icon" title="Renomear" onclick="event.stopPropagation();editName(\''+s.user_id+'\')">✏️<\/button>' +
+          '<button class="btn-icon danger" title="Remover" data-seller-id="'+s.user_id+'" data-seller-name="'+displayName.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();removeSeller(this)">✕<\/button>' +
+        '<\/div>' +
+      '<\/div>' +
       '<div class="seller-card-metrics">' +
         '<div class="seller-mini-metric">' +
-          '<div class="seller-mini-label">Vendas Brutas Hoje</div>' +
-          '<div class="seller-mini-value" id="today-gmv-'+s.user_id+'"><div class="seller-mini-loading">...</div></div>' +
-        '</div>' +
+          '<div class="seller-mini-label">Vendas Brutas Hoje<\/div>' +
+          '<div class="seller-mini-value" id="today-gmv-'+s.user_id+'"><div class="seller-mini-loading">...<\/div><\/div>' +
+        '<\/div>' +
         '<div class="seller-mini-metric">' +
-          '<div class="seller-mini-label">Qtd Vendas Hoje</div>' +
-          '<div class="seller-mini-value" id="today-qty-'+s.user_id+'"><div class="seller-mini-loading">...</div></div>' +
-        '</div>' +
-      '</div>' +
+          '<div class="seller-mini-label">Qtd Vendas Hoje<\/div>' +
+          '<div class="seller-mini-value" id="today-qty-'+s.user_id+'"><div class="seller-mini-loading">...<\/div><\/div>' +
+        '<\/div>' +
+      '<\/div>' +
       '<div class="seller-card-footer">' +
-        '<span class="seller-id-badge">ID: '+s.user_id+'</span>' +
-        '<button class="btn-open" onclick="event.stopPropagation();selectSeller(\''+s.user_id+'\')">Abrir painel →</button>' +
-      '</div>' +
-    '</div>';
+        '<span class="seller-id-badge">ID: '+s.user_id+'<\/span>' +
+        '<button class="btn-open" onclick="event.stopPropagation();selectSeller(\''+s.user_id+'\')">Abrir painel →<\/button>' +
+      '<\/div>' +
+    '<\/div>';
   }).join('');
 
-  grid.innerHTML = '<div class="sellers-grid">'+html+'</div>';
+  grid.innerHTML = '<div class="sellers-grid">'+html+'<\/div>';
 
   // Carrega dados do dia para cada seller
   allSellers.forEach(function(s){ loadTodayMetrics(s.user_id); });
@@ -1458,8 +1458,8 @@ async function loadTodayMetrics(userId){
   } catch(e) {
     var gmvEl = document.getElementById('today-gmv-'+userId);
     var qtyEl = document.getElementById('today-qty-'+userId);
-    if(gmvEl) gmvEl.innerHTML = '<span style="color:var(--text3);font-size:11px">—</span>';
-    if(qtyEl) qtyEl.innerHTML = '<span style="color:var(--text3);font-size:11px">—</span>';
+    if(gmvEl) gmvEl.innerHTML = '<span style="color:var(--text3);font-size:11px">—<\/span>';
+    if(qtyEl) qtyEl.innerHTML = '<span style="color:var(--text3);font-size:11px">—<\/span>';
   }
 }
 
@@ -1513,7 +1513,7 @@ function selectSeller(sellerId){
   document.getElementById('tab-vendas-btn').classList.add('active');
   document.querySelectorAll('.tab-content').forEach(function(c){
     c.classList.remove('active');
-    c.innerHTML = '<div class="loading-state"><div class="spinner"></div><span>Carregando...</span></div>';
+    c.innerHTML = '<div class="loading-state"><div class="spinner"><\/div><span>Carregando...<\/span><\/div>';
   });
   document.getElementById('tab-vendas').classList.add('active');
   activeTab = 'vendas';
@@ -1558,14 +1558,14 @@ async function loadTab(tab){
       renderPerguntas(el, qs);
     }
   } catch(e){
-    el.innerHTML = '<div class="loading-state"><span style="color:var(--red)">Erro ao carregar dados. Tente novamente.</span></div>';
+    el.innerHTML = '<div class="loading-state"><span style="color:var(--red)">Erro ao carregar dados. Tente novamente.<\/span><\/div>';
   }
 }
 
 function varBadge(v){
-  if(v===0||v===null||v===undefined) return '<span style="font-size:11px;color:var(--text3)">—</span>';
+  if(v===0||v===null||v===undefined) return '<span style="font-size:11px;color:var(--text3)">—<\/span>';
   var color = v>=0 ? 'var(--green)' : 'var(--red)';
-  return '<span style="font-size:11px;color:'+color+'">'+(v>=0?'▲':'▼')+Math.abs(v)+'%</span>';
+  return '<span style="font-size:11px;color:'+color+'">'+(v>=0?'▲':'▼')+Math.abs(v)+'%<\/span>';
 }
 
 function renderVendas(el, data, isToday){
@@ -1580,71 +1580,71 @@ function renderVendas(el, data, isToday){
     : null;
 
   el.innerHTML =
-    '<div class="section-label">Resumo de Desempenho</div>'+
+    '<div class="section-label">Resumo de Desempenho<\/div>'+
     '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(165px,1fr))">'+
-      '<div class="metric-card"><div class="metric-label">Vendas Brutas</div><div class="metric-value">'+fmt(s.vendas_brutas||0)+'</div><div class="metric-delta">'+varBadge(cmp.var_vendas_brutas)+' vs período anterior</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Unidades Vendidas</div><div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'</div><div class="metric-delta">'+varBadge(cmp.var_unidades)+' vs período anterior</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Preço Médio / Unidade</div><div class="metric-value">'+fmt(s.preco_medio_unidade||0)+'</div><div class="metric-delta">'+varBadge(cmp.var_avg_unit)+' vs período anterior</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Qtd de Vendas</div><div class="metric-value">'+fmtFull(s.qtd_vendas||0)+'</div><div class="metric-delta">'+varBadge(cmp.var_qtd_vendas)+' vs período anterior</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Visitas</div><div class="metric-value">'+fmtFull(s.total_visits||0)+'</div><div class="metric-delta">nos anúncios</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Conversão</div><div class="metric-value" style="color:'+convColor+'">'+(s.conversion||0)+'%</div><div class="metric-delta">visitas → venda</div></div>'+
+      '<div class="metric-card"><div class="metric-label">Vendas Brutas<\/div><div class="metric-value">'+fmt(s.vendas_brutas||0)+'<\/div><div class="metric-delta">'+varBadge(cmp.var_vendas_brutas)+' vs período anterior<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Unidades Vendidas<\/div><div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'<\/div><div class="metric-delta">'+varBadge(cmp.var_unidades)+' vs período anterior<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Preço Médio / Unidade<\/div><div class="metric-value">'+fmt(s.preco_medio_unidade||0)+'<\/div><div class="metric-delta">'+varBadge(cmp.var_avg_unit)+' vs período anterior<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Qtd de Vendas<\/div><div class="metric-value">'+fmtFull(s.qtd_vendas||0)+'<\/div><div class="metric-delta">'+varBadge(cmp.var_qtd_vendas)+' vs período anterior<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Visitas<\/div><div class="metric-value">'+fmtFull(s.total_visits||0)+'<\/div><div class="metric-delta">nos anúncios<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Conversão<\/div><div class="metric-value" style="color:'+convColor+'">'+(s.conversion||0)+'%<\/div><div class="metric-delta">visitas → venda<\/div><\/div>'+
 
-      '<div class="metric-card"><div class="metric-label">Qtd Canceladas</div><div class="metric-value" style="color:'+(s.qtd_canceladas>0?'var(--red)':'var(--text)')+'">'+fmtFull(s.qtd_canceladas||0)+'</div><div class="metric-delta">no período</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Valor Cancelamentos</div><div class="metric-value" style="color:'+(s.valor_canceladas>0?'var(--red)':'var(--text)')+'">'+fmt(s.valor_canceladas||0)+'</div><div class="metric-delta">no período</div></div>'+
-    '</div>'+
+      '<div class="metric-card"><div class="metric-label">Qtd Canceladas<\/div><div class="metric-value" style="color:'+(s.qtd_canceladas>0?'var(--red)':'var(--text)')+'">'+fmtFull(s.qtd_canceladas||0)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Valor Cancelamentos<\/div><div class="metric-value" style="color:'+(s.valor_canceladas>0?'var(--red)':'var(--text)')+'">'+fmt(s.valor_canceladas||0)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
+    '<\/div>'+
 
-    '<div class="section-label">Comparativo de Períodos</div>'+
+    '<div class="section-label">Comparativo de Períodos<\/div>'+
     '<div class="card" style="margin-bottom:14px">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
         '<div>'+
-          '<div class="card-title">Atual vs Período Anterior</div>'+
+          '<div class="card-title">Atual vs Período Anterior<\/div>'+
           '<div style="font-size:11px;color:var(--text3);margin-top:3px">'+
             (data.period&&data.period.date_from===data.period.date_to
               ? fmtDate(data.period.date_from)
               : fmtDate(data.period&&data.period.date_from)+' – '+fmtDate(data.period&&data.period.date_to))+
-            ' <span style="margin:0 6px;opacity:0.4">vs</span> '+
+            ' <span style="margin:0 6px;opacity:0.4">vs<\/span> '+
             (cmp.prev_period&&cmp.prev_period.date_from===cmp.prev_period.date_to
               ? fmtDate(cmp.prev_period.date_from)
               : fmtDate(cmp.prev_period&&cmp.prev_period.date_from)+' – '+fmtDate(cmp.prev_period&&cmp.prev_period.date_to))+
-          '</div>'+
-        '</div>'+
-      '</div>'+
+          '<\/div>'+
+        '<\/div>'+
+      '<\/div>'+
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'+
         '<div class="metric-card" style="margin-bottom:0">'+
-          '<div class="metric-label">Vendas Brutas</div>'+
-          '<div class="metric-value">'+fmt(s.vendas_brutas||0)+'</div>'+
+          '<div class="metric-label">Vendas Brutas<\/div>'+
+          '<div class="metric-value">'+fmt(s.vendas_brutas||0)+'<\/div>'+
           '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
-            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmt(cmp.prev_vendas_brutas||0)+'</span>'+
-            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_vendas_brutas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_vendas_brutas||0)>=0?'▲':'▼')+Math.abs(cmp.var_vendas_brutas||0)+'%</span>'+
-          '</div>'+
-        '</div>'+
+            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmt(cmp.prev_vendas_brutas||0)+'<\/span>'+
+            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_vendas_brutas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_vendas_brutas||0)>=0?'▲':'▼')+Math.abs(cmp.var_vendas_brutas||0)+'%<\/span>'+
+          '<\/div>'+
+        '<\/div>'+
         '<div class="metric-card" style="margin-bottom:0">'+
-          '<div class="metric-label">Qtd de Vendas</div>'+
-          '<div class="metric-value">'+fmtFull(s.qtd_vendas||0)+'</div>'+
+          '<div class="metric-label">Qtd de Vendas<\/div>'+
+          '<div class="metric-value">'+fmtFull(s.qtd_vendas||0)+'<\/div>'+
           '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
-            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmtFull(cmp.prev_qtd_vendas||0)+'</span>'+
-            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_qtd_vendas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_qtd_vendas||0)>=0?'▲':'▼')+Math.abs(cmp.var_qtd_vendas||0)+'%</span>'+
-          '</div>'+
-        '</div>'+
+            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmtFull(cmp.prev_qtd_vendas||0)+'<\/span>'+
+            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_qtd_vendas||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_qtd_vendas||0)>=0?'▲':'▼')+Math.abs(cmp.var_qtd_vendas||0)+'%<\/span>'+
+          '<\/div>'+
+        '<\/div>'+
         '<div class="metric-card" style="margin-bottom:0">'+
-          '<div class="metric-label">Unidades Vendidas</div>'+
-          '<div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'</div>'+
+          '<div class="metric-label">Unidades Vendidas<\/div>'+
+          '<div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'<\/div>'+
           '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">'+
-            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmtFull(cmp.prev_unidades||0)+'</span>'+
-            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_unidades||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_unidades||0)>=0?'▲':'▼')+Math.abs(cmp.var_unidades||0)+'%</span>'+
-          '</div>'+
-        '</div>'+
-      '</div>'+
-    '</div>'+
+            '<span style="font-size:11px;color:var(--mu)">Ant: '+fmtFull(cmp.prev_unidades||0)+'<\/span>'+
+            '<span style="font-size:12px;font-weight:600;color:'+((cmp.var_unidades||0)>=0?'var(--green)':'var(--red)')+'">'+((cmp.var_unidades||0)>=0?'▲':'▼')+Math.abs(cmp.var_unidades||0)+'%<\/span>'+
+          '<\/div>'+
+        '<\/div>'+
+      '<\/div>'+
+    '<\/div>'+
 
-    '<div class="section-label">Evolução</div>'+
+    '<div class="section-label">Evolução<\/div>'+
     '<div class="card">'+
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">'+
-        '<div><div class="card-title">'+(isToday?'Vendas por Hora — Hoje':'Vendas Brutas por Dia')+'</div><div class="card-sub" style="margin-bottom:0">'+(isToday?'Faturamento acumulado hora a hora (00h–23h)':'Faturamento e quantidade de vendas dia a dia')+'</div></div>'+
-        '<div class="legend" style="margin-bottom:0"><span class="leg"><span class="leg-dot" style="background:#2ecc9a"></span>Vendas Brutas</span><span class="leg"><span class="leg-dot" style="background:rgba(74,95,232,0.7)"></span>Qtd Vendas</span></div>'+
-      '</div>'+
-      '<div style="position:relative;height:240px"><canvas id="chart-daily-sales"></canvas></div>'+
-    '</div>'+
+        '<div><div class="card-title">'+(isToday?'Vendas por Hora — Hoje':'Vendas Brutas por Dia')+'<\/div><div class="card-sub" style="margin-bottom:0">'+(isToday?'Faturamento acumulado hora a hora (00h–23h)':'Faturamento e quantidade de vendas dia a dia')+'<\/div><\/div>'+
+        '<div class="legend" style="margin-bottom:0"><span class="leg"><span class="leg-dot" style="background:#2ecc9a"><\/span>Vendas Brutas<\/span><span class="leg"><span class="leg-dot" style="background:rgba(74,95,232,0.7)"><\/span>Qtd Vendas<\/span><\/div>'+
+      '<\/div>'+
+      '<div style="position:relative;height:240px"><canvas id="chart-daily-sales"><\/canvas><\/div>'+
+    '<\/div>'+
 
     '';
 
@@ -1734,40 +1734,40 @@ function renderCampanhas(el, ads, daily){
     var stLabel = (c.status==='active'||c.status==='enabled')?'Ativa':c.status==='paused'?'Pausada':'Parada';
     var stBadge = (c.status==='active'||c.status==='enabled')?'badge-green':c.status==='paused'?'badge-amber':'badge-red';
     return '<tr>'+
-      '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:6px;vertical-align:middle"></span><span class="cell-name" title="'+c.name+'">'+c.name+'</span></td>'+
-      '<td>'+fmtDec(c.spend)+'</td><td>'+fmtDec(c.revenue)+'</td>'+
-      '<td style="color:'+(c.roas>=3?'var(--green)':'var(--red)')+'">'+c.roas+'x</td>'+
-      '<td><span class="badge '+acosC+'">'+c.acos+'%</span></td>'+
-      '<td>'+fmtK(c.clicks)+'</td><td>'+fmtK(c.impressions)+'</td>'+
-      '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
-    '</tr>';
+      '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:6px;vertical-align:middle"><\/span><span class="cell-name" title="'+c.name+'">'+c.name+'<\/span><\/td>'+
+      '<td>'+fmtDec(c.spend)+'<\/td><td>'+fmtDec(c.revenue)+'<\/td>'+
+      '<td style="color:'+(c.roas>=3?'var(--green)':'var(--red)')+'">'+c.roas+'x<\/td>'+
+      '<td><span class="badge '+acosC+'">'+c.acos+'%<\/span><\/td>'+
+      '<td>'+fmtK(c.clicks)+'<\/td><td>'+fmtK(c.impressions)+'<\/td>'+
+      '<td><span class="badge '+stBadge+'">'+stLabel+'<\/span><\/td>'+
+    '<\/tr>';
   }).join('');
-  var emptyCamps = camps.length===0 ? '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Nenhuma campanha no período</td></tr>' : campRows;
+  var emptyCamps = camps.length===0 ? '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Nenhuma campanha no período<\/td><\/tr>' : campRows;
 
   el.innerHTML =
-    '<div class="section-label">Resumo do Período</div>'+
+    '<div class="section-label">Resumo do Período<\/div>'+
     '<div class="metrics-grid" style="grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:16px">'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Gasto</div><div class="metric-value" style="font-size:16px">'+fmt(s.spend)+'</div><div class="metric-delta">no período</div></div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Receita ADS</div><div class="metric-value" style="font-size:16px">'+fmt(s.revenue)+'</div><div class="metric-delta">no período</div></div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ROAS</div><div class="metric-value" style="font-size:16px;color:'+roasColor+'">'+s.roas+'x</div><div class="metric-delta '+(s.roas>=3?'delta-up':'delta-down')+'">'+(s.roas>=3?'Acima':'Abaixo')+' da meta (3x)</div></div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ACOS</div><div class="metric-value" style="font-size:16px;color:'+acosColor+'">'+s.acos+'%</div><div class="metric-delta '+(s.acos<=15?'delta-up':'delta-down')+'">'+(s.acos<=15?'Dentro':'Acima')+' da meta (15%)</div></div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Cliques</div><div class="metric-value" style="font-size:16px">'+fmtK(s.clicks)+'</div><div class="metric-delta">CTR: '+ctr+'%</div></div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Impressões</div><div class="metric-value" style="font-size:16px">'+fmtK(s.impressions)+'</div><div class="metric-delta">total do período</div></div>'+
-    '</div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Gasto<\/div><div class="metric-value" style="font-size:16px">'+fmt(s.spend)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Receita ADS<\/div><div class="metric-value" style="font-size:16px">'+fmt(s.revenue)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ROAS<\/div><div class="metric-value" style="font-size:16px;color:'+roasColor+'">'+s.roas+'x<\/div><div class="metric-delta '+(s.roas>=3?'delta-up':'delta-down')+'">'+(s.roas>=3?'Acima':'Abaixo')+' da meta (3x)<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ACOS<\/div><div class="metric-value" style="font-size:16px;color:'+acosColor+'">'+s.acos+'%<\/div><div class="metric-delta '+(s.acos<=15?'delta-up':'delta-down')+'">'+(s.acos<=15?'Dentro':'Acima')+' da meta (15%)<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Cliques<\/div><div class="metric-value" style="font-size:16px">'+fmtK(s.clicks)+'<\/div><div class="metric-delta">CTR: '+ctr+'%<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Impressões<\/div><div class="metric-value" style="font-size:16px">'+fmtK(s.impressions)+'<\/div><div class="metric-delta">total do período<\/div><\/div>'+
+    '<\/div>'+
 
-    '<div class="section-label">'+(hasDailyData?'Evolução Diária':'Gasto vs Receita por Campanha')+'</div>'+
+    '<div class="section-label">'+(hasDailyData?'Evolução Diária':'Gasto vs Receita por Campanha')+'<\/div>'+
     '<div class="card">'+
-      '<div class="card-title">'+(hasDailyData?'Gasto e Receita Diários':'Performance por Campanha')+'</div>'+
-      '<div class="card-sub">'+(hasDailyData?'Dia a dia no período':'Top campanhas do período')+'</div>'+
-      '<div class="legend"><span class="leg"><span class="leg-dot" style="background:#4a5fe8"></span>Receita</span><span class="leg"><span class="leg-dot" style="background:#ff5c7a"></span>Gasto</span></div>'+
-      '<div style="position:relative;height:220px"><canvas id="chart-camps"></canvas></div>'+
-    '</div>'+
+      '<div class="card-title">'+(hasDailyData?'Gasto e Receita Diários':'Performance por Campanha')+'<\/div>'+
+      '<div class="card-sub">'+(hasDailyData?'Dia a dia no período':'Top campanhas do período')+'<\/div>'+
+      '<div class="legend"><span class="leg"><span class="leg-dot" style="background:#4a5fe8"><\/span>Receita<\/span><span class="leg"><span class="leg-dot" style="background:#ff5c7a"><\/span>Gasto<\/span><\/div>'+
+      '<div style="position:relative;height:220px"><canvas id="chart-camps"><\/canvas><\/div>'+
+    '<\/div>'+
 
-    '<div class="section-label">Campanhas</div>'+
+    '<div class="section-label">Campanhas<\/div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
-      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Detalhamento por Campanha</div><div class="card-sub" style="margin-bottom:0">'+camps.length+' campanhas no período</div></div>'+
-      '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Campanha</th><th>Gasto</th><th>Receita</th><th>ROAS</th><th>ACOS</th><th>Cliques</th><th>Impressões</th><th>Status</th></tr></thead><tbody>'+emptyCamps+'</tbody></table></div>'+
-    '</div>';
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Detalhamento por Campanha<\/div><div class="card-sub" style="margin-bottom:0">'+camps.length+' campanhas no período<\/div><\/div>'+
+      '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Campanha<\/th><th>Gasto<\/th><th>Receita<\/th><th>ROAS<\/th><th>ACOS<\/th><th>Cliques<\/th><th>Impressões<\/th><th>Status<\/th><\/tr><\/thead><tbody>'+emptyCamps+'<\/tbody><\/table><\/div>'+
+    '<\/div>';
 
   setTimeout(function(){
     var canvas = document.getElementById('chart-camps');
@@ -1808,7 +1808,7 @@ function promoTypeLabel(type){
     'PRICE_DISCOUNT':['💲 Desconto','badge-amber'],
   };
   var info = map[type] || [type||'-','badge-gray'];
-  return '<span class="badge '+info[1]+'" style="font-size:10px">'+info[0]+'</span>';
+  return '<span class="badge '+info[1]+'" style="font-size:10px">'+info[0]+'<\/span>';
 }
 
 function renderPromocoes(el, data){
@@ -1817,11 +1817,11 @@ function renderPromocoes(el, data){
   var byType = {};
   promos.forEach(function(p){ var t=p.type||'OUTROS'; byType[t]=(byType[t]||0)+1; });
   var typeCards = Object.keys(byType).map(function(t){
-    return '<div class="metric-card"><div class="metric-label" style="margin-bottom:8px">'+promoTypeLabel(t)+'</div><div class="metric-value">'+byType[t]+'</div><div class="metric-delta">ativas</div></div>';
+    return '<div class="metric-card"><div class="metric-label" style="margin-bottom:8px">'+promoTypeLabel(t)+'<\/div><div class="metric-value">'+byType[t]+'<\/div><div class="metric-delta">ativas<\/div><\/div>';
   }).join('');
 
   var promoCards = promos.length === 0
-    ? '<div style="text-align:center;color:var(--text3);padding:40px"><div style="font-size:36px;margin-bottom:12px;opacity:0.3">🎯</div><div>Nenhuma promoção ativa</div></div>'
+    ? '<div style="text-align:center;color:var(--text3);padding:40px"><div style="font-size:36px;margin-bottom:12px;opacity:0.3">🎯<\/div><div>Nenhuma promoção ativa<\/div><\/div>'
     : promos.map(function(p, i){
         var stBadge = p.status==='started'||p.status==='active' ? 'badge-green' : p.status==='paused' ? 'badge-amber' : 'badge-gray';
         var stLabel = p.status==='started'||p.status==='active' ? 'Ativa' : p.status==='paused' ? 'Pausada' : 'Encerrada';
@@ -1840,36 +1840,36 @@ function renderPromocoes(el, data){
           // Header clicável
           '<div class="promo-card-header" onclick="togglePromoCard('+i+')">'+
             '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'+
-              '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.name+'</div>'+
-            '</div>'+
+              '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.name+'<\/div>'+
+            '<\/div>'+
             '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+
               promoTypeLabel(p.type)+
-              '<span class="badge '+stBadge+'">'+stLabel+'</span>'+
-              '<svg class="promo-chevron" id="promo-chev-'+i+'" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'+
-            '</div>'+
-          '</div>'+
+              '<span class="badge '+stBadge+'">'+stLabel+'<\/span>'+
+              '<svg class="promo-chevron" id="promo-chev-'+i+'" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><\/svg>'+
+            '<\/div>'+
+          '<\/div>'+
           // Body expansível — info + produtos
           '<div class="promo-card-body" id="promo-body-'+i+'">'+
             '<div class="promo-details-grid">'+
-              '<div class="promo-detail-item"><div class="promo-detail-label">Data de início</div><div class="promo-detail-value">'+inicio+'</div></div>'+
-              '<div class="promo-detail-item"><div class="promo-detail-label">Data de fim</div><div class="promo-detail-value">'+fim+'</div></div>'+
-              '<div class="promo-detail-item"><div class="promo-detail-label">Duração</div><div class="promo-detail-value">'+duracao+'</div></div>'+
-            '</div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Data de início<\/div><div class="promo-detail-value">'+inicio+'<\/div><\/div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Data de fim<\/div><div class="promo-detail-value">'+fim+'<\/div><\/div>'+
+              '<div class="promo-detail-item"><div class="promo-detail-label">Duração<\/div><div class="promo-detail-value">'+duracao+'<\/div><\/div>'+
+            '<\/div>'+
             '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br)">'+
-              '<div id="promo-items-'+i+'" class="promo-items-container"><div style="display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px"><div class="spinner" style="width:16px;height:16px"></div>Carregando produtos...</div></div>'+
-            '</div>'+
-          '</div>'+
-        '</div>';
+              '<div id="promo-items-'+i+'" class="promo-items-container"><div style="display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px"><div class="spinner" style="width:16px;height:16px"><\/div>Carregando produtos...<\/div><\/div>'+
+            '<\/div>'+
+          '<\/div>'+
+        '<\/div>';
       }).join('');
 
   el.innerHTML =
-    '<div class="section-label">Resumo</div>'+
+    '<div class="section-label">Resumo<\/div>'+
     '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(155px,1fr));margin-bottom:20px">'+
-      '<div class="metric-card"><div class="metric-label">Total Ativas</div><div class="metric-value">'+total+'</div><div class="metric-delta">promoções no ar</div></div>'+
+      '<div class="metric-card"><div class="metric-label">Total Ativas<\/div><div class="metric-value">'+total+'<\/div><div class="metric-delta">promoções no ar<\/div><\/div>'+
       typeCards+
-    '</div>'+
-    '<div class="section-label">Promoções Ativas</div>'+
-    '<div style="display:flex;flex-direction:column;gap:8px">'+promoCards+'</div>';
+    '<\/div>'+
+    '<div class="section-label">Promoções Ativas<\/div>'+
+    '<div style="display:flex;flex-direction:column;gap:8px">'+promoCards+'<\/div>';
 }
 
 function togglePromoCard(i){
@@ -1904,7 +1904,7 @@ async function loadPromoItems(promoId, promoType, startDate, idx){
     var statusMap = {'active':'Ativa','candidate':'Candidata','paused':'Pausada','finished':'Encerrada','suspended':'Suspensa','started':'Incluído'};
 
     if(!items.length){
-      container.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:4px 0">Nenhum produto encontrado nesta promoção.</div>';
+      container.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:4px 0">Nenhum produto encontrado nesta promoção.<\/div>';
     } else {
       var rows = items.map(function(it){
         var stLabel = statusMap[it.status] || it.status;
@@ -1921,28 +1921,28 @@ async function loadPromoItems(promoId, promoType, startDate, idx){
         }
         var title = it.title || it.item_id;
         return '<tr>'+
-          '<td style="max-width:300px"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div><div style="font-size:10px;color:var(--mu);font-family:monospace">'+it.item_id+'</div></td>'+
-          '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
-          '<td>'+fmtDec(it.price)+'</td>'+
-          '<td style="color:var(--mu);text-decoration:line-through">'+fmtDec(it.original_price)+'</td>'+
-          '<td><span style="color:'+descontoColor+';font-weight:600">'+descontoLabel+'</span></td>'+
-          '<td style="font-weight:600">'+it.qty_sold+' un</td>'+
-          '<td style="font-weight:600;color:var(--green)">'+fmtDec(it.revenue)+'</td>'+
-        '</tr>';
+          '<td style="max-width:300px"><div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'<\/div><div style="font-size:10px;color:var(--mu);font-family:monospace">'+it.item_id+'<\/div><\/td>'+
+          '<td><span class="badge '+stBadge+'">'+stLabel+'<\/span><\/td>'+
+          '<td>'+fmtDec(it.price)+'<\/td>'+
+          '<td style="color:var(--mu);text-decoration:line-through">'+fmtDec(it.original_price)+'<\/td>'+
+          '<td><span style="color:'+descontoColor+';font-weight:600">'+descontoLabel+'<\/span><\/td>'+
+          '<td style="font-weight:600">'+it.qty_sold+' un<\/td>'+
+          '<td style="font-weight:600;color:var(--green)">'+fmtDec(it.revenue)+'<\/td>'+
+        '<\/tr>';
       }).join('');
 
       container.innerHTML =
-        '<div style="font-size:11px;color:var(--mu);margin-bottom:8px">Vendas desde '+fmtDate(data.date_from)+' até '+fmtDate(data.date_to)+'</div>'+
+        '<div style="font-size:11px;color:var(--mu);margin-bottom:8px">Vendas desde '+fmtDate(data.date_from)+' até '+fmtDate(data.date_to)+'<\/div>'+
         '<div style="overflow-x:auto"><table class="data-table">'+
           '<thead><tr>'+
-            '<th>Produto</th><th>Status</th><th>Preço Promo</th><th>Original</th><th>Desconto</th><th>Qtd Vendida</th><th>Receita</th>'+
-          '</tr></thead>'+
-          '<tbody>'+rows+'</tbody>'+
-        '</table></div>';
+            '<th>Produto<\/th><th>Status<\/th><th>Preço Promo<\/th><th>Original<\/th><th>Desconto<\/th><th>Qtd Vendida<\/th><th>Receita<\/th>'+
+          '<\/tr><\/thead>'+
+          '<tbody>'+rows+'<\/tbody>'+
+        '<\/table><\/div>';
     }
     container.dataset.loaded = '1';
   } catch(e) {
-    container.innerHTML = '<div style="font-size:12px;color:var(--red);padding:4px 0">Erro ao carregar produtos.</div>';
+    container.innerHTML = '<div style="font-size:12px;color:var(--red);padding:4px 0">Erro ao carregar produtos.<\/div>';
   }
 }
 
@@ -1953,35 +1953,35 @@ function renderPerguntas(el, data){
   var unansColor = totalUnans > 0 ? 'var(--red)' : 'var(--green)';
 
   var rows = qs.length === 0
-    ? '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:32px"><div style="font-size:32px;margin-bottom:12px;opacity:0.3">💬</div><div>Nenhuma pergunta encontrada</div></td></tr>'
+    ? '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:32px"><div style="font-size:32px;margin-bottom:12px;opacity:0.3">💬<\/div><div>Nenhuma pergunta encontrada<\/div><\/td><\/tr>'
     : qs.map(function(q){
         var stBadge = q.status === 'UNANSWERED' ? 'badge-red' : 'badge-green';
         var stLabel = q.status === 'UNANSWERED' ? 'Sem resposta' : 'Respondida';
         var dt = q.date_created ? q.date_created.split(' ') : ['-',''];
         var dtBR = dt[0] ? dt[0].split('-').reverse().join('/') + (dt[1] ? ' ' + dt[1] : '') : '-';
         return '<tr>'+
-          '<td style="min-width:300px"><div style="font-size:13px;color:var(--text);margin-bottom:4px">'+q.text+'</div>'+
-            (q.answer ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">↩ '+q.answer+'</div>' : '')+
-          '</td>'+
-          '<td style="font-size:11px;color:var(--text3);white-space:nowrap">'+dtBR+'</td>'+
-          '<td><span style="font-size:10px;color:var(--text3)">'+( q.item_id||'-')+'</span></td>'+
-          '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
-        '</tr>';
+          '<td style="min-width:300px"><div style="font-size:13px;color:var(--text);margin-bottom:4px">'+q.text+'<\/div>'+
+            (q.answer ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">↩ '+q.answer+'<\/div>' : '')+
+          '<\/td>'+
+          '<td style="font-size:11px;color:var(--text3);white-space:nowrap">'+dtBR+'<\/td>'+
+          '<td><span style="font-size:10px;color:var(--text3)">'+( q.item_id||'-')+'<\/span><\/td>'+
+          '<td><span class="badge '+stBadge+'">'+stLabel+'<\/span><\/td>'+
+        '<\/tr>';
       }).join('');
 
   el.innerHTML =
-    '<div class="section-label">Resumo</div>'+
+    '<div class="section-label">Resumo<\/div>'+
     '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:20px">'+
-      '<div class="metric-card"><div class="metric-label">Total de Perguntas</div><div class="metric-value">'+total+'</div><div class="metric-delta">histórico recente</div></div>'+
-      '<div class="metric-card"><div class="metric-label">Sem Resposta</div><div class="metric-value" style="color:'+unansColor+'">'+totalUnans+'</div><div class="metric-delta">'+(totalUnans>0?'⚠ requer atenção':'✅ em dia')+'</div></div>'+
-    '</div>'+
-    '<div class="section-label">Perguntas Recentes</div>'+
+      '<div class="metric-card"><div class="metric-label">Total de Perguntas<\/div><div class="metric-value">'+total+'<\/div><div class="metric-delta">histórico recente<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Sem Resposta<\/div><div class="metric-value" style="color:'+unansColor+'">'+totalUnans+'<\/div><div class="metric-delta">'+(totalUnans>0?'⚠ requer atenção':'✅ em dia')+'<\/div><\/div>'+
+    '<\/div>'+
+    '<div class="section-label">Perguntas Recentes<\/div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
       '<div style="overflow-x:auto"><table class="data-table">'+
-        '<thead><tr><th>Pergunta / Resposta</th><th>Data</th><th>Item ID</th><th>Status</th></tr></thead>'+
-        '<tbody>'+rows+'</tbody>'+
-      '</table></div>'+
-    '</div>';
+        '<thead><tr><th>Pergunta / Resposta<\/th><th>Data<\/th><th>Item ID<\/th><th>Status<\/th><\/tr><\/thead>'+
+        '<tbody>'+rows+'<\/tbody>'+
+      '<\/table><\/div>'+
+    '<\/div>';
 }
 
 function setProdSort(s){
@@ -2022,6 +2022,20 @@ function setProdStatus(f){
   if(el._rebuildTable) el._rebuildTable(searchVal);
 }
 
+function setProdFull(f){
+  var el = document.getElementById('tab-produtos');
+  if(!el) return;
+  el._fullFilter = f;
+  var btnAll = document.getElementById('full-all');
+  var btnYes = document.getElementById('full-yes');
+  var active = 'var(--td)', inactive = 'transparent';
+  if(btnAll){ btnAll.style.background = f==='all'?active:inactive; btnAll.style.color = f==='all'?'#fff':'var(--text2)'; btnAll.style.fontWeight = f==='all'?'600':'400'; }
+  if(btnYes){ btnYes.style.background = f==='yes'?active:inactive; btnYes.style.color = f==='yes'?'#fff':'var(--text2)'; btnYes.style.fontWeight = f==='yes'?'600':'400'; }
+  var searchVal = (document.getElementById('prod-search')||{}).value || '';
+  var tabEl = document.getElementById('tab-produtos');
+  if(tabEl && tabEl._rebuildTable) tabEl._rebuildTable(searchVal);
+}
+
 function setProdCatalog(f){
   var el = document.getElementById('tab-produtos');
   if(!el) return;
@@ -2050,7 +2064,7 @@ function renderProdutos(el, data){
     var sorted = getSorted(prods);
     var s = el._sortBy || sortBy;
     var maxVal = sorted.length>0 ? (sorted[0][s]||1) : 1;
-    if(!sorted.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">Nenhum produto encontrado no período</td></tr>';
+    if(!sorted.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:32px">Nenhum produto encontrado no período<\/td><\/tr>';
     window._currentProdGmv = data.gmv || 0;
     return sorted.map(function(p,i){
       var pct        = Math.round(((p[s]||0)/maxVal)*100);
@@ -2060,19 +2074,19 @@ function renderProdutos(el, data){
       var pEnc       = encodeURIComponent(JSON.stringify(p));
       var pausedStyle = p.status==='paused' ? 'background:rgba(220,60,60,0.06);' : '';
       return '<tr style="cursor:pointer;'+pausedStyle+'" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
-        '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
+        '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'<\/td>'+
         '<td>'+
-          '<div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
+          '<div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'<\/div>'+
           '<div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;width:180px">'+
-            '<div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"></div>'+
-          '</div>'+
-        '</td>'+
-        '<td style="color:var(--text2)">'+fmtFull(p.qty)+' un</td>'+
-        '<td style="color:var(--green);font-weight:500">'+fmtFull(organicQty)+' un</td>'+
-        '<td style="color:'+(hasAds?'var(--tl)':'var(--text3)')+';font-weight:'+(hasAds?'500':'400')+'">'+fmtFull(adsQty)+' un</td>'+
-        '<td style="font-weight:600">'+fmtDec(p.revenue)+'</td>'+
-        '<td style="color:var(--text3);width:20px">›</td>'+
-      '</tr>';
+            '<div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"><\/div>'+
+          '<\/div>'+
+        '<\/td>'+
+        '<td style="color:var(--text2)">'+fmtFull(p.qty)+' un<\/td>'+
+        '<td style="color:var(--green);font-weight:500">'+fmtFull(organicQty)+' un<\/td>'+
+        '<td style="color:'+(hasAds?'var(--tl)':'var(--text3)')+';font-weight:'+(hasAds?'500':'400')+'">'+fmtFull(adsQty)+' un<\/td>'+
+        '<td style="font-weight:600">'+fmtDec(p.revenue)+'<\/td>'+
+        '<td style="color:var(--text3);width:20px">›<\/td>'+
+      '<\/tr>';
     }).join('');
   }
 
@@ -2080,11 +2094,13 @@ function renderProdutos(el, data){
     var q  = (searchVal||'').toLowerCase();
     var cf = el._catalogFilter || 'all';
     var sf = el._statusFilter  || 'all';
+    var ff = el._fullFilter    || 'all';
     var filtered = products.filter(function(p){
       var matchQ      = !q  || p.title.toLowerCase().includes(q);
       var matchCat    = cf==='all' ? true : cf==='yes' ? !!p.catalog_product_id : !p.catalog_product_id;
       var matchStatus = sf==='all' ? true : sf==='active' ? p.status==='active' : p.status==='paused';
-      return matchQ && matchCat && matchStatus;
+      var matchFull   = ff==='all' ? true : !!p.is_full;
+      return matchQ && matchCat && matchStatus && matchFull;
     });
     var tbody = document.getElementById('prod-tbody');
     var subtitle = document.getElementById('prod-subtitle');
@@ -2097,61 +2113,70 @@ function renderProdutos(el, data){
   el._rebuildTable = rebuildTable;
 
   el.innerHTML =
-    '<div class="section-label">Produtos</div>'+
+    '<div class="section-label">Produtos<\/div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
       // Header principal com título e botão de filtros
       '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">'+
         '<div>'+
-          '<div class="card-title">Todos os Produtos</div>'+
-          '<div class="card-sub" style="margin-bottom:0" id="prod-subtitle">'+products.length+' produto(s) encontrado(s)</div>'+
-        '</div>'+
+          '<div class="card-title">Todos os Produtos<\/div>'+
+          '<div class="card-sub" style="margin-bottom:0" id="prod-subtitle">'+products.length+' produto(s) encontrado(s)<\/div>'+
+        '<\/div>'+
         '<div style="display:flex;gap:8px;align-items:center">'+
           '<input type="text" placeholder="Buscar produto..." id="prod-search" oninput="filterProducts(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);outline:none;width:200px">'+
           '<button id="prod-filter-toggle" onclick="toggleProdFilters()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-family:Poppins,sans-serif;font-size:12px;color:var(--text2);white-space:nowrap">'+
-            '⚙️ Filtros <span id="prod-filter-chevron" style="transition:transform .2s;display:inline-block">▾</span>'+
-          '</button>'+
-        '</div>'+
-      '</div>'+
+            '⚙️ Filtros <span id="prod-filter-chevron" style="transition:transform .2s;display:inline-block">▾<\/span>'+
+          '<\/button>'+
+        '<\/div>'+
+      '<\/div>'+
       // Painel expansível de filtros
       '<div id="prod-filters-panel" style="max-height:0;overflow:hidden;transition:max-height .3s ease">'+
         '<div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end">'+
           // Filtro ordenação
           '<div>'+
-            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Ordenar por</div>'+
+            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Ordenar por<\/div>'+
             '<div style="display:flex;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
-              '<button id="sort-revenue" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">💰 Faturamento</button>'+
-              '<button id="sort-qty" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📦 Volume</button>'+
-            '</div>'+
-          '</div>'+
+              '<button id="sort-revenue" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">💰 Faturamento<\/button>'+
+              '<button id="sort-qty" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📦 Volume<\/button>'+
+            '<\/div>'+
+          '<\/div>'+
           // Filtro catálogo (condicional)
           (products.some(function(p){return !!p.catalog_product_id;})?
             '<div>'+
-              '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Catálogo ML</div>'+
+              '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Catálogo ML<\/div>'+
               '<div style="display:flex;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
-                '<button id="cat-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos</button>'+
-                '<button id="cat-yes" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📋 Catálogo</button>'+
-                '<button id="cat-no" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">Sem Catálogo</button>'+
-              '</div>'+
-            '</div>'
+                '<button id="cat-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos<\/button>'+
+                '<button id="cat-yes" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">📋 Catálogo<\/button>'+
+                '<button id="cat-no" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">Sem Catálogo<\/button>'+
+              '<\/div>'+
+            '<\/div>'
+          :'')+
+          (products.some(function(p){return !!p.is_full;})?
+            '<div>'+
+              '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Fulfillment<\/div>'+
+              '<div style="display:flex;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
+                '<button id="full-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos<\/button>'+
+                '<button id="full-yes" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">⚡ Full ML<\/button>'+
+              '<\/div>'+
+            '<\/div>'
           :'')+
           // Filtro status
           '<div>'+
-            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Status</div>'+
+            '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;font-weight:600">Status<\/div>'+
             '<div style="display:flex;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);overflow:hidden">'+
-              '<button id="status-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos</button>'+
-              '<button id="status-active" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">✅ Ativos</button>'+
-              '<button id="status-paused" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">⏸ Pausados</button>'+
-            '</div>'+
-          '</div>'+
-        '</div>'+
-      '</div>'+
+              '<button id="status-all" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:var(--td);color:#fff;font-weight:600">Todos<\/button>'+
+              '<button id="status-active" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">✅ Ativos<\/button>'+
+              '<button id="status-paused" style="padding:6px 14px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--text2)">⏸ Pausados<\/button>'+
+            '<\/div>'+
+          '<\/div>'+
+        '<\/div>'+
+      '<\/div>'+
       '<div style="overflow-x:auto">'+
         '<table class="data-table" id="prod-table">'+
-          '<thead><tr><th>#</th><th>Produto</th><th>Total</th><th style="color:var(--green)">🌿 Orgânico</th><th style="color:var(--tl)">📣 ADS</th><th>Receita</th><th></th></tr></thead>'+
-          '<tbody id="prod-tbody">'+renderTable(products)+'</tbody>'+
-        '</table>'+
-      '</div>'+
-    '</div>';
+          '<thead><tr><th>#<\/th><th>Produto<\/th><th>Total<\/th><th style="color:var(--green)">🌿 Orgânico<\/th><th style="color:var(--tl)">📣 ADS<\/th><th>Receita<\/th><th><\/th><\/tr><\/thead>'+
+          '<tbody id="prod-tbody">'+renderTable(products)+'<\/tbody>'+
+        '<\/table>'+
+      '<\/div>'+
+    '<\/div>';
 
   // Bind botões de sort após render
   setTimeout(function(){
@@ -2171,6 +2196,10 @@ function renderProdutos(el, data){
     if(btnSAll)    btnSAll.addEventListener('click',    function(){ setProdStatus('all'); });
     if(btnSActive) btnSActive.addEventListener('click', function(){ setProdStatus('active'); });
     if(btnSPaused) btnSPaused.addEventListener('click', function(){ setProdStatus('paused'); });
+    var btnFAll = document.getElementById('full-all');
+    var btnFYes = document.getElementById('full-yes');
+    if(btnFAll) btnFAll.addEventListener('click', function(){ setProdFull('all'); });
+    if(btnFYes) btnFYes.addEventListener('click', function(){ setProdFull('yes'); });
   }, 0);
 }
 
@@ -2183,80 +2212,93 @@ function openProdModal(p){
   var daysLabel = daysStock === null ? '-' : daysStock === 0 ? 'Esgotado' : daysStock + ' dias';
   var stockHTML = stock === null ? '' :
     '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)">'+
-      '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📦 Estoque</div>'+
+      '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📦 Estoque<\/div>'+
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
         '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid '+(stock===0?'rgba(220,60,60,0.3)':isFull?'rgba(42,157,143,0.3)':'rgba(255,255,255,0.07)')+' !important">'+
-          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Estoque Atual</div>'+
-          '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(stock===0?'#e05555':stock<=5?'#f5a623':'#f0f0f5')+'">'+stock+' un</div>'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Estoque Atual<\/div>'+
+          '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(stock===0?'#e05555':stock<=5?'#f5a623':'#f0f0f5')+'">'+stock+' un<\/div>'+
           '<div style="font-size:10px;margin-top:4px;color:'+(isFull?'var(--tl)':stock===0?'var(--red)':stock<=5?'var(--amber)':'var(--text3)')+'">'+
             (stock===0?'⚠ Sem estoque':stock<=5?'⚠ Estoque crítico':isFull?'Full ML':'Estoque próprio')+
-          '</div>'+
-        '</div>'+
+          '<\/div>'+
+        '<\/div>'+
         '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Fulfillment</div>'+
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Fulfillment<\/div>'+
           '<div style="font-size:16px;font-weight:700;color:'+(isFull?'var(--tl)':'var(--text2)')+'">'+
             (isFull ? '⚡ Full ML' : '🏠 Próprio')+
-          '</div>'+
-          '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(isFull?'Armazenado no ML':'Enviado pelo seller')+'</div>'+
-        '</div>'+
+          '<\/div>'+
+          '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(isFull?'Armazenado no ML':'Enviado pelo seller')+'<\/div>'+
+        '<\/div>'+
         '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">⏱ Projeção (30d)</div>'+
-          '<div style="font-size:20px;font-weight:700;color:'+daysColor+'">'+daysLabel+'</div>'+
-          '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(dailyRate>0?dailyRate.toFixed(1)+' un/dia (média 30d)':'Sem vendas nos últimos 30d')+'</div>'+
-        '</div>'+
-      '</div>'+
-    '</div>';
+          '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">⏱ Projeção (30d)<\/div>'+
+          '<div style="font-size:20px;font-weight:700;color:'+daysColor+'">'+daysLabel+'<\/div>'+
+          '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(dailyRate>0?dailyRate.toFixed(1)+' un/dia (média 30d)':'Sem vendas nos últimos 30d')+'<\/div>'+
+        '<\/div>'+
+      '<\/div>'+
+      (isFull ?
+        '<div style="padding:10px 0 4px">'+
+          '<button class="full-alert-btn" data-iid="'+p.item_id+'" style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:9px 16px;background:rgba(42,157,143,.1);border:1px solid rgba(42,157,143,.3);border-radius:var(--radius-sm);cursor:pointer;font-family:Poppins,sans-serif;font-size:12px;font-weight:600;color:var(--tl)">'+
+            '🔔 Configurar Alerta de Estoque Full'+
+          '<\/button>'+
+        '<\/div>'
+      : '')+
+    '<\/div>';
   var adsQty     = p.ads_qty || 0;
   var organicQty = p.organic_qty != null ? p.organic_qty : (p.qty - adsQty);
   var hasAds     = adsQty > 0;
   var totalRev   = p.revenue || 0;
   document.getElementById('prod-modal-content').innerHTML =
     '<div class="prod-modal-title" style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">'+
-      '<div style="font-size:15px;font-weight:600;line-height:1.3;flex:1">'+p.title+'</div>'+
-      '<button class="prod-modal-close" onclick="closeProdModal()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:18px;line-height:1">×</button>'+
-    '</div>'+
+      '<div style="font-size:15px;font-weight:600;line-height:1.3;flex:1">'+p.title+'<\/div>'+
+      '<button class="prod-modal-close" onclick="closeProdModal()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:18px;line-height:1">×<\/button>'+
+    '<\/div>'+
     '<div style="padding:20px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
       '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total</div>'+
-        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtDec(totalRev)+'</div>'+
-      '</div>'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Receita Total<\/div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtDec(totalRev)+'<\/div>'+
+      '<\/div>'+
       '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total Unidades</div>'+
-        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtFull(p.qty)+'</div>'+
-      '</div>'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total Unidades<\/div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtFull(p.qty)+'<\/div>'+
+      '<\/div>'+
       '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(78,205,196,0.2)">'+
-        '<div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px">🌿 Orgânico + Promo</div>'+
-        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtFull(organicQty)+' un</div>'+
-        '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(organicQty/p.qty*100):0)+'% do total</div>'+
-      '</div>'+
+        '<div style="font-size:10px;color:var(--green);text-transform:uppercase;margin-bottom:6px">🌿 Orgânico + Promo<\/div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:var(--green)">'+fmtFull(organicQty)+' un<\/div>'+
+        '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(organicQty/p.qty*100):0)+'% do total<\/div>'+
+      '<\/div>'+
       '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px;border:1px solid rgba(42,157,143,0.2)">'+
-        '<div style="font-size:10px;color:var(--tl);text-transform:uppercase;margin-bottom:6px">📣 Via ADS</div>'+
-        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(hasAds?'var(--tl)':'var(--text3)')+'">'+fmtFull(adsQty)+' un</div>'+
-        '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(adsQty/p.qty*100):0)+'% do total</div>'+
-      '</div>'+
+        '<div style="font-size:10px;color:var(--tl);text-transform:uppercase;margin-bottom:6px">📣 Via ADS<\/div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+(hasAds?'var(--tl)':'var(--text3)')+'">'+fmtFull(adsQty)+' un<\/div>'+
+        '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(p.qty>0?Math.round(adsQty/p.qty*100):0)+'% do total<\/div>'+
+      '<\/div>'+
       '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio / Un</div>'+
-        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtDec(p.qty>0?totalRev/p.qty:0)+'</div>'+
-      '</div>'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Preço Médio / Un<\/div>'+
+        '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+fmtDec(p.qty>0?totalRev/p.qty:0)+'<\/div>'+
+      '<\/div>'+
       '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% do Faturamento</div>'+
+        '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% do Faturamento<\/div>'+
         '<div style="font-size:20px;font-weight:700;font-family:Bricolage Grotesque,sans-serif">'+
           (window._currentProdGmv>0?Math.round(totalRev/window._currentProdGmv*100):0)+'%'+
-        '</div>'+
-      '</div>'+
-    '</div>'+stockHTML+
-    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📊 Visitas &amp; Conversão</div><div id="prod-visits-section"></div></div>' : '')+
-    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">🎯 Promoções Ativas</div><div id="prod-promos-section"></div></div>' : '')+
-    (p.catalog_product_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">💲 Sugestão de Preço ML</div><div id="prod-price-section"></div></div>' : '');
+        '<\/div>'+
+      '<\/div>'+
+    '<\/div>'+stockHTML+
+    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📊 Visitas &amp; Conversão<\/div><div id="prod-visits-section"><\/div><\/div>' : '')+
+    (p.item_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">🎯 Promoções Ativas<\/div><div id="prod-promos-section"><\/div><\/div>' : '')+
+    (p.catalog_product_id ? '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">💲 Sugestão de Preço ML<\/div><div id="prod-price-section"><\/div><\/div>' : '');
   var overlay = document.getElementById('prod-modal-overlay');
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
+  // Bind botão de alerta Full (via delegation)
+  setTimeout(function(){
+    document.querySelectorAll('.full-alert-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){ openFullAlertFromModal(this.dataset.iid); });
+    });
+  }, 50);
 
   // Carrega visitas sob demanda
   if(p.item_id && window._currentSellerId){
     var visitsEl = document.getElementById('prod-visits-section');
     if(visitsEl){
-      visitsEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Carregando visitas...</div>';
+      visitsEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Carregando visitas...<\/div>';
       var df = window._currentDateFrom || '';
       var dt = window._currentDateTo   || '';
       fetch('/api/item-visits/'+window._currentSellerId+'/'+p.item_id+'?date_from='+df+'&date_to='+dt)
@@ -2270,35 +2312,35 @@ function openProdModal(p){
           visitsEl.innerHTML =
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">👁 Visitas</div>'+
-                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:#f0f0f5">'+visits.toLocaleString('pt-BR')+'</div>'+
-                '<div style="font-size:10px;color:var(--text3);margin-top:4px">no período</div>'+
-              '</div>'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">👁 Visitas<\/div>'+
+                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:#f0f0f5">'+visits.toLocaleString('pt-BR')+'<\/div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">no período<\/div>'+
+              '<\/div>'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% Conversão</div>'+
-                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+convColor+'">'+conv+(conv!=='-'?'%':'')+'</div>'+
-                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(conv!=='-'?'meta: ≥ 3%':'sem visitas no período')+'</div>'+
-              '</div>'+
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% Conversão<\/div>'+
+                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+convColor+'">'+conv+(conv!=='-'?'%':'')+'<\/div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(conv!=='-'?'meta: ≥ 3%':'sem visitas no período')+'<\/div>'+
+              '<\/div>'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Visitas / Venda</div>'+
-                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:#f0f0f5">'+visitsPerSale+'</div>'+
-                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(visitsPerSale!=='-'?'visitas por unidade vendida':'-')+'</div>'+
-              '</div>'+
-            '</div>';
+                '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Visitas / Venda<\/div>'+
+                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:#f0f0f5">'+visitsPerSale+'<\/div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(visitsPerSale!=='-'?'visitas por unidade vendida':'-')+'<\/div>'+
+              '<\/div>'+
+            '<\/div>';
         })
-        .catch(function(){ visitsEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar visitas</div>'; });
+        .catch(function(){ visitsEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar visitas<\/div>'; });
     }
 
     // Carrega promoções sob demanda
     var promosEl = document.getElementById('prod-promos-section');
     if(promosEl){
-      promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Verificando promoções...</div>';
+      promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Verificando promoções...<\/div>';
       fetch('/api/item-promos/'+window._currentSellerId+'/'+p.item_id)
         .then(function(r){ return r.json(); })
         .then(function(d){
           var promos = d.promos || [];
           if(!promos.length){
-            promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Produto não está em nenhuma promoção ativa.</div>';
+            promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Produto não está em nenhuma promoção ativa.<\/div>';
             return;
           }
           var statusMap = {started:'Incluído', candidate:'Candidata'};
@@ -2311,48 +2353,48 @@ function openProdModal(p){
             var endLabel = pr.end_date && pr.end_date !== '-' ? pr.end_date : 'em aberto';
             return '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:14px;margin-bottom:8px;border-left:3px solid '+sColor+'">'+
               '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">'+
-                '<div style="font-weight:600;font-size:13px">'+pr.name+'</div>'+
-                '<span style="font-size:11px;font-weight:600;color:'+sColor+';background:'+sColor+'22;padding:3px 10px;border-radius:4px;white-space:nowrap">'+sLabel+'</span>'+
-              '</div>'+
+                '<div style="font-weight:600;font-size:13px">'+pr.name+'<\/div>'+
+                '<span style="font-size:11px;font-weight:600;color:'+sColor+';background:'+sColor+'22;padding:3px 10px;border-radius:4px;white-space:nowrap">'+sLabel+'<\/span>'+
+              '<\/div>'+
               '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start">'+
                 '<div>'+
-                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Tipo</div>'+
-                  '<div style="font-size:12px;font-weight:500">'+pr.type+'</div>'+
-                '</div>'+
+                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Tipo<\/div>'+
+                  '<div style="font-size:12px;font-weight:500">'+pr.type+'<\/div>'+
+                '<\/div>'+
                 '<div>'+
-                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Desconto</div>'+
-                  '<div style="font-size:15px;font-weight:700;color:'+sColor+'">'+discLabel+'</div>'+
-                '</div>'+
+                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Desconto<\/div>'+
+                  '<div style="font-size:15px;font-weight:700;color:'+sColor+'">'+discLabel+'<\/div>'+
+                '<\/div>'+
                 (pr.promo_price>0?
                   '<div>'+
-                    '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Preço Promo</div>'+
-                    '<div style="font-size:12px;font-weight:600;color:'+sColor+'">R$ '+pr.promo_price.toFixed(2).replace('.',',')+'</div>'+
-                  '</div>'
+                    '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Preço Promo<\/div>'+
+                    '<div style="font-size:12px;font-weight:600;color:'+sColor+'">R$ '+pr.promo_price.toFixed(2).replace('.',',')+'<\/div>'+
+                  '<\/div>'
                 :
-                  '<div></div>'
+                  '<div><\/div>'
                 )+
                 '<div>'+
-                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Período</div>'+
-                  '<div style="font-size:11px;font-weight:500">'+fmtDate(pr.start_date)+'</div>'+
-                  '<div style="font-size:11px;color:var(--text3)">até '+fmtDate(pr.end_date||'')+'</div>'+
-                '</div>'+
-                '<div></div>'+
-              '</div>'+
-            '</div>';
+                  '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Período<\/div>'+
+                  '<div style="font-size:11px;font-weight:500">'+fmtDate(pr.start_date)+'<\/div>'+
+                  '<div style="font-size:11px;color:var(--text3)">até '+fmtDate(pr.end_date||'')+'<\/div>'+
+                '<\/div>'+
+                '<div><\/div>'+
+              '<\/div>'+
+            '<\/div>';
           }).join('');
         })
-        .catch(function(){ promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar promoções</div>'; });
+        .catch(function(){ promosEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar promoções<\/div>'; });
     }
 
     // Sugestão de preço — apenas para produtos em catálogo
     var priceEl = document.getElementById('prod-price-section');
     if(priceEl && p.catalog_product_id){
-      priceEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Consultando sugestão de preço...</div>';
+      priceEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Consultando sugestão de preço...<\/div>';
       fetch('/api/price-suggestion/'+window._currentSellerId+'/'+p.item_id)
         .then(function(r){ return r.json(); })
         .then(function(d){
           if(!d.available || (!d.suggested && !d.median)){
-            priceEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Sugestão não disponível para este produto.</div>';
+            priceEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">Sugestão não disponível para este produto.<\/div>';
             return;
           }
           var currentPrice = p.revenue > 0 && p.qty > 0 ? p.revenue / p.qty : 0;
@@ -2364,24 +2406,24 @@ function openProdModal(p){
           priceEl.innerHTML =
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Preço Atual</div>'+
-                '<div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmt(currentPrice)+'</div>'+
-              '</div>'+
+                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Preço Atual<\/div>'+
+                '<div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmt(currentPrice)+'<\/div>'+
+              '<\/div>'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Sugerido ML</div>'+
-                '<div style="font-size:18px;font-weight:700;color:#2ecc9a">'+fmt(suggested)+'</div>'+
-              '</div>'+
+                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Sugerido ML<\/div>'+
+                '<div style="font-size:18px;font-weight:700;color:#2ecc9a">'+fmt(suggested)+'<\/div>'+
+              '<\/div>'+
               (d.price_min||d.price_max ? '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Faixa Competitiva</div>'+
-                '<div style="font-size:13px;font-weight:600;color:#f0f0f5">'+fmt(d.price_min)+' → '+fmt(d.price_max)+'</div>'+
-              '</div>' : '')+
+                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Faixa Competitiva<\/div>'+
+                '<div style="font-size:13px;font-weight:600;color:#f0f0f5">'+fmt(d.price_min)+' → '+fmt(d.price_max)+'<\/div>'+
+              '<\/div>' : '')+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
-                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Status</div>'+
-                '<div style="font-size:13px;font-weight:700;color:'+statusColor+'">'+statusLabel+'</div>'+
-              '</div>'+
-            '</div>';
+                '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Status<\/div>'+
+                '<div style="font-size:13px;font-weight:700;color:'+statusColor+'">'+statusLabel+'<\/div>'+
+              '<\/div>'+
+            '<\/div>';
         })
-        .catch(function(){ priceEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar sugestão</div>'; });
+        .catch(function(){ priceEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Erro ao carregar sugestão<\/div>'; });
     }
   }
 }
@@ -2390,6 +2432,50 @@ function closeProdModal(e){
   if(e && e.target !== document.getElementById('prod-modal-overlay') && e.type==='click') return;
   document.getElementById('prod-modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
+}
+
+// Abre mini-modal inline para configurar limite de alerta Full
+function openFullAlertFromModal(iid){
+  var existing = document.getElementById('full-alert-inline');
+  if(existing){ existing.remove(); return; }
+  var thr = getFullStockThreshold(iid) || '';
+  var div = document.createElement('div');
+  div.id = 'full-alert-inline';
+  div.style.cssText = 'margin:8px 0 0;padding:14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid rgba(42,157,143,.3)';
+  div.innerHTML =
+    '<div style="font-size:11px;font-weight:600;color:var(--tl);margin-bottom:8px">🔔 Alerta de Estoque Full<\/div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Você será notificado quando o estoque Full atingir ou ficar abaixo desse valor.<\/div>'+
+    '<div style="display:flex;gap:8px;align-items:center">'+
+      '<input id="fal-input" type="number" min="0" value="'+thr+'" placeholder="Ex: 5" '+
+        'style="flex:1;padding:8px 10px;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:Poppins,sans-serif;font-size:13px;outline:none">'+
+      '<button class="fal-save-btn" style="padding:8px 16px;background:var(--td);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:Poppins,sans-serif;font-size:12px;font-weight:600">Salvar<\/button>'+
+      '<button class="fal-cancel-btn" style="padding:8px 10px;background:var(--bg4);border:1px solid var(--border2);color:var(--text2);border-radius:6px;cursor:pointer;font-size:12px">✕<\/button>'+
+    '<\/div>';
+  // Inserir após o botão de alerta
+  var btn = document.querySelector('.full-alert-btn[data-iid="'+iid+'"]');
+  if(btn && btn.parentNode) btn.parentNode.insertAdjacentElement('afterend', div);
+  else document.getElementById('prod-modal-content').appendChild(div);
+  document.getElementById('fal-input').focus();
+  // Bind botões via delegation
+  div.querySelector('.fal-save-btn').addEventListener('click', function(){
+    saveFullAlertInline(iid);
+  });
+  div.querySelector('.fal-cancel-btn').addEventListener('click', function(){
+    var d=document.getElementById('full-alert-inline');
+    if(d) d.remove();
+  });
+}
+
+function saveFullAlertInline(iid){
+  var val = parseInt(document.getElementById('fal-input').value) || 0;
+  saveFullStockThreshold(iid, val);
+  var div = document.getElementById('full-alert-inline');
+  if(div){
+    div.innerHTML = '<div style="font-size:12px;color:var(--tl);font-weight:600">✅ Alerta configurado: notificar quando estoque Full ≤ '+val+' un<\/div>';
+    setTimeout(function(){ if(div.parentNode) div.remove(); }, 2500);
+  }
+  // Atualizar cache do painel de notificações
+  notifPanelLoaded = {};
 }
 
 function toggleProduct(id){
@@ -2404,7 +2490,7 @@ function filterProducts(q){
 }
 
 function renderProductRows(prods){
-  if(!prods.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Nenhum produto encontrado</td></tr>';
+  if(!prods.length) return '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Nenhum produto encontrado<\/td><\/tr>';
   var maxVal = (prods[0].revenue||1);
   return prods.map(function(p,i){
     var pct        = Math.round(((p.revenue||0)/maxVal)*100);
@@ -2414,16 +2500,16 @@ function renderProductRows(prods){
     var pEnc       = encodeURIComponent(JSON.stringify(p));
     var pausedStyle = p.status==='paused' ? 'background:rgba(220,60,60,0.06);' : '';
     return '<tr style="cursor:pointer;'+pausedStyle+'" onclick="openProdModal(JSON.parse(decodeURIComponent(this.dataset.p)))" data-p=\''+pEnc+'\'>'+
-      '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'</td>'+
-      '<td><div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'</div>'+
-        '<div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;width:180px"><div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"></div></div>'+
-      '</td>'+
-      '<td style="color:var(--text2)">'+fmtFull(p.qty)+' un</td>'+
-      '<td style="color:var(--green);font-weight:500">'+fmtFull(organicQty)+' un</td>'+
-      '<td style="color:'+(hasAds?'var(--tl)':'var(--text3)')+';font-weight:'+(hasAds?'500':'400')+'">'+fmtFull(adsQty)+' un</td>'+
-      '<td style="font-weight:600">'+fmtDec(p.revenue)+'</td>'+
-      '<td style="color:var(--text3);width:20px">›</td>'+
-    '</tr>';
+      '<td style="width:32px;color:var(--text3);font-weight:600">'+(i+1)+'<\/td>'+
+      '<td><div style="font-weight:500;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.title+'<\/div>'+
+        '<div style="margin-top:4px;height:3px;background:var(--bg4);border-radius:2px;width:180px"><div style="height:3px;background:linear-gradient(90deg,var(--grad1),var(--grad3));border-radius:2px;width:'+pct+'%"><\/div><\/div>'+
+      '<\/td>'+
+      '<td style="color:var(--text2)">'+fmtFull(p.qty)+' un<\/td>'+
+      '<td style="color:var(--green);font-weight:500">'+fmtFull(organicQty)+' un<\/td>'+
+      '<td style="color:'+(hasAds?'var(--tl)':'var(--text3)')+';font-weight:'+(hasAds?'500':'400')+'">'+fmtFull(adsQty)+' un<\/td>'+
+      '<td style="font-weight:600">'+fmtDec(p.revenue)+'<\/td>'+
+      '<td style="color:var(--text3);width:20px">›<\/td>'+
+    '<\/tr>';
   }).join('');
 }
 
@@ -2446,25 +2532,25 @@ function renderReputacao(el, data){
   var delayedColor = (rep.delayed||0)<=0.05?'var(--green)':'var(--red)';
 
   el.innerHTML =
-    '<div class="section-label">Visão Geral</div>'+
+    '<div class="section-label">Visão Geral<\/div>'+
     '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">'+
-      '<div class="metric-card"><div class="metric-label">Nível</div><div style="margin-top:8px"><span class="badge '+levelInfo[1]+'">'+levelInfo[0]+'</span></div></div>'+
-      '<div class="metric-card"><div class="metric-label">Power Seller</div><div style="margin-top:8px"><span class="badge '+psInfo[1]+'">'+psInfo[0]+'</span></div></div>'+
-      '<div class="metric-card"><div class="metric-label">Vendas Concluídas</div><div class="metric-value">'+fmtK(rep.sales_completed||0)+'</div><div class="metric-delta">histórico total</div></div>'+
-    '</div>'+
+      '<div class="metric-card"><div class="metric-label">Nível<\/div><div style="margin-top:8px"><span class="badge '+levelInfo[1]+'">'+levelInfo[0]+'<\/span><\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Power Seller<\/div><div style="margin-top:8px"><span class="badge '+psInfo[1]+'">'+psInfo[0]+'<\/span><\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Vendas Concluídas<\/div><div class="metric-value">'+fmtK(rep.sales_completed||0)+'<\/div><div class="metric-delta">histórico total<\/div><\/div>'+
+    '<\/div>'+
     '<div class="two-col">'+
-      '<div class="card"><div class="card-title">Avaliações dos Compradores</div><div class="card-sub">'+(ratings.total||0)+' avaliação(ões) recebida(s)</div>'+
-        '<div class="rep-bar-wrap"><div class="rep-bar-label">✅ Positivas</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+posRate+'%;background:var(--green)"></div></div><div class="rep-bar-val">'+posRate+'%</div></div>'+
-        '<div class="rep-bar-wrap"><div class="rep-bar-label">😐 Neutras</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+neuRate+'%;background:var(--amber)"></div></div><div class="rep-bar-val">'+neuRate+'%</div></div>'+
-        '<div class="rep-bar-wrap" style="margin-bottom:0"><div class="rep-bar-label">❌ Negativas</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+negRate+'%;background:var(--red)"></div></div><div class="rep-bar-val">'+negRate+'%</div></div>'+
-      '</div>'+
-      '<div class="card"><div class="card-title">Métricas Operacionais</div><div class="card-sub">Indicadores dos últimos 365 dias</div>'+
-        '<div class="rep-bar-wrap"><div class="rep-bar-label">Cancelamentos</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+Math.min((rep.cancellations||0)*500,100)+'%;background:'+cancelColor+'"></div></div><div class="rep-bar-val" style="color:'+cancelColor+'">'+cancelRate+'%</div></div>'+
-        '<div class="rep-bar-wrap"><div class="rep-bar-label">Reclamações</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+Math.min((rep.claims||0)*500,100)+'%;background:'+claimsColor+'"></div></div><div class="rep-bar-val" style="color:'+claimsColor+'">'+claimsRate+'%</div></div>'+
-        '<div class="rep-bar-wrap" style="margin-bottom:0"><div class="rep-bar-label">Atrasos</div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+Math.min((rep.delayed||0)*200,100)+'%;background:'+delayedColor+'"></div></div><div class="rep-bar-val" style="color:'+delayedColor+'">'+delayedRate+'%</div></div>'+
-        '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">Metas: cancelamentos ≤ 2% · reclamações ≤ 2% · atrasos ≤ 5%</div>'+
-      '</div>'+
-    '</div>';
+      '<div class="card"><div class="card-title">Avaliações dos Compradores<\/div><div class="card-sub">'+(ratings.total||0)+' avaliação(ões) recebida(s)<\/div>'+
+        '<div class="rep-bar-wrap"><div class="rep-bar-label">✅ Positivas<\/div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+posRate+'%;background:var(--green)"><\/div><\/div><div class="rep-bar-val">'+posRate+'%<\/div><\/div>'+
+        '<div class="rep-bar-wrap"><div class="rep-bar-label">😐 Neutras<\/div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+neuRate+'%;background:var(--amber)"><\/div><\/div><div class="rep-bar-val">'+neuRate+'%<\/div><\/div>'+
+        '<div class="rep-bar-wrap" style="margin-bottom:0"><div class="rep-bar-label">❌ Negativas<\/div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+negRate+'%;background:var(--red)"><\/div><\/div><div class="rep-bar-val">'+negRate+'%<\/div><\/div>'+
+      '<\/div>'+
+      '<div class="card"><div class="card-title">Métricas Operacionais<\/div><div class="card-sub">Indicadores dos últimos 365 dias<\/div>'+
+        '<div class="rep-bar-wrap"><div class="rep-bar-label">Cancelamentos<\/div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+Math.min((rep.cancellations||0)*500,100)+'%;background:'+cancelColor+'"><\/div><\/div><div class="rep-bar-val" style="color:'+cancelColor+'">'+cancelRate+'%<\/div><\/div>'+
+        '<div class="rep-bar-wrap"><div class="rep-bar-label">Reclamações<\/div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+Math.min((rep.claims||0)*500,100)+'%;background:'+claimsColor+'"><\/div><\/div><div class="rep-bar-val" style="color:'+claimsColor+'">'+claimsRate+'%<\/div><\/div>'+
+        '<div class="rep-bar-wrap" style="margin-bottom:0"><div class="rep-bar-label">Atrasos<\/div><div class="rep-bar-track"><div class="rep-bar-fill" style="width:'+Math.min((rep.delayed||0)*200,100)+'%;background:'+delayedColor+'"><\/div><\/div><div class="rep-bar-val" style="color:'+delayedColor+'">'+delayedRate+'%<\/div><\/div>'+
+        '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">Metas: cancelamentos ≤ 2% · reclamações ≤ 2% · atrasos ≤ 5%<\/div>'+
+      '<\/div>'+
+    '<\/div>';
 }
 
 async function removeSeller(btn){
