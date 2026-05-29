@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel Admin — Dashboard ML</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Bricolage+Grotesque:wght@700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d0d12;--bg2:#16161c;--bg3:#1e1e26;--bg4:#26262f;
+  --td:#0d4a47;--tl:#2a9d8f;--tc:#4ecdc4;
+  --text:#f0f0f5;--text2:#b0b0c0;--text3:#7a7a9a;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);
+  --green:#2ecc9a;--red:#e05555;--amber:#f5a623;
+  --radius:12px;--radius-sm:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:Poppins,sans-serif;font-size:13px;min-height:100vh}
+.topbar{background:linear-gradient(135deg,#0d4a47,#1a6b5a);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1)}
+.topbar-left{display:flex;align-items:center;gap:12px;font-weight:700;font-size:15px}
+.topbar-right{display:flex;gap:10px}
+.btn{padding:7px 16px;border-radius:var(--radius-sm);font-family:Poppins,sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--tl);color:#fff}
+.btn-danger{background:rgba(220,60,60,.15);color:var(--red);border:1px solid rgba(220,60,60,.3)}
+.btn-ghost{background:rgba(255,255,255,.1);color:var(--text2);border:1px solid var(--border2)}
+.btn:hover{opacity:.85}
+.main{max-width:900px;margin:32px auto;padding:0 20px}
+.section-title{font-family:'Bricolage Grotesque',sans-serif;font-size:22px;font-weight:700;margin-bottom:4px}
+.section-sub{color:var(--text3);font-size:12px;margin-bottom:24px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-weight:600;font-size:14px}
+.user-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.user-row:last-child{border-bottom:none}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--tl);flex-shrink:0}
+.user-info{flex:1}
+.user-name{font-weight:600;font-size:13px}
+.user-role{font-size:11px;color:var(--text3);margin-top:1px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.badge-master{background:rgba(42,157,143,.2);color:var(--tl)}
+.badge-secondary{background:rgba(255,255,255,.07);color:var(--text3)}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);width:100%;max-width:520px;max-height:85vh;overflow-y:auto}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-body{padding:20px 24px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px;font-weight:600}
+.form-input{width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:Poppins,sans-serif;font-size:13px;outline:none}
+.form-input:focus{border-color:var(--tl)}
+.perms-section{background:var(--bg3);border-radius:var(--radius-sm);padding:16px;margin-top:8px}
+.perms-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;font-weight:600;margin-bottom:12px}
+.perms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.perm-item{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;border-radius:6px;transition:background .15s}
+.perm-item:hover{background:var(--bg4)}
+.perm-item input{accent-color:var(--tl);width:14px;height:14px;cursor:pointer}
+.perm-item span{font-size:12px;color:var(--text2)}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.tabs-section{margin-top:16px}
+.empty{text-align:center;color:var(--text3);padding:32px;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">⚙️ Painel de Administração</div>
+  <div class="topbar-right">
+    <button class="btn btn-ghost" onclick="window.location='/'">← Voltar ao Dashboard</button>
+    <button class="btn btn-ghost" onclick="window.location='/logout'">Sair</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="section-title">Gerenciar Usuários</div>
+  <div class="section-sub">Configure acessos e permissões de visualização do dashboard</div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">👥 Usuários Cadastrados</div>
+      <button class="btn btn-primary" onclick="openCreateModal()">+ Novo Usuário</button>
+    </div>
+    <div id="users-list"><div class="empty">Carregando...</div></div>
+  </div>
+</div>
+
+<!-- Modal criar/editar usuário -->
+<div class="overlay" id="user-modal" onclick="closeModal(event)">
+  <div class="modal" id="modal-box">
+    <div class="modal-header">
+      <div style="font-size:15px;font-weight:700" id="modal-title">Novo Usuário</div>
+      <button onclick="closeModal()" class="btn btn-ghost" style="padding:4px 10px;font-size:16px">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-username-original">
+      <div class="form-group">
+        <label class="form-label">Usuário</label>
+        <input class="form-input" id="field-username" placeholder="ex: joao.silva" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha <span id="pwd-hint" style="color:var(--text3);font-weight:400">(obrigatória)</span></label>
+        <input class="form-input" id="field-password" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Perfil</label>
+        <select class="form-input" id="field-role" onchange="togglePerms()">
+          <option value="secondary">Secundário</option>
+          <option value="master">Master</option>
+        </select>
+      </div>
+      <div id="perms-block">
+        <div class="perms-section">
+          <div class="perms-title">🏪 Sellers Visíveis <span style="color:var(--text3);font-weight:400">(deixe todos desmarcados para liberar todos)</span></div>
+          <div class="perms-grid" id="perms-sellers"></div>
+        </div>
+        <div class="perms-section" style="margin-top:12px">
+          <div class="perms-title">📑 Abas Visíveis <span style="color:var(--text3);font-weight:400">(deixe todas desmarcadas para liberar todas)</span></div>
+          <div class="perms-grid" id="perms-tabs">
+            <label class="perm-item"><input type="checkbox" value="vendas"> <span>💰 Vendas</span></label>
+            <label class="perm-item"><input type="checkbox" value="campanhas"> <span>📣 Campanhas</span></label>
+            <label class="perm-item"><input type="checkbox" value="promocoes"> <span>🎯 Promoções</span></label>
+            <label class="perm-item"><input type="checkbox" value="perguntas"> <span>💬 Perguntas</span></label>
+            <label class="perm-item"><input type="checkbox" value="reputacao"> <span>⭐ Reputação</span></label>
+            <label class="perm-item"><input type="checkbox" value="produtos"> <span>📦 Produtos</span></label>
+          </div>
+        </div>
+      </div>
+      <div id="error-msg" style="color:var(--red);font-size:12px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUser()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var allSellers = [];
+var editingUser = null;
+
+async function loadSellers(){
+  var r = await fetch('/api/sellers');
+  allSellers = await r.json();
+}
+
+async function loadUsers(){
+  var r = await fetch('/api/admin/users');
+  var users = await r.json();
+  var el = document.getElementById('users-list');
+  if(!users.length){ el.innerHTML = '<div class="empty">Nenhum usuário cadastrado</div>'; return; }
+  el.innerHTML = users.map(function(u){
+    var isMaster = u.role === 'master';
+    var perms    = u.permissions || {};
+    var sellerCount = (perms.sellers||[]).length;
+    var tabCount    = (perms.tabs||[]).length;
+    var permInfo    = isMaster ? 'Acesso total' :
+      (sellerCount?sellerCount+' seller(s)':'Todos os sellers') + ' · ' +
+      (tabCount?tabCount+' aba(s)':'Todas as abas');
+    return '<div class="user-row">'+
+      '<div class="user-avatar">'+u.username[0].toUpperCase()+'</div>'+
+      '<div class="user-info">'+
+        '<div class="user-name">'+u.username+' <span class="badge badge-'+(isMaster?'master':'secondary')+'">'+(isMaster?'Master':'Secundário')+'</span></div>'+
+        '<div class="user-role">'+permInfo+'</div>'+
+      '</div>'+
+      (!isMaster ?
+        '<div style="display:flex;gap:6px">'+
+          '<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="openEditModal(\''+u.username+'\')">✏️ Editar</button>'+
+          '<button class="btn btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteUser(\''+u.username+'\')">✕</button>'+
+        '</div>'
+      : '<div style="color:var(--text3);font-size:11px">Conta principal</div>')+
+    '</div>';
+  }).join('');
+}
+
+function togglePerms(){
+  var role = document.getElementById('field-role').value;
+  document.getElementById('perms-block').style.display = role==='master'?'none':'block';
+}
+
+function openCreateModal(){
+  editingUser = null;
+  document.getElementById('modal-title').textContent = 'Novo Usuário';
+  document.getElementById('edit-username-original').value = '';
+  document.getElementById('field-username').value = '';
+  document.getElementById('field-username').disabled = false;
+  document.getElementById('field-password').value = '';
+  document.getElementById('pwd-hint').textContent = '(obrigatória)';
+  document.getElementById('field-role').value = 'secondary';
+  document.getElementById('error-msg').style.display = 'none';
+  togglePerms();
+  buildSellerPerms([]);
+  uncheckTabs([]);
+  document.getElementById('user-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+async function openEditModal(username){
+  var r = await fetch('/api/admin/users');
+  var users = await r.json();
+  var u = users.find(function(x){return x.username===username;});
+  if(!u) return;
+  editingUser = u;
+  document.getElementById('modal-title').textContent = 'Editar: '+username;
+  document.getElementById('edit-username-original').value = username;
+  document.getElementById('field-username').value = username;
+  document.getElementById('field-username').disabled = true;
+  document.getElementById('field-password').value = '';
+  document.getElementById('pwd-hint').textContent = '(deixe vazio para não alterar)';
+  document.getElementById('field-role').value = u.role;
+  document.getElementById('error-msg').style.display = 'none';
+  togglePerms();
+  var perms = u.permissions || {};
+  buildSellerPerms(perms.sellers||[]);
+  uncheckTabs(perms.tabs||[]);
+  document.getElementById('user-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function buildSellerPerms(selected){
+  var el = document.getElementById('perms-sellers');
+  if(!allSellers.length){ el.innerHTML = '<div style="color:var(--text3);font-size:12px">Nenhum seller conectado</div>'; return; }
+  el.innerHTML = allSellers.map(function(s){
+    var checked = selected.length && selected.includes(String(s.user_id)) ? 'checked' : '';
+    return '<label class="perm-item"><input type="checkbox" value="'+s.user_id+'" '+checked+'> <span>'+s.nickname+'</span></label>';
+  }).join('');
+}
+
+function uncheckTabs(selected){
+  document.querySelectorAll('#perms-tabs input').forEach(function(cb){
+    cb.checked = selected.length ? selected.includes(cb.value) : false;
+  });
+}
+
+function closeModal(e){
+  if(e && e.target !== document.getElementById('user-modal')) return;
+  document.getElementById('user-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function saveUser(){
+  var username = document.getElementById('field-username').value.trim();
+  var password = document.getElementById('field-password').value.trim();
+  var role     = document.getElementById('field-role').value;
+  var errEl    = document.getElementById('error-msg');
+
+  if(!username){ errEl.textContent='Preencha o nome de usuário'; errEl.style.display='block'; return; }
+  if(!editingUser && !password){ errEl.textContent='Senha obrigatória para novo usuário'; errEl.style.display='block'; return; }
+  if(password && password.length < 6){ errEl.textContent='Senha deve ter ao menos 6 caracteres'; errEl.style.display='block'; return; }
+
+  var sellers = Array.from(document.querySelectorAll('#perms-sellers input:checked')).map(function(c){return c.value;});
+  var tabs    = Array.from(document.querySelectorAll('#perms-tabs input:checked')).map(function(c){return c.value;});
+  var permissions = {sellers: sellers, tabs: tabs};
+
+  var body = {role: role, permissions: permissions};
+  if(password) body.password = password;
+
+  var r;
+  if(editingUser){
+    r = await fetch('/api/admin/users/'+editingUser.username, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  } else {
+    body.username = username;
+    r = await fetch('/api/admin/users', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  }
+
+  var data = await r.json();
+  if(data.error){ errEl.textContent=data.error; errEl.style.display='block'; return; }
+  closeModal();
+  loadUsers();
+}
+
+async function deleteUser(username){
+  if(!confirm('Remover usuário "'+username+'"?')) return;
+  await fetch('/api/admin/users/'+username, {method:'DELETE'});
+  loadUsers();
+}
+
+// Init
+loadSellers().then(function(){
+  loadUsers();
+});
+</script>
+</body>
+</html>
