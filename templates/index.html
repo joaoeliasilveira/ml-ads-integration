@@ -472,7 +472,7 @@ body.dark .goals-input{background:#26262f;border-color:rgba(255,255,255,.1);colo
 .notif-panel{
   position:fixed;top:0;right:-480px;width:460px;height:100vh;
   background:var(--sf,#f8fffe);border-left:1.5px solid var(--br,#b2dfdb);
-  z-index:295;transition:right .3s cubic-bezier(.4,0,.2,1);
+  z-index:600;transition:right .3s cubic-bezier(.4,0,.2,1);
   display:flex;flex-direction:column;overflow:hidden;
 }
 body.dark .notif-panel{background:#16161c;border-color:rgba(255,255,255,.1)}
@@ -652,7 +652,7 @@ body.dark .detail-name{color:#f0f0f5}
 </div>
 
 <!-- Painel de Preferências de Notificações -->
-<div class="alerts-overlay" id="notif-overlay" onclick="closeNotifPanel()"></div>
+<div id="notif-overlay" onclick="closeNotifPanel()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:599;opacity:0;pointer-events:none;transition:opacity .2s"></div>
 <div class="notif-panel" id="notif-panel">
   <div class="notif-header">
     <div style="font-size:15px;font-weight:700">🔔 Preferências de Notificações</div>
@@ -933,6 +933,28 @@ function toggleNotifSection(key){
   var isOpen = body.classList.contains('open');
   body.classList.toggle('open', !isOpen);
   if(chev) chev.style.transform = isOpen ? '' : 'rotate(180deg)';
+}
+
+function openNotifPanel(){
+  var prefs = getNotifPrefs();
+  document.getElementById('notif-toggle-acos').checked      = prefs.acos;
+  document.getElementById('notif-toggle-roas').checked      = prefs.roas;
+  document.getElementById('notif-toggle-questions').checked = prefs.questions;
+  document.getElementById('notif-toggle-promos').checked    = prefs.promos;
+  document.getElementById('notif-toggle-lightning').checked = prefs.lightning;
+  document.getElementById('notif-toggle-fullstock').checked = prefs.fullstock;
+  document.getElementById('notif-panel').classList.add('open');
+  var no = document.getElementById('notif-overlay');
+  no.style.opacity = '1'; no.style.pointerEvents = 'all';
+  document.body.style.overflow = 'hidden';
+  loadFullStockProducts();
+}
+
+function closeNotifPanel(){
+  document.getElementById('notif-panel').classList.remove('open');
+  var no = document.getElementById('notif-overlay');
+  no.style.opacity = '0'; no.style.pointerEvents = 'none';
+  document.body.style.overflow = '';
 }
 
 async function loadFullStockProducts(){
