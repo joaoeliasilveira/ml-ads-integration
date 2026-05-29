@@ -705,6 +705,41 @@ body.dark .detail-name{color:#f0f0f5}
         <div id="full-stock-list"><div style="color:var(--text3);font-size:12px;padding:8px 0">Selecione um seller para ver os produtos Full ML.</div></div>
       </div>
     </div>
+    <!-- Seção: Metas de Publicidade -->
+    <div class="notif-section">
+      <div class="notif-section-header" onclick="toggleNotifSection('goals')">
+        <div class="notif-section-title">🎯 Metas de Publicidade</div>
+        <span id="notif-chev-goals" style="transition:transform .2s;display:inline-block;font-size:12px">▾</span>
+      </div>
+      <div class="notif-section-body" id="notif-sec-goals">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Configure as metas de ACOS e ROAS por seller. Os alertas usarão esses valores.</div>
+        <select id="goals-seller-select" onchange="loadGoalsForm()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;outline:none;margin-bottom:14px">
+          <option value="">Selecione um seller...</option>
+        </select>
+        <div id="goals-form-inline" style="display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <div style="font-size:10px;color:var(--amber);margin-bottom:5px">⚠️ ACOS — Atenção acima de</div>
+              <input class="goals-input" id="gi-acos-warn" type="number" min="1" max="100" placeholder="20" style="width:100%">
+            </div>
+            <div>
+              <div style="font-size:10px;color:#e05555;margin-bottom:5px">🔴 ACOS — Crítico acima de</div>
+              <input class="goals-input" id="gi-acos-crit" type="number" min="1" max="100" placeholder="25" style="width:100%">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--amber);margin-bottom:5px">⚠️ ROAS — Atenção abaixo de</div>
+              <input class="goals-input" id="gi-roas-warn" type="number" min="0.1" step="0.1" placeholder="3" style="width:100%">
+            </div>
+            <div>
+              <div style="font-size:10px;color:#e05555;margin-bottom:5px">🔴 ROAS — Crítico abaixo de</div>
+              <input class="goals-input" id="gi-roas-crit" type="number" min="0.1" step="0.1" placeholder="2" style="width:100%">
+            </div>
+          </div>
+          <button onclick="saveGoalsInline()" class="notif-save-btn" style="margin:0;width:100%">Salvar Metas</button>
+          <div id="goals-saved-msg" style="color:var(--green);font-size:11px;text-align:center;margin-top:6px;display:none">✅ Salvo!</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -948,6 +983,46 @@ function openNotifPanel(){
   no.style.opacity = '1'; no.style.pointerEvents = 'all';
   document.body.style.overflow = 'hidden';
   loadFullStockProducts();
+  populateGoalsSellers();
+}
+
+function populateGoalsSellers(){
+  var sel = document.getElementById('goals-seller-select');
+  if(!sel || !allSellers) return;
+  sel.innerHTML = '<option value="">Selecione um seller...</option>' +
+    allSellers.map(function(s){
+      var name = sellerNames[s.user_id] || s.nickname || s.user_id;
+      return '<option value="'+s.user_id+'">'+name+'</option>';
+    }).join('');
+}
+
+function loadGoalsForm(){
+  var uid  = document.getElementById('goals-seller-select').value;
+  var form = document.getElementById('goals-form-inline');
+  if(!uid){ form.style.display = 'none'; return; }
+  var g = getSellerGoals(uid);
+  document.getElementById('gi-acos-warn').value = g.acosWarn;
+  document.getElementById('gi-acos-crit').value = g.acosCrit;
+  document.getElementById('gi-roas-warn').value = g.roasWarn;
+  document.getElementById('gi-roas-crit').value = g.roasCrit;
+  form.style.display = 'block';
+  document.getElementById('goals-saved-msg').style.display = 'none';
+}
+
+function saveGoalsInline(){
+  var uid = document.getElementById('goals-seller-select').value;
+  if(!uid) return;
+  var g = {
+    acosWarn: parseFloat(document.getElementById('gi-acos-warn').value)||20,
+    acosCrit: parseFloat(document.getElementById('gi-acos-crit').value)||25,
+    roasWarn: parseFloat(document.getElementById('gi-roas-warn').value)||3,
+    roasCrit: parseFloat(document.getElementById('gi-roas-crit').value)||2,
+  };
+  localStorage.setItem('seller_goals_'+uid, JSON.stringify(g));
+  alertsLoaded = false;
+  var msg = document.getElementById('goals-saved-msg');
+  msg.style.display = 'block';
+  setTimeout(function(){ msg.style.display = 'none'; }, 2000);
 }
 
 function closeNotifPanel(){
@@ -1210,7 +1285,7 @@ async function loadList(){
           '<div class="seller-real-name">'+s.nickname+' · '+s.user_id+'</div>' +
         '</div>' +
         '<div class="seller-card-actions">' +
-          '<button class="btn-icon" title="Metas de Publicidade" data-uid="'+s.user_id+'" data-name="'+encodeURIComponent(displayName)+'" onclick="event.stopPropagation();openGoalsModal(this.dataset.uid,decodeURIComponent(this.dataset.name))" style="font-size:14px">⚙️</button>' +
+
           '<button class="btn-icon" title="Renomear" onclick="event.stopPropagation();editName(\''+s.user_id+'\')">✏️</button>' +
           '<button class="btn-icon danger" title="Remover" data-seller-id="'+s.user_id+'" data-seller-name="'+displayName.replace(/"/g,'&quot;')+'" onclick="event.stopPropagation();removeSeller(this)">✕</button>' +
         '</div>' +
