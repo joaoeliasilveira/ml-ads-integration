@@ -1165,14 +1165,20 @@ function closeNotifPanel(){
 
 async function loadFullStockProducts(){
   var listEl = document.getElementById('full-stock-list');
-  if(!allSellers || !allSellers.length){
-    listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum seller conectado.<\/div>';
+  // Mostrar apenas o seller atualmente selecionado
+  var uid = currentSellerId;
+  if(!uid){
+    listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Selecione um seller no dashboard para configurar os alertas.<\/div>';
     return;
   }
+  var s = allSellers && allSellers.find(function(x){ return String(x.user_id)===String(uid); });
+  if(!s){ listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Seller não encontrado.<\/div>'; return; }
   listEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Carregando produtos Full ML...<\/div>';
   var html = '';
-  for(var i=0; i<allSellers.length; i++){
-    var s    = allSellers[i];
+  // Iterar apenas no seller selecionado
+  var sellers = [s];
+  for(var i=0; i<sellers.length; i++){
+    var s    = sellers[i];
     var name = sellerNames[s.user_id] || s.nickname || s.user_id;
     if(notifPanelLoaded[s.user_id]) {
       var cached = notifPanelLoaded[s.user_id];
