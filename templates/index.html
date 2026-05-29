@@ -979,6 +979,7 @@ function openNotifPanel(){
   var no = document.getElementById('notif-overlay');
   no.style.opacity = '1'; no.style.pointerEvents = 'all';
   document.body.style.overflow = 'hidden';
+  notifPanelLoaded = {}; // limpa cache para forçar reload
   loadFullStockProducts();
   // Carregar metas do seller atual
   if(currentSellerId){
@@ -1054,6 +1055,7 @@ async function loadFullStockProducts(){
     try {
       var r = await fetch('/api/full-stock/'+s.user_id);
       var d = await r.json();
+      console.log('[Full Stock] seller', s.user_id, '-> status', r.status, 'products:', (d.products||[]).length, 'error:', d.error);
       var prods = d.products || [];
       notifPanelLoaded[s.user_id] = prods;
       if(prods.length){
@@ -1068,7 +1070,7 @@ async function loadFullStockProducts(){
             +'</div>';
         }).join('');
       }
-    } catch(e){}
+    } catch(e){ console.log('[Full Stock] ERRO seller', s.user_id, e); }
   }
   listEl.innerHTML = html || '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum produto Full ML encontrado.</div>';
 }
