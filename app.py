@@ -1884,6 +1884,63 @@ def get_price_suggestion(user_id, item_id):
         return jsonify({"error": str(e), "available": False})
 
 
+@app.route("/api/full-stock/<user_id>")
+@login_required
+def get_full_stock(user_id):
+    """Retorna apenas produtos Full ML com estoque atual — endpoint leve para alertas"""
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+    try:
+        # Busca todos os item_ids do seller
+        all_ids = []
+        scroll_id = None
+        for _ in range(10):
+            params = {"limit": 100}
+            if scroll_id:
+                params["scroll_id"] = scroll_id
+            r = requests.get(
+                f"https://api.mercadolibre.com/users/{user_id}/items/search",
+                params=params,
+                headers={"Authorization": "Bearer " + token},
+                timeout=8
+            )
+            if not r.ok: break
+            d     = r.json()
+            batch = d.get("results", [])
+            if not batch: break
+            all_ids.extend(batch)
+            scroll_id = d.get("scroll_id")
+            if not scroll_id or len(batch) < 100: break
+
+        # Busca atributos relevantes em chunks
+        full_products = []
+        for i in range(0, len(all_ids), 20):
+            chunk = all_ids[i:i+20]
+            r2 = requests.get(
+                "https://api.mercadolibre.com/items",
+                params={"ids": ",".join(chunk), "attributes": "id,title,available_quantity,fulfillment,status"},
+                headers={"Authorization": "Bearer " + token},
+                timeout=8
+            )
+            if not r2.ok: continue
+            for entry in r2.json():
+                body = entry.get("body", {})
+                if body.get("status") not in ("active", "paused"): continue
+                is_full = bool(body.get("fulfillment", {}).get("fulfillment_id"))
+                if not is_full: continue
+                full_products.append({
+                    "item_id": str(body.get("id", "")),
+                    "title":   body.get("title", ""),
+                    "stock":   body.get("available_quantity", 0) or 0,
+                    "status":  body.get("status", "active"),
+                })
+
+        return jsonify({"user_id": user_id, "products": full_products})
+    except Exception as e:
+        return jsonify({"error": str(e), "products": []}), 500
+
+
 @app.route("/api/item-promos/<user_id>/<item_id>")
 def get_item_promos(user_id, item_id):
     token, seller = get_seller_token(user_id)
