@@ -606,6 +606,10 @@ body.dark .detail-name{color:#f0f0f5}
     </div>
   </div>
   <div class="topbar-right">
+    <div id="admin-btn-wrap" style="display:none">
+      <a href="/admin" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:11px;font-weight:600;text-decoration:none">⚙️ Admin</a>
+    </div>
+    <a href="/logout" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.7);font-size:11px;text-decoration:none">Sair</a>
     <div class="period-wrap">
       <div class="period-dropdown" id="period-dropdown">
         <button class="period-trigger" id="period-trigger" onclick="togglePeriodDropdown(event)">
@@ -1104,6 +1108,14 @@ function hideLoadingScreen(){
 }
 
 async function loadList(){
+  // Verifica se é master para exibir botão de admin
+  try {
+    var me = await fetch('/api/admin/me').then(function(r){return r.json();});
+    if(me && me.role === 'master'){
+      var wrap = document.getElementById('admin-btn-wrap');
+      if(wrap) wrap.style.display = 'block';
+    }
+  } catch(e){}
   var resp = await fetch('/api/sellers');
   allSellers = await resp.json();
   hideLoadingScreen();
