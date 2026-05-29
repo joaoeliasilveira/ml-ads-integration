@@ -1548,10 +1548,13 @@ async function loadTab(tab){
   var dates = getPeriodDates();
   var el = document.getElementById('tab-'+tab);
 
+  console.log("[loadTab] seller:", currentSellerId, "tab:", tab);
   try {
     if(tab === 'vendas'){
       var isToday = dates.date_from === dates.date_to && dates.date_from === new Date().toISOString().split('T')[0];
-      var d = await fetch('/api/sales/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();});
+      var _sr = await fetch('/api/sales/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to);
+      if(!_sr.ok) throw new Error('HTTP '+_sr.status+' em /api/sales');
+      var d = await _sr.json();
       renderVendas(el, d, isToday);
     } else if(tab === 'campanhas'){
       var ads = await fetch('/api/ads/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();});
@@ -1571,7 +1574,13 @@ async function loadTab(tab){
       renderPerguntas(el, qs);
     }
   } catch(e){
-    el.innerHTML = '<div class="loading-state"><span style="color:var(--red)">Erro ao carregar dados. Tente novamente.<\/span><\/div>';
+    var errMsg = e && e.message ? e.message : 'Erro desconhecido';
+    console.error('[loadTab] ERRO:', e);
+    el.innerHTML = '<div class="loading-state" style="flex-direction:column;gap:8px">'+
+      '<span style="color:var(--red);font-weight:600">Erro ao carregar dados.<\/span>'+
+      '<span style="color:var(--text3);font-size:12px">'+errMsg+'<\/span>'+
+      '<button onclick="loadTab(currentTab,true)" style="margin-top:8px;padding:7px 16px;background:var(--td);color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:Poppins,sans-serif;font-size:12px">Tentar novamente<\/button>'+
+    '<\/div>';
   }
 }
 
