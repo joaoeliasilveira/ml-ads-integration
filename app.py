@@ -105,12 +105,12 @@ def can_see_tab(user, tab):
     return not tabs or tab in tabs
 
 def check_seller_access(user_id):
-    """Retorna (ok, error_response) — verifica se usuário logado tem acesso ao seller."""
+    """Verifica se usuário logado tem acesso ao seller."""
     user = get_current_user()
     if not user:
         return False, (jsonify({"error": "unauthorized"}), 401)
     if not can_see_seller(user, user_id):
-        return False, (jsonify({"error": "forbidden"}), 403)
+        return False, (jsonify({"error": "forbidden", "message": "Acesso nao autorizado a este seller"}), 403)
     return True, None
 
 # ─── AUTH ROUTES ───────────────────────────────────────────────────
