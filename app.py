@@ -697,8 +697,14 @@ def get_sales(user_id):
             for entry in r_t.json():
                 body = entry.get("body", {})
                 iid  = str(body.get("id", ""))
-                is_full   = bool(body.get("fulfillment", {}).get("fulfillment_id") or
-                                  (body.get("shipping", {}) or {}).get("fulfillment"))
+                _ff       = body.get("fulfillment") or {}
+                _sh       = body.get("shipping") or {}
+                is_full   = bool(
+                    _ff.get("fulfillment_id") or
+                    _ff.get("status") == "active" or
+                    _sh.get("fulfillment") or
+                    _sh.get("logistic_type") in ("fulfillment", "meli_fulfillment", "self_service_do")
+                )
                 avail_qty = body.get("available_quantity", 0) or 0
                 catalog_id = body.get("catalog_product_id") or ""
                 if iid and iid not in products_map:
