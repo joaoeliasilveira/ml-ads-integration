@@ -1,11 +1,15 @@
-from flask import Flask, request, jsonify, render_template, redirect
+from flask import Flask, request, jsonify, render_template, redirect, session, abort
 import requests
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timezone, timedelta
+import hashlib
+import json as json_lib
+import functools
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "petina-dashboard-2026-secret")
 
 CLIENT_ID     = os.environ.get("ML_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("ML_CLIENT_SECRET")
@@ -30,6 +34,25 @@ def init_db():
             updated_at TIMESTAMP DEFAULT NOW()
         )
     """)
+    # Tabela de usuários do dashboard
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS dashboard_users (
+            username    TEXT PRIMARY KEY,
+            password    TEXT NOT NULL,
+            role        TEXT NOT NULL DEFAULT 'secondary',
+            permissions JSONB DEFAULT '{}'::jsonb,
+            created_at  TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    # Criar usuário master padrão se não existir
+    cur.execute("SELECT COUNT(*) as cnt FROM dashboard_users WHERE role='master'")
+    if cur.fetchone()['cnt'] == 0:
+        import hashlib
+        default_pwd = hashlib.sha256("petina2026".encode()).hexdigest()
+        cur.execute(
+            "INSERT INTO dashboard_users (username, password, role) VALUES (%s, %s, 'master') ON CONFLICT DO NOTHING",
+            ("master", default_pwd)
+        )
     conn.commit()
     cur.close()
     conn.close()
@@ -39,7 +62,147 @@ try:
 except Exception as e:
     print("Erro ao inicializar banco: " + str(e))
 
+# ─── AUTH HELPERS ─────────────────────────────────────────────────
+def hash_pwd(pwd):
+    return hashlib.sha256(pwd.encode()).hexdigest()
+
+def get_current_user():
+    return session.get("dash_user")
+
+def login_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("dash_user"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "unauthorized"}), 401
+            return redirect("/login")
+        return f(*args, **kwargs)
+    return decorated
+
+def master_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        user = session.get("dash_user")
+        if not user or user.get("role") != "master":
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "forbidden"}), 403
+            return redirect("/")
+        return f(*args, **kwargs)
+    return decorated
+
+def can_see_seller(user, seller_id):
+    if not user: return False
+    if user.get("role") == "master": return True
+    perms = user.get("permissions", {})
+    sellers = perms.get("sellers", [])
+    return not sellers or str(seller_id) in [str(s) for s in sellers]
+
+def can_see_tab(user, tab):
+    if not user: return False
+    if user.get("role") == "master": return True
+    perms = user.get("permissions", {})
+    tabs  = perms.get("tabs", [])
+    return not tabs or tab in tabs
+
+# ─── AUTH ROUTES ───────────────────────────────────────────────────
+@app.route("/login", methods=["GET","POST"])
+def login():
+    error = ""
+    if request.method == "POST":
+        username = request.form.get("username","").strip()
+        password = request.form.get("password","").strip()
+        try:
+            conn = get_db(); cur = conn.cursor()
+            cur.execute("SELECT * FROM dashboard_users WHERE username=%s", (username,))
+            user = cur.fetchone()
+            cur.close(); conn.close()
+            if user and user["password"] == hash_pwd(password):
+                session["dash_user"] = {
+                    "username":    user["username"],
+                    "role":        user["role"],
+                    "permissions": user["permissions"] or {}
+                }
+                return redirect("/")
+            error = "Usuário ou senha incorretos."
+        except Exception as e:
+            error = "Erro ao autenticar: " + str(e)
+    return render_template("login.html", error=error)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
+
+# ─── ADMIN ROUTES ──────────────────────────────────────────────────
+@app.route("/admin")
+@master_required
+def admin():
+    return render_template("admin.html")
+
+@app.route("/api/admin/users", methods=["GET"])
+@master_required
+def admin_list_users():
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT username, role, permissions, created_at FROM dashboard_users ORDER BY role, username")
+    users = [dict(r) for r in cur.fetchall()]
+    cur.close(); conn.close()
+    return jsonify(users)
+
+@app.route("/api/admin/users", methods=["POST"])
+@master_required
+def admin_create_user():
+    data = request.json or {}
+    username = data.get("username","").strip()
+    password = data.get("password","").strip()
+    role     = data.get("role","secondary")
+    perms    = data.get("permissions", {})
+    if not username or not password:
+        return jsonify({"error": "username e password obrigatorios"}), 400
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO dashboard_users (username, password, role, permissions) VALUES (%s,%s,%s,%s)",
+            (username, hash_pwd(password), role, json_lib.dumps(perms))
+        )
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/api/admin/users/<username>", methods=["PUT"])
+@master_required
+def admin_update_user(username):
+    data  = request.json or {}
+    perms = data.get("permissions", {})
+    updates = ["permissions=%s"]
+    params  = [json_lib.dumps(perms)]
+    if data.get("password"):
+        updates.append("password=%s")
+        params.append(hash_pwd(data["password"]))
+    params.append(username)
+    conn = get_db(); cur = conn.cursor()
+    cur.execute(f"UPDATE dashboard_users SET {','.join(updates)} WHERE username=%s", params)
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({"ok": True})
+
+@app.route("/api/admin/users/<username>", methods=["DELETE"])
+@master_required
+def admin_delete_user(username):
+    if username == "master":
+        return jsonify({"error": "nao pode deletar o master"}), 400
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM dashboard_users WHERE username=%s", (username,))
+    conn.commit(); cur.close(); conn.close()
+    return jsonify({"ok": True})
+
+@app.route("/api/admin/me")
+@login_required
+def admin_me():
+    return jsonify(session.get("dash_user", {}))
+
+# ─── HOME ──────────────────────────────────────────────────────────
 @app.route("/")
+@login_required
 def home():
     return render_template("index.html")
 
@@ -103,14 +266,16 @@ def callback():
     return redirect("/?seller_added=" + nickname)
 
 @app.route("/api/sellers")
+@login_required
 def get_sellers():
+    user = get_current_user()
     conn = get_db()
     cur = conn.cursor()
     cur.execute("SELECT user_id, nickname FROM sellers ORDER BY nickname")
-    sellers = cur.fetchall()
+    all_s = [dict(s) for s in cur.fetchall()]
     cur.close()
     conn.close()
-    return jsonify([dict(s) for s in sellers])
+    return jsonify([s for s in all_s if can_see_seller(user, s["user_id"])])
 
 @app.route("/api/sellers/<user_id>", methods=["DELETE"])
 def delete_seller(user_id):
