@@ -867,9 +867,147 @@ body.dark .detail-name{color:#f0f0f5}
 </div>
 
 <script>
-// ── ALERTAS ──
+// -- ALERTAS --
 var alertsLoaded = false;
-var allAlerts = [];
+var allAlerts    = [];
+
+function renderAlerts(){
+  var panel = document.getElementById('alerts-panel-body');
+  if(!panel) return;
+  var lightnings = allAlerts.filter(function(a){return a.level==='lightning';});
+  var promos     = allAlerts.filter(function(a){return a.level==='promo';});
+  var criticals  = allAlerts.filter(function(a){return a.level==='critical';});
+  var warnings   = allAlerts.filter(function(a){return a.level==='warning';});
+  var badge = document.getElementById('bell-badge');
+  var total = lightnings.length+promos.length+criticals.length+warnings.length;
+  if(badge){ badge.textContent=total; badge.style.display=total>0?'flex':'none'; }
+  if(!total){ panel.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px 16px;font-size:13px">Tudo certo!</div>'; return; }
+  var html='';
+  function makeItem(cls,a){
+    var badgeCls='alert-critical-badge';
+    if(cls==='lightning') badgeCls='alert-lightning-badge';
+    else if(cls==='promo') badgeCls='alert-promo-badge';
+    else if(cls==='warning') badgeCls='alert-warning-badge';
+    var selStyle=cls==='lightning'?' style="color:#ffc800;font-weight:700"':'';
+    var msgStyle=cls==='lightning'?' style="font-weight:600"':'';
+    return '<div class="alert-item '+cls+'" data-uid="'+a.uid+'" style="cursor:pointer">'+
+      '<div class="alert-item-header">'+
+        '<span class="alert-seller"'+selStyle+'>'+a.seller+'</span>'+
+        '<span class="alert-type-badge '+badgeCls+'">'+a.type+'</span>'+
+      '</div>'+
+      '<div class="alert-message"'+msgStyle+'>'+a.message+'</div>'+
+      '<div class="alert-detail">'+a.detail+'</div>'+
+    '</div>';
+  }
+  if(lightnings.length){
+    html+='<div class="alerts-section-label" style="color:#ffc800">Oferta Relampago ('+lightnings.length+')</div>';
+    html+=lightnings.map(function(a){return makeItem('lightning',a);}).join('');
+  }
+  if(promos.length){
+    html+='<div class="alerts-section-label"'+(lightnings.length?' style="margin-top:16px"':'')+'>Novas Promocoes ('+promos.length+')</div>';
+    html+=promos.map(function(a){return makeItem('promo',a);}).join('');
+  }
+  if(criticals.length){
+    html+='<div class="alerts-section-label"'+(lightnings.length||promos.length?' style="margin-top:16px"':'')+'>Criticos ('+criticals.length+')</div>';
+    html+=criticals.map(function(a){return makeItem('critical',a);}).join('');
+  }
+  if(warnings.length){
+    html+='<div class="alerts-section-label"'+(criticals.length||lightnings.length||promos.length?' style="margin-top:16px"':'')+'>Atencao ('+warnings.length+')</div>';
+    html+=warnings.map(function(a){return makeItem('warning',a);}).join('');
+  }
+  panel.innerHTML=html;
+  // Event delegation para cliques nos alertas
+  panel.querySelectorAll('.alert-item[data-uid]').forEach(function(el){
+    el.addEventListener('click',function(){openSellerFromAlert(this.dataset.uid);});
+  });
+}
+
+
+function toggleAlerts(){
+  var panel=document.getElementById('alerts-panel');
+  var overlay=document.getElementById('alerts-overlay');
+  if(!panel) return;
+  if(panel.classList.contains('open')){ closeAlerts(); return; }
+  panel.classList.add('open'); overlay.classList.add('open');
+  document.body.style.overflow='hidden';
+  if(!alertsLoaded) loadAlerts();
+}
+
+function closeAlerts(){
+  var panel=document.getElementById('alerts-panel');
+  var overlay=document.getElementById('alerts-overlay');
+  if(panel) panel.classList.remove('open');
+  if(overlay) overlay.classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function openSellerFromAlert(uid){
+  closeAlerts();
+  var seller=allSellers&&allSellers.find(function(s){return String(s.user_id)===String(uid);});
+  if(seller) selectSeller(seller.user_id);
+}
+
+async function loadAlerts(){
+  if(!allSellers||!allSellers.length) return;
+  alertsLoaded=true; allAlerts=[];
+  var today=new Date().toISOString().split('T')[0];
+  var f30=new Date(); f30.setDate(f30.getDate()-29);
+  var df=f30.toISOString().split('T')[0];
+  var prefs=getNotifPrefs();
+  for(var i=0;i<allSellers.length;i++){
+    var s=allSellers[i]; var sName=sellerNames[s.user_id]||s.nickname||s.user_id;
+    try {
+      var ads=await fetch('/api/ads/'+s.user_id+'?date_from='+df+'&date_to='+today).then(function(r){return r.json();}).catch(function(){return null;});
+      if(ads&&ads.summary){
+        var acos=parseFloat(ads.summary.acos)||0,roas=parseFloat(ads.summary.roas)||0,g=getSellerGoals(s.user_id);
+        if(prefs.acos){
+          if(acos>g.acosCrit) allAlerts.push({seller:sName,uid:s.user_id,level:'critical',type:'ACOS',message:'ACOS crítico: '+acos+'%',detail:'Meta: <='+g.acosWarn+'% - Critico: >'+g.acosCrit+'%'});
+          else if(acos>g.acosWarn) allAlerts.push({seller:sName,uid:s.user_id,level:'warning',type:'ACOS',message:'ACOS alto: '+acos+'%',detail:'Meta: <='+g.acosWarn+'%'});
+        }
+        if(prefs.roas){
+          if(roas>0&&roas<g.roasCrit) allAlerts.push({seller:sName,uid:s.user_id,level:'critical',type:'ROAS',message:'ROAS crítico: '+roas+'x',detail:'Meta: >='+g.roasWarn+'x - Critico: <'+g.roasCrit+'x'});
+          else if(roas>0&&roas<g.roasWarn) allAlerts.push({seller:sName,uid:s.user_id,level:'warning',type:'ROAS',message:'ROAS abaixo da meta: '+roas+'x',detail:'Meta: >='+g.roasWarn+'x'});
+        }
+      }
+      if(prefs.questions){
+        var qs=await fetch('/api/questions/'+s.user_id).then(function(r){return r.json();}).catch(function(){return null;});
+        if(qs&&qs.total_unanswered>0) allAlerts.push({seller:sName,uid:s.user_id,level:'critical',type:'PERGUNTAS',message:qs.total_unanswered+' pergunta(s) sem resposta',detail:'Perguntas sem resposta impactam a reputação'});
+      }
+      if(prefs.promos||prefs.lightning){
+        try{
+          var pd=await fetch('/api/promotions/'+s.user_id).then(function(r){return r.json();}).catch(function(){return null;});
+          if(pd&&pd.promotions){
+            var sk='seen_promos_'+s.user_id,sr=localStorage.getItem(sk),si=sr?JSON.parse(sr):[],ni=[];
+            pd.promotions.forEach(function(p){
+              var pid=p.id||''; if(!pid||si.indexOf(pid)!==-1) return;
+              ni.push(pid);
+              var isL=p.type==='LIGHTNING';
+              var sd=p.start_date?p.start_date.substring(5,10).replace('-','/'):'-';
+              var ed=p.end_date?p.end_date.substring(5,10).replace('-','/'):'-';
+              if((isL&&prefs.lightning)||(!isL&&prefs.promos))
+                allAlerts.push({seller:sName,uid:s.user_id,level:isL?'lightning':'promo',type:isL?'⚡ RELÂMPAGO':'PROMOÇÃO',message:isL?'⚡ Oferta Relâmpago disponível!':'🎯 Nova promoção: '+p.name,detail:sName+' · '+sd+' → '+ed,promoId:pid});
+            });
+            if(ni.length){var as=si.concat(ni);if(as.length>200)as=as.slice(-200);localStorage.setItem(sk,JSON.stringify(as));}
+          }
+        }catch(eP){}
+      }
+      if(prefs.fullstock){
+        try{
+          var fs=await fetch('/api/full-stock/'+s.user_id).then(function(r){return r.json();}).catch(function(){return null;});
+          if(fs&&fs.products) fs.products.forEach(function(p){
+            var thr=getFullStockThreshold(p.item_id);
+            if(thr>0&&p.stock<=thr&&!sessionStorage.getItem('fsa_'+p.item_id)){
+              sessionStorage.setItem('fsa_'+p.item_id,'1');
+              allAlerts.push({seller:sName,uid:s.user_id,level:p.stock===0?'critical':'warning',type:'FULL STOCK',message:'📦 Estoque Full baixo: '+p.title.substring(0,40)+(p.title.length>40?'...':''),detail:p.stock+' un · limite: '+thr+' un'});
+            }
+          });
+        }catch(eF){}
+      }
+    }catch(e){}
+  }
+  renderAlerts();
+}
+
 
 // ---- METAS POR SELLER ----
 function getSellerGoals(uid){
@@ -915,7 +1053,7 @@ function saveSellerGoals(){
   alertsLoaded = false; // força refresh dos alertas
 }
 
-// ── PAINEL DE PREFERÊNCIAS DE NOTIFICAÇÕES ───────────────────────
+// -- PAINEL DE PREFERENCIAS DE NOTIFICACOES --
 
 var notifPanelLoaded = {};
 
@@ -1117,7 +1255,7 @@ function saveNames(){ try { localStorage.setItem('petina_seller_names', JSON.str
 function fmt(n){ return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function fmtDec(n){ return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtFull(n){ return Number(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
-function fmtDate(d){ if(!d) return '—'; var p=d.split('-'); return p[2]+'/'+p[1]; }
+function fmtDate(d){ if(!d) return '-'; var p=d.split('-'); return p[2]+'/'+p[1]; }
 function fmtK(n){ if(n>=1000000) return (n/1000000).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return String(n); }
 
 var currentPeriodValue = '30';
@@ -1669,7 +1807,7 @@ function promoTypeLabel(type){
     'SELLER_COUPON_CAMPAIGN':['🎟 Cupom','badge-green'],
     'PRICE_DISCOUNT':['💲 Desconto','badge-amber'],
   };
-  var info = map[type] || [type||'—','badge-gray'];
+  var info = map[type] || [type||'-','badge-gray'];
   return '<span class="badge '+info[1]+'" style="font-size:10px">'+info[0]+'</span>';
 }
 
@@ -1687,16 +1825,16 @@ function renderPromocoes(el, data){
     : promos.map(function(p, i){
         var stBadge = p.status==='started'||p.status==='active' ? 'badge-green' : p.status==='paused' ? 'badge-amber' : 'badge-gray';
         var stLabel = p.status==='started'||p.status==='active' ? 'Ativa' : p.status==='paused' ? 'Pausada' : 'Encerrada';
-        var fmtD = function(s){ if(!s) return '—'; var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
+        var fmtD = function(s){ if(!s) return '-'; var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
         var inicio = fmtD(p.start_date);
         var fim    = fmtD(p.end_date);
-        var duracao = '—';
+        var duracao = '-';
         if(p.start_date && p.end_date){
           var dias = Math.ceil((new Date(p.end_date) - new Date(p.start_date)) / (1000*60*60*24));
           duracao = dias + ' dias';
         }
-        var desconto = (p.discount && p.discount > 0) ? p.discount+'%' : '—';
-        var itens    = (p.items_count && p.items_count > 0) ? p.items_count : '—';
+        var desconto = (p.discount && p.discount > 0) ? p.discount+'%' : '-';
+        var itens    = (p.items_count && p.items_count > 0) ? p.items_count : '-';
 
         return '<div class="promo-card" id="promo-card-'+i+'" data-promo-id="'+p.id+'" data-promo-type="'+p.type+'" data-start-date="'+(p.start_date||'')+'">'+ 
           // Header clicável
@@ -1819,14 +1957,14 @@ function renderPerguntas(el, data){
     : qs.map(function(q){
         var stBadge = q.status === 'UNANSWERED' ? 'badge-red' : 'badge-green';
         var stLabel = q.status === 'UNANSWERED' ? 'Sem resposta' : 'Respondida';
-        var dt = q.date_created ? q.date_created.split(' ') : ['—',''];
-        var dtBR = dt[0] ? dt[0].split('-').reverse().join('/') + (dt[1] ? ' ' + dt[1] : '') : '—';
+        var dt = q.date_created ? q.date_created.split(' ') : ['-',''];
+        var dtBR = dt[0] ? dt[0].split('-').reverse().join('/') + (dt[1] ? ' ' + dt[1] : '') : '-';
         return '<tr>'+
           '<td style="min-width:300px"><div style="font-size:13px;color:var(--text);margin-bottom:4px">'+q.text+'</div>'+
             (q.answer ? '<div style="font-size:11px;color:var(--text3);margin-top:4px">↩ '+q.answer+'</div>' : '')+
           '</td>'+
           '<td style="font-size:11px;color:var(--text3);white-space:nowrap">'+dtBR+'</td>'+
-          '<td><span style="font-size:10px;color:var(--text3)">'+( q.item_id||'—')+'</span></td>'+
+          '<td><span style="font-size:10px;color:var(--text3)">'+( q.item_id||'-')+'</span></td>'+
           '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
         '</tr>';
       }).join('');
@@ -2042,7 +2180,7 @@ function openProdModal(p){
   var daysStock = (p.days_stock != null) ? p.days_stock : null;
   var dailyRate = p.daily_rate || 0;
   var daysColor = daysStock === null ? 'var(--text3)' : daysStock === 0 ? 'var(--red)' : daysStock <= 7 ? 'var(--red)' : daysStock <= 15 ? 'var(--amber)' : 'var(--green)';
-  var daysLabel = daysStock === null ? '—' : daysStock === 0 ? 'Esgotado' : daysStock + ' dias';
+  var daysLabel = daysStock === null ? '-' : daysStock === 0 ? 'Esgotado' : daysStock + ' dias';
   var stockHTML = stock === null ? '' :
     '<div style="margin:0 24px 20px;padding-top:16px;border-top:1px solid var(--border)">'+
       '<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px;letter-spacing:.5px">📦 Estoque</div>'+
@@ -2126,9 +2264,9 @@ function openProdModal(p){
         .then(function(d){
           var visits = d.visits || 0;
           var qty    = p.qty    || 0;
-          var conv   = visits > 0 ? (qty / visits * 100).toFixed(1) : '—';
-          var visitsPerSale = qty > 0 && visits > 0 ? Math.round(visits / qty) : '—';
-          var convColor = conv === '—' ? 'var(--text3)' : parseFloat(conv) >= 3 ? '#2ecc9a' : parseFloat(conv) >= 1 ? '#f5a623' : '#e05555';
+          var conv   = visits > 0 ? (qty / visits * 100).toFixed(1) : '-';
+          var visitsPerSale = qty > 0 && visits > 0 ? Math.round(visits / qty) : '-';
+          var convColor = conv === '-' ? 'var(--text3)' : parseFloat(conv) >= 3 ? '#2ecc9a' : parseFloat(conv) >= 1 ? '#f5a623' : '#e05555';
           visitsEl.innerHTML =
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
@@ -2138,13 +2276,13 @@ function openProdModal(p){
               '</div>'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
                 '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">% Conversão</div>'+
-                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+convColor+'">'+conv+(conv!=='—'?'%':'')+'</div>'+
-                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(conv!=='—'?'meta: ≥ 3%':'sem visitas no período')+'</div>'+
+                '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:'+convColor+'">'+conv+(conv!=='-'?'%':'')+'</div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(conv!=='-'?'meta: ≥ 3%':'sem visitas no período')+'</div>'+
               '</div>'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
                 '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Visitas / Venda</div>'+
                 '<div style="font-size:24px;font-weight:700;font-family:Bricolage Grotesque,sans-serif;color:#f0f0f5">'+visitsPerSale+'</div>'+
-                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(visitsPerSale!=='—'?'visitas por unidade vendida':'—')+'</div>'+
+                '<div style="font-size:10px;color:var(--text3);margin-top:4px">'+(visitsPerSale!=='-'?'visitas por unidade vendida':'-')+'</div>'+
               '</div>'+
             '</div>';
         })
@@ -2168,9 +2306,9 @@ function openProdModal(p){
           promosEl.innerHTML = promos.map(function(pr){
             var sColor = statusColor[pr.status] || 'var(--text3)';
             var sLabel = statusMap[pr.status]   || pr.status;
-            var discLabel = pr.discount_pct > 0 ? pr.discount_pct+'%' : '—';
+            var discLabel = pr.discount_pct > 0 ? pr.discount_pct+'%' : '-';
             var priceLabel = pr.promo_price > 0 ? ' → R$ '+pr.promo_price.toFixed(2).replace('.',',') : '';
-            var endLabel = pr.end_date && pr.end_date !== '—' ? pr.end_date : 'em aberto';
+            var endLabel = pr.end_date && pr.end_date !== '-' ? pr.end_date : 'em aberto';
             return '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:14px;margin-bottom:8px;border-left:3px solid '+sColor+'">'+
               '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">'+
                 '<div style="font-weight:600;font-size:13px">'+pr.name+'</div>'+
@@ -2220,9 +2358,9 @@ function openProdModal(p){
           var currentPrice = p.revenue > 0 && p.qty > 0 ? p.revenue / p.qty : 0;
           var suggested    = d.suggested || d.median || 0;
           var status       = currentPrice <= 0 ? 'neutro' : currentPrice <= suggested * 1.05 ? 'competitivo' : currentPrice <= suggested * 1.15 ? 'atenção' : 'acima';
-          var statusLabel  = {competitivo:'✅ Competitivo', atenção:'⚠️ Atenção', acima:'🔴 Acima do sugerido', neutro:'—'}[status];
+          var statusLabel  = {competitivo:'✅ Competitivo', atenção:'⚠️ Atenção', acima:'🔴 Acima do sugerido', neutro:'-'}[status];
           var statusColor  = {competitivo:'#2ecc9a', atenção:'#f5a623', acima:'#e05555', neutro:'var(--text3)'}[status];
-          var fmt = function(v){ return v > 0 ? 'R$ '+v.toFixed(2).replace('.',',') : '—'; };
+          var fmt = function(v){ return v > 0 ? 'R$ '+v.toFixed(2).replace('.',',') : '-'; };
           priceEl.innerHTML =
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px">'+
               '<div class="prod-modal-card" style="background:var(--bg3);border-radius:var(--radius-xs);padding:12px">'+
