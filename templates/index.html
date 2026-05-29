@@ -2362,29 +2362,26 @@ function openProdModal(p){
                 '<div style="font-weight:600;font-size:13px">'+pr.name+'<\/div>'+
                 '<span style="font-size:11px;font-weight:600;color:'+sColor+';background:'+sColor+'22;padding:3px 10px;border-radius:4px;white-space:nowrap">'+sLabel+'<\/span>'+
               '<\/div>'+
-              '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:start">'+
-                '<div>'+
+              '<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'+
+                '<div style="min-width:70px">'+
                   '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Tipo<\/div>'+
                   '<div style="font-size:12px;font-weight:500">'+pr.type+'<\/div>'+
                 '<\/div>'+
-                '<div>'+
+                '<div style="min-width:60px">'+
                   '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Desconto<\/div>'+
                   '<div style="font-size:15px;font-weight:700;color:'+sColor+'">'+discLabel+'<\/div>'+
                 '<\/div>'+
                 (pr.promo_price>0?
-                  '<div>'+
+                  '<div style="min-width:90px">'+
                     '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Preço Promo<\/div>'+
                     '<div style="font-size:12px;font-weight:600;color:'+sColor+'">R$ '+pr.promo_price.toFixed(2).replace('.',',')+'<\/div>'+
                   '<\/div>'
-                :
-                  '<div><\/div>'
-                )+
-                '<div>'+
+                : '')+
+                '<div style="min-width:80px">'+
                   '<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Período<\/div>'+
-                  '<div style="font-size:11px;font-weight:500">'+fmtDate(pr.start_date)+'<\/div>'+
-                  '<div style="font-size:11px;color:var(--text3)">até '+fmtDate(pr.end_date||'')+'<\/div>'+
+                  '<div style="font-size:11px;font-weight:500">'+(fmtDate(pr.start_date)||'-')+'<\/div>'+
+                  '<div style="font-size:11px;color:var(--text3)">até '+(fmtDate(pr.end_date||'')||'-')+'<\/div>'+
                 '<\/div>'+
-                '<div><\/div>'+
               '<\/div>'+
             '<\/div>';
           }).join('');
