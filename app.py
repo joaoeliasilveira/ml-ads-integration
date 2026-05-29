@@ -1919,7 +1919,7 @@ def get_full_stock(user_id):
             chunk = all_ids[i:i+20]
             r2 = requests.get(
                 "https://api.mercadolibre.com/items",
-                params={"ids": ",".join(chunk), "attributes": "id,title,available_quantity,fulfillment,status"},
+                params={"ids": ",".join(chunk), "attributes": "id,title,available_quantity,fulfillment,shipping,status"},
                 headers={"Authorization": "Bearer " + token},
                 timeout=8
             )
@@ -1927,7 +1927,15 @@ def get_full_stock(user_id):
             for entry in r2.json():
                 body = entry.get("body", {})
                 if body.get("status") not in ("active", "paused"): continue
-                is_full = bool(body.get("fulfillment", {}).get("fulfillment_id"))
+                fulfillment = body.get("fulfillment") or {}
+                shipping    = body.get("shipping") or {}
+                is_full = bool(
+                    fulfillment.get("fulfillment_id") or
+                    fulfillment.get("status") == "active" or
+                    shipping.get("fulfillment") or
+                    shipping.get("logistic_type") == "fulfillment" or
+                    shipping.get("logistic_type") == "meli_fulfillment"
+                )
                 if not is_full: continue
                 full_products.append({
                     "item_id": str(body.get("id", "")),
