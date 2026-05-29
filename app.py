@@ -104,6 +104,15 @@ def can_see_tab(user, tab):
     tabs  = perms.get("tabs", [])
     return not tabs or tab in tabs
 
+def check_seller_access(user_id):
+    """Retorna (ok, error_response) — verifica se usuário logado tem acesso ao seller."""
+    user = get_current_user()
+    if not user:
+        return False, (jsonify({"error": "unauthorized"}), 401)
+    if not can_see_seller(user, user_id):
+        return False, (jsonify({"error": "forbidden"}), 403)
+    return True, None
+
 # ─── AUTH ROUTES ───────────────────────────────────────────────────
 @app.route("/login", methods=["GET","POST"])
 def login():
@@ -382,6 +391,8 @@ def get_campaign_metrics(advertiser_id, camp_id, token, date_from, date_to, base
 
 @app.route("/api/ads/<user_id>")
 def get_ads(user_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -444,6 +455,8 @@ def get_ads(user_id):
 
 @app.route("/api/ads/<user_id>/daily")
 def get_ads_daily(user_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -483,6 +496,8 @@ def get_ads_daily(user_id):
 
 @app.route("/api/reputation/<user_id>")
 def get_reputation(user_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -512,6 +527,8 @@ def get_reputation(user_id):
 
 @app.route("/api/sales/<user_id>")
 def get_sales(user_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -890,6 +907,8 @@ def get_sales(user_id):
 
 @app.route("/api/promotions/<user_id>")
 def get_promotions(user_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -1524,6 +1543,8 @@ def notifications():
 
 @app.route("/api/questions/<user_id>")
 def get_questions(user_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -1678,6 +1699,8 @@ def validate(user_id):
 
 @app.route("/api/promo-items/<user_id>/<promo_id>")
 def get_promo_items(user_id, promo_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -1805,6 +1828,8 @@ def get_promo_items(user_id, promo_id):
 
 @app.route("/api/item-visits/<user_id>/<item_id>")
 def get_item_visits(user_id, item_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -1855,6 +1880,8 @@ def get_item_visits(user_id, item_id):
 
 @app.route("/api/price-suggestion/<user_id>/<item_id>")
 def get_price_suggestion(user_id, item_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -1893,6 +1920,8 @@ def get_price_suggestion(user_id, item_id):
 @app.route("/api/full-stock/<user_id>")
 @login_required
 def get_full_stock(user_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     """Retorna apenas produtos Full ML com estoque atual — endpoint leve para alertas"""
     token, seller = get_seller_token(user_id)
     if not seller:
@@ -1957,6 +1986,8 @@ def get_full_stock(user_id):
 
 @app.route("/api/item-promos/<user_id>/<item_id>")
 def get_item_promos(user_id, item_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
