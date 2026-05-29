@@ -712,11 +712,8 @@ body.dark .detail-name{color:#f0f0f5}
         <span id="notif-chev-goals" style="transition:transform .2s;display:inline-block;font-size:12px">▾</span>
       </div>
       <div class="notif-section-body" id="notif-sec-goals">
-        <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Configure as metas de ACOS e ROAS por seller. Os alertas usarão esses valores.</div>
-        <select id="goals-seller-select" onchange="loadGoalsForm()" style="width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:Poppins,sans-serif;font-size:12px;outline:none;margin-bottom:14px">
-          <option value="">Selecione um seller...</option>
-        </select>
-        <div id="goals-form-inline" style="display:none">
+        <div id="goals-seller-name-label" style="font-size:11px;font-weight:600;color:var(--tl);margin-bottom:12px"></div>
+        <div id="goals-form-inline" style="display:block">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
             <div>
               <div style="font-size:10px;color:var(--amber);margin-bottom:5px">⚠️ ACOS — Atenção acima de</div>
@@ -983,23 +980,18 @@ function openNotifPanel(){
   no.style.opacity = '1'; no.style.pointerEvents = 'all';
   document.body.style.overflow = 'hidden';
   loadFullStockProducts();
-  populateGoalsSellers();
-}
-
-function populateGoalsSellers(){
-  var sel = document.getElementById('goals-seller-select');
-  if(!sel || !allSellers) return;
-  sel.innerHTML = '<option value="">Selecione um seller...</option>' +
-    allSellers.map(function(s){
-      var name = sellerNames[s.user_id] || s.nickname || s.user_id;
-      return '<option value="'+s.user_id+'">'+name+'</option>';
-    }).join('');
+  // Carregar metas do seller atual
+  if(currentSellerId){
+    var lbl = document.getElementById('goals-seller-name-label');
+    if(lbl) lbl.textContent = sellerNames[currentSellerId] || currentSellerId;
+    loadGoalsForm();
+  }
 }
 
 function loadGoalsForm(){
-  var uid  = document.getElementById('goals-seller-select').value;
+  var uid = currentSellerId;
   var form = document.getElementById('goals-form-inline');
-  if(!uid){ form.style.display = 'none'; return; }
+  if(!uid) return;
   var g = getSellerGoals(uid);
   document.getElementById('gi-acos-warn').value = g.acosWarn;
   document.getElementById('gi-acos-crit').value = g.acosCrit;
@@ -1010,7 +1002,7 @@ function loadGoalsForm(){
 }
 
 function saveGoalsInline(){
-  var uid = document.getElementById('goals-seller-select').value;
+  var uid = currentSellerId;
   if(!uid) return;
   var g = {
     acosWarn: parseFloat(document.getElementById('gi-acos-warn').value)||20,
