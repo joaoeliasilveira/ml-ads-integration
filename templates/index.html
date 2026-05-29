@@ -953,9 +953,9 @@ async function loadAlerts(){
   var today=new Date().toISOString().split('T')[0];
   var f30=new Date(); f30.setDate(f30.getDate()-29);
   var df=f30.toISOString().split('T')[0];
-  var prefs=getNotifPrefs();
   for(var i=0;i<allSellers.length;i++){
     var s=allSellers[i]; var sName=sellerNames[s.user_id]||s.nickname||s.user_id;
+    var prefs=getNotifPrefs(s.user_id);
     try {
       var ads=await fetch('/api/ads/'+s.user_id+'?date_from='+df+'&date_to='+today).then(function(r){return r.json();}).catch(function(){return null;});
       if(ads&&ads.summary){
@@ -1057,11 +1057,11 @@ function saveSellerGoals(){
 
 var notifPanelLoaded = {};
 
-function getNotifPrefs(){
+function getNotifPrefs(uid){
   try {
-    var raw = localStorage.getItem('notif_prefs');
+    var key = uid ? 'notif_prefs_'+uid : 'notif_prefs_global';
+    var raw = localStorage.getItem(key);
     var p   = raw ? JSON.parse(raw) : {};
-    // Padrão: tudo habilitado
     return {
       acos:      p.acos      !== false,
       roas:      p.roas      !== false,
@@ -1076,6 +1076,9 @@ function getNotifPrefs(){
 }
 
 function saveNotifPrefs(){
+  var uid = currentSellerId;
+  if(!uid) return;
+  var key = 'notif_prefs_'+uid;
   var prefs = {
     acos:      document.getElementById('notif-toggle-acos').checked,
     roas:      document.getElementById('notif-toggle-roas').checked,
@@ -1084,8 +1087,8 @@ function saveNotifPrefs(){
     lightning: document.getElementById('notif-toggle-lightning').checked,
     fullstock: document.getElementById('notif-toggle-fullstock').checked,
   };
-  localStorage.setItem('notif_prefs', JSON.stringify(prefs));
-  alertsLoaded = false; // força refresh
+  localStorage.setItem(key, JSON.stringify(prefs));
+  alertsLoaded = false;
 }
 
 function getFullStockThreshold(itemId){
@@ -1106,13 +1109,17 @@ function toggleNotifSection(key){
 }
 
 function openNotifPanel(){
-  var prefs = getNotifPrefs();
+  var prefs = getNotifPrefs(currentSellerId);
   document.getElementById('notif-toggle-acos').checked      = prefs.acos;
   document.getElementById('notif-toggle-roas').checked      = prefs.roas;
   document.getElementById('notif-toggle-questions').checked = prefs.questions;
   document.getElementById('notif-toggle-promos').checked    = prefs.promos;
   document.getElementById('notif-toggle-lightning').checked = prefs.lightning;
   document.getElementById('notif-toggle-fullstock').checked = prefs.fullstock;
+  // Mostrar nome do seller atual no painel
+  var sellerLabel = currentSellerId ? (sellerNames[currentSellerId] || currentSellerId) : '';
+  var hdr = document.querySelector('#notif-panel .notif-header div');
+  if(hdr) hdr.textContent = '🔔 Notificações' + (sellerLabel ? ' — '+sellerLabel : '');
   document.getElementById('notif-panel').classList.add('open');
   var no = document.getElementById('notif-overlay');
   no.style.opacity = '1'; no.style.pointerEvents = 'all';
