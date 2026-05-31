@@ -1290,7 +1290,7 @@ function buildPeriodSubtitles(){
   var today = new Date();
   var fmt2 = function(d){ return d.getDate()+' '+['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][d.getMonth()]+' '+d.getFullYear(); };
   var sub = function(days){
-    var from = new Date(); from.setDate(from.getDate()-days);
+    var from = new Date(); from.setDate(from.getDate()-(days-1)); // inclui hoje
     return fmt2(from)+' a '+fmt2(today);
   };
   var todayStr = fmt2(today);
@@ -1328,7 +1328,7 @@ function selectPeriodOption(value, label){
   } else {
     document.getElementById('period-custom-row').classList.add('open');
     var to = new Date(), from = new Date();
-    from.setDate(from.getDate()-30);
+    from.setDate(from.getDate()-29); // 30 dias incluindo hoje
     document.getElementById('date-from').value = from.toISOString().split('T')[0];
     document.getElementById('date-to').value = to.toISOString().split('T')[0];
   }
@@ -1346,7 +1346,7 @@ function getPeriodDates(){
   }
   var days = parseInt(currentPeriodValue) || 30;
   var to = new Date(), from = new Date();
-  from.setDate(from.getDate() - days);
+  from.setDate(from.getDate() - (days - 1)); // inclui hoje: 30 dias = hoje - 29
   return {date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0]};
 }
 
