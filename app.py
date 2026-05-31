@@ -118,7 +118,7 @@ def can_see_tab(user, tab):
 CACHE_TTL_MINUTES = 20  # cache por 20 minutos
 
 def cache_get(key):
-    """Busca valor do cache. Retorna None se não existir ou expirado.""\"
+    """Busca valor do cache. Retorna None se nao existir ou expirado."""
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute(
@@ -132,7 +132,7 @@ def cache_get(key):
         return None
 
 def cache_set(key, data, ttl_minutes=CACHE_TTL_MINUTES):
-    """Salva valor no cache com TTL.""\"
+    """Salva valor no cache com TTL."""
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute(
