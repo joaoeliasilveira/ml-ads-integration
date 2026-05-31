@@ -138,6 +138,24 @@ body{background:var(--bg);color:var(--text);font-family:Poppins,sans-serif;font-
 var allSellers = [];
 var editingUser = null;
 
+function openChangeMasterPassword(){
+  var pwd = prompt('Digite a nova senha do master (mínimo 6 caracteres):');
+  if(!pwd) return;
+  if(pwd.length < 6){ alert('Senha muito curta. Mínimo 6 caracteres.'); return; }
+  var confirm = prompt('Confirme a nova senha:');
+  if(pwd !== confirm){ alert('As senhas não coincidem.'); return; }
+  fetch('/api/admin/users/master', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({password: pwd})
+  }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d.ok) alert('Senha do master alterada com sucesso!');
+      else alert('Erro: ' + (d.error || 'Falha ao alterar senha'));
+    })
+    .catch(function(){ alert('Erro de conexão.'); });
+}
+
 async function loadSellers(){
   var r = await fetch('/api/sellers');
   allSellers = await r.json();
@@ -167,7 +185,7 @@ async function loadUsers(){
           '<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="openEditModal(\''+u.username+'\')">✏️ Editar</button>'+
           '<button class="btn btn-danger" style="font-size:11px;padding:5px 10px" onclick="deleteUser(\''+u.username+'\')">✕</button>'+
         '</div>'
-      : '<div style="color:var(--text3);font-size:11px">Conta principal</div>')+
+      : '<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="openChangeMasterPassword()">🔑 Trocar Senha</button>')+
     '</div>';
   }).join('');
 }
