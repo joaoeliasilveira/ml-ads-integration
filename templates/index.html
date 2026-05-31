@@ -1578,10 +1578,14 @@ function switchTab(tab){
 async function loadTab(tab){
   if(!currentSellerId) return;
   loaded[tab] = true;
-  var dates = getPeriodDates();
+  if(!tabPeriods[tab]) tabPeriods[tab] = '30';
+  var dates = getPeriodDates(tab);
   var el = document.getElementById('tab-'+tab);
 
-  console.log("[loadTab] seller:", currentSellerId, "tab:", tab);
+  // Renderizar barra de período no topo da aba
+  renderTabPeriodBar(tab, 'tab-'+tab);
+
+  console.log("[loadTab] seller:", currentSellerId, "tab:", tab, "period:", tabPeriods[tab]);
   try {
     if(tab === 'vendas'){
       var isToday = dates.date_from === dates.date_to && dates.date_from === new Date().toISOString().split('T')[0];
