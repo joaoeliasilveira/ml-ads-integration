@@ -371,29 +371,47 @@ body.dark .btn-promo-items:hover{background:#26262f}
 .loading-dots span:nth-child(3){animation-delay:.4s}
 @keyframes dotBounce{0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
 
-.tab-period-bar{
-  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-  padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:16px;
+.tab-period-dropdown{position:relative;display:inline-block;}
+.tab-period-trigger{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;background:var(--bg2);
+  border:1px solid var(--border2);border-radius:8px;
+  cursor:pointer;font-family:Poppins,sans-serif;font-size:12px;color:var(--text);
+  white-space:nowrap;min-width:170px;justify-content:space-between;
 }
-.tab-period-bar .tpb-btn{
-  padding:5px 12px;font-size:11px;font-family:Poppins,sans-serif;
-  cursor:pointer;border:1px solid var(--border2);border-radius:6px;
-  background:transparent;color:var(--text2);transition:.15s;white-space:nowrap;
+.tab-period-trigger:hover{background:var(--bg3)}
+body.dark .tab-period-trigger{background:#1e1e26;border-color:rgba(255,255,255,.15)}
+.tab-period-trigger .tpt-label{font-weight:600}
+.tab-period-trigger .tpt-chevron{font-size:10px;color:var(--text3);transition:transform .2s}
+.tab-period-trigger.open .tpt-chevron{transform:rotate(180deg)}
+.tab-period-menu{
+  position:absolute;top:calc(100% + 4px);right:0;z-index:300;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:230px;overflow:hidden;
+  display:none;
 }
-.tab-period-bar .tpb-btn:hover{background:var(--bg3);color:var(--text)}
-.tab-period-bar .tpb-btn.active{background:var(--td);color:#fff;border-color:var(--td);font-weight:600}
-.tab-period-bar .tpb-sub{font-size:10px;color:var(--text3);margin-left:2px}
-.tpb-custom-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:8px;width:100%}
-.tpb-date-input{padding:5px 8px;font-size:11px;font-family:Poppins,sans-serif;
+body.dark .tab-period-menu{background:#1e1e26;border-color:rgba(255,255,255,.12);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.tab-period-menu.open{display:block}
+.tpm-section-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;padding:10px 16px 4px;font-weight:600}
+.tpm-option{
+  display:flex;flex-direction:column;padding:9px 16px;cursor:pointer;
+  border-left:3px solid transparent;transition:.12s;
+}
+.tpm-option:hover{background:var(--bg3)}
+body.dark .tpm-option:hover{background:#26262f}
+.tpm-option.selected{border-left-color:var(--tl);background:rgba(42,157,143,.06)}
+body.dark .tpm-option.selected{background:rgba(42,157,143,.08)}
+.tpm-option .tpm-label{font-size:13px;font-weight:500;color:var(--text)}
+.tpm-option.selected .tpm-label{color:var(--tl);font-weight:600}
+.tpm-option .tpm-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.tpm-custom-row{padding:10px 16px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border)}
+body.dark .tpm-custom-row{border-color:rgba(255,255,255,.06)}
+.tpb-date-input{padding:6px 8px;font-size:11px;font-family:Poppins,sans-serif;
   background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
-  color:var(--text);outline:none;}
-.tpb-apply{padding:5px 12px;font-size:11px;font-family:Poppins,sans-serif;
-  background:var(--td);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
-
-.alerts-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:290;
-  opacity:0;pointer-events:none;transition:opacity .25s;
-}
+  color:var(--text);outline:none;width:100%;}
+body.dark .tpb-date-input{background:#26262f;border-color:rgba(255,255,255,.1);color:#f0f0f5}
+.tpb-apply{padding:7px 14px;font-size:11px;font-family:Poppins,sans-serif;
+  background:var(--td);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;width:100%;}
 .alerts-overlay.open{opacity:1;pointer-events:all}
 
 .prod-modal-overlay{
@@ -823,9 +841,12 @@ body.dark .detail-name{color:#f0f0f5}
   <!-- VIEW: DETALHE -->
   <div class="view" id="view-detail">
     <button class="back-btn" onclick="showList()">← Voltar</button>
-    <div class="detail-header">
-      <div class="detail-name" id="d-name">—</div>
-      <div class="detail-meta" id="d-meta">—</div>
+    <div class="detail-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <div class="detail-name" id="d-name">—</div>
+        <div class="detail-meta" id="d-meta">—</div>
+      </div>
+      <div id="tab-period-dropdown-container"></div>
     </div>
 
     <div class="tabs">
@@ -1334,39 +1355,111 @@ function renderTabPeriodBar(tab, containerId){
   var cd  = tabCustomDates[tab] || {};
   var opts = [
     {v:'today', label:'Hoje'},
-    {v:'7',     label:'7 dias'},
-    {v:'15',    label:'15 dias'},
-    {v:'30',    label:'30 dias'},
-    {v:'custom',label:'Personalizado'},
+    {v:'7',     label:'Últimos 7 dias'},
+    {v:'15',    label:'Últimos 15 dias'},
+    {v:'30',    label:'Últimos 30 dias'},
+    {v:'custom',label:'Data personalizada'},
   ];
-  var html = '<div class="tab-period-bar" id="tpb-'+tab+'">';
-  opts.forEach(function(o){
-    var active = pv===o.v ? ' active' : '';
-    var sub = o.v!=='custom' ? '<span class="tpb-sub">'+fmtPeriodLabel(o.v,{})+'</span>' : '';
-    html += '<button class="tpb-btn'+active+'" data-tab="'+tab+'" data-val="'+o.v+'">'+o.label+sub+'</button>';
-  });
-  if(pv==='custom'){
-    html += '<div class="tpb-custom-row">'+
-      '<input type="date" class="tpb-date-input" id="tpb-from-'+tab+'" value="'+(cd.from||'')+'">'+
-      '<span style="color:var(--text3);font-size:11px">até</span>'+
-      '<input type="date" class="tpb-date-input" id="tpb-to-'+tab+'" value="'+(cd.to||'')+'">'+
-      '<button class="tpb-apply tpb-apply-btn" data-tab="'+tab+'">Aplicar</button>'+
-    '</div>';
+
+  function getLabel(v){
+    var o = opts.find(function(x){return x.v===v;});
+    return o ? o.label : 'Últimos 30 dias';
   }
-  html += '</div>';
-  // Inserir no container
+
+  var dropId  = 'tpd-'+tab;
+  var menuId  = 'tpm-'+tab;
+  var triggId = 'tpt-'+tab;
+  var sub     = fmtPeriodLabel(pv, cd);
+  var html =
+    '<div class="tab-period-dropdown" id="'+dropId+'">'+
+      '<button class="tab-period-trigger" id="'+triggId+'" class="tpt-toggle-btn" data-tab="'+tab+'">'+
+        '<div>'+
+          '<div class="tpt-label">'+getLabel(pv)+'</div>'+
+          '<div style="font-size:10px;color:var(--text3);margin-top:1px">'+sub+'</div>'+
+        '</div>'+
+        '<span class="tpt-chevron">▾</span>'+
+      '</button>'+
+      '<div class="tab-period-menu" id="'+menuId+'">'+
+        '<div class="tpm-section-label">Período principal</div>'+
+        opts.map(function(o){
+          var sel = pv===o.v ? ' selected' : '';
+          var s   = o.v!=='custom' ? '<div class="tpm-sub">'+fmtPeriodLabel(o.v,{})+'</div>' : '';
+          return '<div class="tpm-option'+sel+'" data-tab="'+tab+'" data-val="'+o.v+'">'+
+            '<div class="tpm-label">'+o.label+'</div>'+s+'</div>';
+        }).join('')+
+        (pv==='custom' ?
+          '<div class="tpm-custom-row">'+
+            '<div style="font-size:11px;color:var(--text3)">De</div>'+
+            '<input type="date" class="tpb-date-input" id="tpb-from-'+tab+'" value="'+(cd.from||'')+'">'+
+            '<div style="font-size:11px;color:var(--text3)">Até</div>'+
+            '<input type="date" class="tpb-date-input" id="tpb-to-'+tab+'" value="'+(cd.to||'')+'">'+
+            '<button class="tpb-apply tpb-apply-btn" data-tab="'+tab+'">Aplicar</button>'+
+          '</div>'
+        : '')+
+      '</div>'+
+    '</div>';
+
+  // Renderizar no container do header do seller
+  var headerContainer = document.getElementById('tab-period-dropdown-container');
+  if(headerContainer && !headerContainer.querySelector('#'+dropId)){
+    headerContainer.innerHTML = html;
+    bindTabPeriodMenu(tab);
+    return;
+  }
+  if(headerContainer && headerContainer.querySelector('#'+dropId)){
+    // Atualizar só o label e sub sem recriar
+    var trig = document.getElementById(triggId);
+    if(trig){
+      trig.querySelector('.tpt-label').textContent = getLabel(pv);
+      trig.querySelector('[style*="margin-top:1px"]').textContent = sub;
+    }
+    return;
+  }
+
+  // Fallback: inserir no container da aba
   var el = document.getElementById(containerId);
   if(!el) return;
-  var existing = document.getElementById('tpb-'+tab);
+  var existing = document.getElementById(dropId);
   if(existing) existing.remove();
-  el.insertAdjacentHTML('afterbegin', html);
-  // Bind cliques
-  document.querySelectorAll('#tpb-'+tab+' .tpb-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){
+  var wrapper = document.createElement('div');
+  wrapper.innerHTML = html;
+  el.insertBefore(wrapper.firstChild, el.firstChild);
+  bindTabPeriodMenu(tab);
+}
+
+function bindTabPeriodMenu(tab){
+  var menuId = 'tpm-'+tab;
+  document.querySelectorAll('#'+menuId+' .tpm-option').forEach(function(el){
+    el.addEventListener('click', function(){
       setTabPeriod(tab, this.dataset.val);
+      closeAllTabMenus();
     });
   });
 }
+
+function toggleTabPeriodMenu(tab){
+  var menu   = document.getElementById('tpm-'+tab);
+  var trigg  = document.getElementById('tpt-'+tab);
+  if(!menu) return;
+  var isOpen = menu.classList.contains('open');
+  closeAllTabMenus();
+  if(!isOpen){
+    menu.classList.add('open');
+    if(trigg) trigg.classList.add('open');
+  }
+}
+
+function closeAllTabMenus(){
+  document.querySelectorAll('.tab-period-menu').forEach(function(m){ m.classList.remove('open'); });
+  document.querySelectorAll('.tab-period-trigger').forEach(function(t){ t.classList.remove('open'); });
+}
+
+// Event delegation para trigger do dropdown
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('.tpt-toggle-btn');
+  if(btn && btn.dataset.tab){ toggleTabPeriodMenu(btn.dataset.tab); return; }
+  if(!e.target.closest('.tab-period-dropdown')) closeAllTabMenus();
+});
 
 function setTabPeriod(tab, val){
   tabPeriods[tab] = val;
