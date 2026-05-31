@@ -846,7 +846,7 @@ body.dark .detail-name{color:#f0f0f5}
 
     <div class="tabs">
       <button class="tab-btn active" id="tab-vendas-btn" onclick="switchTab('vendas')">💰 Vendas</button>
-      <button class="tab-btn" id="tab-campanhas-btn" onclick="switchTab('campanhas')">📣 Campanhas</button>
+      <button class="tab-btn" id="tab-campanhas-btn" onclick="switchTab('campanhas')">📣 Publicidade</button>
       <button class="tab-btn" id="tab-promocoes-btn" onclick="switchTab('promocoes')">🎯 Promoções</button>
       <button class="tab-btn" id="tab-perguntas-btn" onclick="switchTab('perguntas')">💬 Perguntas</button>
       <button class="tab-btn" id="tab-reputacao-btn" onclick="switchTab('reputacao')">⭐ Reputação</button>
@@ -854,7 +854,7 @@ body.dark .detail-name{color:#f0f0f5}
     </div>
 
     <div class="tab-content active" id="tab-vendas"><div class="loading-state"><div class="spinner"></div><span>Carregando vendas...</span></div></div>
-    <div class="tab-content" id="tab-campanhas"><div class="loading-state"><div class="spinner"></div><span>Carregando campanhas...</span></div></div>
+    <div class="tab-content" id="tab-campanhas"><div class="loading-state"><div class="spinner"></div><span>Carregando publicidade...</span></div></div>
     <div class="tab-content" id="tab-promocoes"><div class="loading-state"><div class="spinner"></div><span>Carregando promoções...</span></div></div>
     <div class="tab-content" id="tab-perguntas"><div class="loading-state"><div class="spinner"></div><span>Carregando perguntas...</span></div></div>
     <div class="tab-content" id="tab-reputacao"><div class="loading-state"><div class="spinner"></div><span>Carregando reputação...</span></div></div>
@@ -1793,12 +1793,12 @@ function renderCampanhas(el, ads, daily){
     '<div class="section-label">'+(hasDailyData?'Evolução Diária':'Gasto vs Receita por Campanha')+'<\/div>'+
     '<div class="card">'+
       '<div class="card-title">'+(hasDailyData?'Gasto e Receita Diários':'Performance por Campanha')+'<\/div>'+
-      '<div class="card-sub">'+(hasDailyData?'Dia a dia no período':'Top campanhas do período')+'<\/div>'+
+      '<div class="card-sub">'+(hasDailyData?'Dia a dia no período':'Top campanhas de publicidade')+'<\/div>'+
       '<div class="legend"><span class="leg"><span class="leg-dot" style="background:#4a5fe8"><\/span>Receita<\/span><span class="leg"><span class="leg-dot" style="background:#ff5c7a"><\/span>Gasto<\/span><\/div>'+
       '<div style="position:relative;height:220px"><canvas id="chart-camps"><\/canvas><\/div>'+
     '<\/div>'+
 
-    '<div class="section-label">Campanhas<\/div>'+
+    '<div class="section-label">Publicidade<\/div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
       '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Detalhamento por Campanha<\/div><div class="card-sub" style="margin-bottom:0">'+camps.length+' campanhas no período<\/div><\/div>'+
       '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Campanha<\/th><th>Gasto<\/th><th>Receita<\/th><th>ROAS<\/th><th>ACOS<\/th><th>Cliques<\/th><th>Impressões<\/th><th>Status<\/th><\/tr><\/thead><tbody>'+emptyCamps+'<\/tbody><\/table><\/div>'+
