@@ -713,6 +713,9 @@ body.dark .detail-name{color:#f0f0f5}
       </div>
       <div class="notif-section-body" id="notif-sec-goals">
         <div id="goals-seller-name-label" style="font-size:11px;font-weight:600;color:var(--tl);margin-bottom:12px"></div>
+        <div id="goals-no-seller" style="font-size:12px;color:var(--text3);padding:12px;background:var(--bg3);border-radius:var(--radius-sm);display:none">
+          Abra o painel de um seller no dashboard para configurar as metas.
+        </div>
         <div id="goals-form-inline" style="display:block">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
             <div>
@@ -1126,11 +1129,20 @@ function openNotifPanel(){
   document.body.style.overflow = 'hidden';
   notifPanelLoaded = {}; // limpa cache para forçar reload
   loadFullStockProducts();
-  // Carregar metas do seller atual
+  // Carregar metas — mostra form apenas se há seller selecionado
+  var goalsForm = document.getElementById('goals-form-inline');
+  var goalsNone = document.getElementById('goals-no-seller');
+  var goalsLbl  = document.getElementById('goals-seller-name-label');
   if(currentSellerId){
-    var lbl = document.getElementById('goals-seller-name-label');
-    if(lbl) lbl.textContent = sellerNames[currentSellerId] || currentSellerId;
+    var sName = sellerNames[currentSellerId] || currentSellerId;
+    if(goalsLbl)  goalsLbl.textContent = '📊 Configurando para: '+sName;
+    if(goalsForm) goalsForm.style.display = 'block';
+    if(goalsNone) goalsNone.style.display = 'none';
     loadGoalsForm();
+  } else {
+    if(goalsLbl)  goalsLbl.textContent = '';
+    if(goalsForm) goalsForm.style.display = 'none';
+    if(goalsNone) goalsNone.style.display = 'block';
   }
 }
 
@@ -1149,6 +1161,7 @@ function loadGoalsForm(){
 
 function saveGoalsInline(){
   var uid = currentSellerId;
+  if(!uid){ alert('Selecione um seller primeiro.'); return; }
   if(!uid) return;
   var g = {
     acosWarn: parseFloat(document.getElementById('gi-acos-warn').value)||20,
