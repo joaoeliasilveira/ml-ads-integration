@@ -1348,7 +1348,7 @@ def debug_sales2(user_id):
 
     from datetime import date as ddate, timedelta as tdelta
     today = ddate.today()
-    date_from = (today - tdelta(days=30)).isoformat()
+    date_from = (today - tdelta(days=29)).isoformat()  # 30 dias incluindo hoje
     date_to   = today.isoformat()
 
     # Busca total por cada status individualmente
@@ -1405,7 +1405,7 @@ def debug_reports(user_id):
 
     from datetime import date as ddate, timedelta as tdelta
     today = ddate.today()
-    date_from = (today - tdelta(days=30)).isoformat()
+    date_from = (today - tdelta(days=29)).isoformat()  # 30 dias incluindo hoje
     date_to   = today.isoformat()
 
     results = {}
