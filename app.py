@@ -181,13 +181,17 @@ def admin_create_user():
 @app.route("/api/admin/users/<username>", methods=["PUT"])
 @master_required
 def admin_update_user(username):
-    data  = request.json or {}
-    perms = data.get("permissions", {})
-    updates = ["permissions=%s"]
-    params  = [json_lib.dumps(perms)]
+    data    = request.json or {}
+    updates = []
+    params  = []
+    if "permissions" in data:
+        updates.append("permissions=%s")
+        params.append(json_lib.dumps(data["permissions"]))
     if data.get("password"):
         updates.append("password=%s")
         params.append(hash_pwd(data["password"]))
+    if not updates:
+        return jsonify({"ok": True})
     params.append(username)
     conn = get_db(); cur = conn.cursor()
     cur.execute(f"UPDATE dashboard_users SET {','.join(updates)} WHERE username=%s", params)
