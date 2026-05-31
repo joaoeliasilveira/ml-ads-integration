@@ -564,8 +564,8 @@ def get_sales(user_id):
                 "https://api.mercadolibre.com/orders/search",
                 params={
                     "seller": uid,
-                    "order.date_created.from": dfrom + "T00:00:00.000-03:00",
-                    "order.date_created.to":   dto + "T23:59:59.000-03:00",
+                    "order.date_closed.from": dfrom + "T00:00:00.000-03:00",
+                    "order.date_closed.to":   dto + "T23:59:59.000-03:00",
                     "limit": limit,
                     "offset": offset,
                     "sort": "date_asc"
@@ -588,25 +588,38 @@ def get_sales(user_id):
 
     # Periodo atual
     orders, _ = fetch_all_orders(user_id, token, date_from, date_to)
-    # Valor de uma order (total_amount como campo principal)
+    # Valor de uma order — inclui total_amount + frete + impostos (alinha com ML)
     def order_value(o):
-        # ML GMV = total_amount (preço dos itens, sem frete)
-        # Tenta campos em ordem de prioridade
         val = o.get("total_amount") or 0
-        if not val:
+        # Adicionar frete se disponível
+        shipping_cost = o.get("shipping_cost") or 0
+        # Adicionar impostos se disponíveis
+        taxes = (o.get("taxes") or {}).get("amount") or 0
+        total = val + shipping_cost + taxes
+        if not total:
             # Fallback: soma dos itens
             items = o.get("order_items", [])
             if items:
-                val = sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
+                total = sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
         if not val:
             payments = o.get("payments", [])
             if payments:
                 val = sum(p.get("transaction_amount", p.get("total_paid_amount", 0)) or 0 for p in payments)
         return val or 0
 
-    # Qtd vendas: conta cada order individualmente (igual ao ML)
+    # Qtd vendas: agrupa por pack_id (1 pack = 1 venda, como o ML)
     def count_sales(order_list):
-        return len(order_list)
+        packs_seen = set()
+        count = 0
+        for o in order_list:
+            pack_id = o.get("pack_id")
+            if pack_id:
+                if pack_id not in packs_seen:
+                    packs_seen.add(pack_id)
+                    count += 1
+            else:
+                count += 1
+        return count
 
     # Vendas brutas: soma todos os pedidos (igual ao ML)
     def sum_gmv(order_list):
