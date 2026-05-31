@@ -544,7 +544,14 @@ def get_sales(user_id):
 
     # Status que o ML considera como "Quantidade de vendas" no painel de Negocios
     # Removidos cancelled e pending_cancel pois o ML nao os conta como vendas
-    SALE_STATUSES = {"confirmed", "payment_required", "payment_in_process", "paid", "partially_refunded", "partially_paid", "pending_cancel"}
+    # Statuses contados pelo ML como "vendas" — incluindo todos os que não são cancelled/invalid
+    SALE_STATUSES = {
+        "confirmed", "payment_required", "payment_in_process",
+        "paid", "partially_paid", "partially_refunded",
+        "pending_cancel", "delivered",
+        "shipped", "handling", "ready_to_ship", "in_process",
+        "to_be_agreed"
+    }
 
     def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
         """Busca todos os pedidos sem filtro de status e separa localmente."""
@@ -591,34 +598,13 @@ def get_sales(user_id):
             return sum(p.get("total_paid_amount", 0) or 0 for p in payments)
         return o.get("paid_amount") or 0
 
-    # Qtd vendas: agrupa por pack_id (pack com N itens = 1 venda)
+    # Qtd vendas: conta cada order individualmente (igual ao ML)
     def count_sales(order_list):
-        packs_seen = set()
-        count = 0
-        for o in order_list:
-            pack_id = o.get("pack_id")
-            if pack_id:
-                if pack_id not in packs_seen:
-                    packs_seen.add(pack_id)
-                    count += 1
-            else:
-                count += 1
-        return count
+        return len(order_list)
 
-    # Vendas brutas: soma agrupando packs para evitar dupla contagem
+    # Vendas brutas: soma todos os pedidos (igual ao ML)
     def sum_gmv(order_list):
-        packs_seen = set()
-        total = 0
-        for o in order_list:
-            pack_id = o.get("pack_id")
-            if pack_id:
-                if pack_id not in packs_seen:
-                    packs_seen.add(pack_id)
-                    pack_orders = [x for x in order_list if x.get("pack_id") == pack_id]
-                    total += sum(order_value(x) for x in pack_orders)
-            else:
-                total += order_value(o)
-        return total
+        return sum(order_value(o) for o in order_list)
 
     total_orders = count_sales(orders)
     gmv = sum_gmv(orders)
@@ -1348,7 +1334,7 @@ def debug_sales2(user_id):
 
     from datetime import date as ddate, timedelta as tdelta
     today = ddate.today()
-    date_from = (today - tdelta(days=29)).isoformat()  # 30 dias incluindo hoje
+    date_from = (today - tdelta(days=30)).isoformat()
     date_to   = today.isoformat()
 
     # Busca total por cada status individualmente
@@ -1405,7 +1391,7 @@ def debug_reports(user_id):
 
     from datetime import date as ddate, timedelta as tdelta
     today = ddate.today()
-    date_from = (today - tdelta(days=29)).isoformat()  # 30 dias incluindo hoje
+    date_from = (today - tdelta(days=30)).isoformat()
     date_to   = today.isoformat()
 
     results = {}
