@@ -564,8 +564,8 @@ def get_sales(user_id):
                 "https://api.mercadolibre.com/orders/search",
                 params={
                     "seller": uid,
-                    "order.date_created.from": dfrom + "T00:00:00.000-00:00",
-                    "order.date_created.to":   dto + "T23:59:59.000-00:00",
+                    "order.date_created.from": dfrom + "T00:00:00.000-03:00",
+                    "order.date_created.to":   dto + "T23:59:59.000-03:00",
                     "limit": limit,
                     "offset": offset,
                     "sort": "date_asc"
@@ -590,13 +590,19 @@ def get_sales(user_id):
     orders, _ = fetch_all_orders(user_id, token, date_from, date_to)
     # Valor de uma order (total_amount como campo principal)
     def order_value(o):
+        # ML GMV = total_amount (preço dos itens, sem frete)
+        # Tenta campos em ordem de prioridade
         val = o.get("total_amount") or 0
-        if val:
-            return val
-        payments = o.get("payments", [])
-        if payments:
-            return sum(p.get("total_paid_amount", 0) or 0 for p in payments)
-        return o.get("paid_amount") or 0
+        if not val:
+            # Fallback: soma dos itens
+            items = o.get("order_items", [])
+            if items:
+                val = sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
+        if not val:
+            payments = o.get("payments", [])
+            if payments:
+                val = sum(p.get("transaction_amount", p.get("total_paid_amount", 0)) or 0 for p in payments)
+        return val or 0
 
     # Qtd vendas: conta cada order individualmente (igual ao ML)
     def count_sales(order_list):
@@ -805,41 +811,38 @@ def get_sales(user_id):
         p["revenue"] = round(p["revenue"], 2)
 
     # Cancelamentos — busca separado com status=cancelled
-    r_cancelled = requests.get(
-        "https://api.mercadolibre.com/orders/search",
-        params={
-            "seller": user_id,
-            "order.date_created.from": date_from + "T00:00:00.000-00:00",
-            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
-            "order.status": "cancelled",
-            "limit": 1,
-            "offset": 0
-        },
-        headers={"Authorization": "Bearer " + token}
-    )
-    if r_cancelled.ok and r_cancelled.text:
-        cancelled_data  = r_cancelled.json()
-        total_cancelled = cancelled_data.get("paging", {}).get("total", 0)
-        # Busca valor dos cancelados (primeiros 50)
-        r_cancelled_val = requests.get(
+    # Busca todos os pedidos cancelados do período
+    cancelled_all = []
+    c_offset = 0
+    c_total  = None
+    while True:
+        r_c = requests.get(
             "https://api.mercadolibre.com/orders/search",
             params={
                 "seller": user_id,
-                "order.date_created.from": date_from + "T00:00:00.000-00:00",
-                "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+                "order.date_created.from": date_from + "T00:00:00.000-03:00",
+                "order.date_created.to":   date_to   + "T23:59:59.000-03:00",
                 "order.status": "cancelled",
-                "limit": 50
+                "limit": 50, "offset": c_offset
             },
             headers={"Authorization": "Bearer " + token}
         )
-        cancelled_results = r_cancelled_val.json().get("results", []) if r_cancelled_val.ok and r_cancelled_val.text else []
-        # ML conta apenas cancelamentos pos-pagamento (que tiveram valor pago)
-        paid_cancelled = [o for o in cancelled_results if order_value(o) > 0]
-        total_cancelled = len(paid_cancelled)
-        value_cancelled = sum(order_value(o) for o in paid_cancelled)
-    else:
-        total_cancelled = 0
-        value_cancelled = 0
+        if not r_c.ok or not r_c.text: break
+        cd = r_c.json()
+        if c_total is None: c_total = cd.get("paging", {}).get("total", 0)
+        batch = cd.get("results", [])
+        cancelled_all.extend(batch)
+        c_offset += 50
+        if c_offset >= (c_total or 0) or not batch: break
+
+    # ML conta cancelamentos que tiveram pagamento efetivo
+    paid_cancelled  = [o for o in cancelled_all if any(
+        p.get("status") in ("approved","partially_refunded") 
+        for p in o.get("payments", [])
+    )]
+    total_cancelled = len(paid_cancelled)
+    value_cancelled = sum(order_value(o) for o in paid_cancelled)
+
 
     # Unidades vendidas e preco medio por unidade
     total_units = 0
@@ -982,8 +985,8 @@ def get_metrics(user_id):
         "https://api.mercadolibre.com/orders/search",
         params={
             "seller": user_id,
-            "order.date_created.from": date_from + "T00:00:00.000-00:00",
-            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+            "order.date_created.from": date_from + "T00:00:00.000-03:00",
+            "order.date_created.to":   date_to + "T23:59:59.000-03:00",
             "order.status": "paid",
             "limit": 50
         },
@@ -1265,8 +1268,8 @@ def debug_sales(user_id):
             "https://api.mercadolibre.com/orders/search",
             params={
                 "seller": user_id,
-                "order.date_created.from": date_from + "T00:00:00.000-00:00",
-                "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+                "order.date_created.from": date_from + "T00:00:00.000-03:00",
+                "order.date_created.to":   date_to + "T23:59:59.000-03:00",
                 "order.status": status,
                 "limit": 1,
                 "offset": 0
@@ -1293,8 +1296,8 @@ def debug_sales(user_id):
             "https://api.mercadolibre.com/orders/search",
             params={
                 "seller": user_id,
-                "order.date_created.from": date_from + "T00:00:00.000-00:00",
-                "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+                "order.date_created.from": date_from + "T00:00:00.000-03:00",
+                "order.date_created.to":   date_to + "T23:59:59.000-03:00",
                 "order.status": "paid",
                 "limit": limit,
                 "offset": offset,
@@ -1347,8 +1350,8 @@ def debug_sales2(user_id):
             "https://api.mercadolibre.com/orders/search",
             params={
                 "seller": user_id,
-                "order.date_created.from": date_from + "T00:00:00.000-00:00",
-                "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+                "order.date_created.from": date_from + "T00:00:00.000-03:00",
+                "order.date_created.to":   date_to + "T23:59:59.000-03:00",
                 "order.status": st,
                 "limit": 1, "offset": 0
             },
@@ -1367,8 +1370,8 @@ def debug_sales2(user_id):
         "https://api.mercadolibre.com/orders/search",
         params={
             "seller": user_id,
-            "order.date_created.from": date_from + "T00:00:00.000-00:00",
-            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+            "order.date_created.from": date_from + "T00:00:00.000-03:00",
+            "order.date_created.to":   date_to + "T23:59:59.000-03:00",
             "limit": 1, "offset": 0
         },
         headers={"Authorization": "Bearer " + token}
@@ -1448,8 +1451,8 @@ def debug_reports(user_id):
         "https://api.mercadolibre.com/orders/search",
         params={
             "seller": user_id,
-            "order.date_created.from": date_from + "T00:00:00.000-00:00",
-            "order.date_created.to":   date_to + "T23:59:59.000-00:00",
+            "order.date_created.from": date_from + "T00:00:00.000-03:00",
+            "order.date_created.to":   date_to + "T23:59:59.000-03:00",
             "limit": 1,
             "offset": 0
         },
