@@ -371,6 +371,25 @@ body.dark .btn-promo-items:hover{background:#26262f}
 .loading-dots span:nth-child(3){animation-delay:.4s}
 @keyframes dotBounce{0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
 
+.tab-period-bar{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:16px;
+}
+.tab-period-bar .tpb-btn{
+  padding:5px 12px;font-size:11px;font-family:Poppins,sans-serif;
+  cursor:pointer;border:1px solid var(--border2);border-radius:6px;
+  background:transparent;color:var(--text2);transition:.15s;white-space:nowrap;
+}
+.tab-period-bar .tpb-btn:hover{background:var(--bg3);color:var(--text)}
+.tab-period-bar .tpb-btn.active{background:var(--td);color:#fff;border-color:var(--td);font-weight:600}
+.tab-period-bar .tpb-sub{font-size:10px;color:var(--text3);margin-left:2px}
+.tpb-custom-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:8px;width:100%}
+.tpb-date-input{padding:5px 8px;font-size:11px;font-family:Poppins,sans-serif;
+  background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
+  color:var(--text);outline:none;}
+.tpb-apply{padding:5px 12px;font-size:11px;font-family:Poppins,sans-serif;
+  background:var(--td);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
+
 .alerts-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:290;
   opacity:0;pointer-events:none;transition:opacity .25s;
@@ -766,42 +785,7 @@ body.dark .detail-name{color:#f0f0f5}
       <a href="/admin" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:11px;font-weight:600;text-decoration:none">⚙️ Admin</a>
     </div>
     <a href="/logout" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.7);font-size:11px;text-decoration:none">Sair</a>
-    <div class="period-wrap">
-      <div class="period-dropdown" id="period-dropdown">
-        <button class="period-trigger" id="period-trigger" onclick="togglePeriodDropdown(event)">
-          <span id="period-label">Últimos 30 dias</span>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="transition:transform 0.2s" id="period-chevron"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <div class="period-menu" id="period-menu">
-          <div class="period-menu-option" onclick="selectPeriodOption('today','Hoje')">
-            <span class="period-option-label">Hoje</span>
-            <span class="period-option-sub" id="sub-today"></span>
-          </div>
-          <div class="period-menu-option selected" id="opt-7" onclick="selectPeriodOption('7','Últimos 7 dias')">
-            <span class="period-option-label">Últimos 7 dias</span>
-            <span class="period-option-sub" id="sub-7"></span>
-          </div>
-          <div class="period-menu-option" id="opt-15" onclick="selectPeriodOption('15','Últimos 15 dias')">
-            <span class="period-option-label">Últimos 15 dias</span>
-            <span class="period-option-sub" id="sub-15"></span>
-          </div>
-          <div class="period-menu-option selected" id="opt-30" onclick="selectPeriodOption('30','Últimos 30 dias')">
-            <span class="period-option-label">Últimos 30 dias</span>
-            <span class="period-option-sub" id="sub-30"></span>
-          </div>
-          <div class="period-menu-option" onclick="selectPeriodOption('custom','Data personalizada')">
-            <span class="period-option-label">Data personalizada</span>
-          </div>
-          <div class="period-custom-row" id="period-custom-row">
-            <input type="date" id="date-from" class="date-input">
-            <span style="color:var(--text3);font-size:11px">até</span>
-            <input type="date" id="date-to" class="date-input">
-            <button class="btn-apply" onclick="applyCustomDate()">Aplicar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <button onclick="openNotifPanel()" title="Preferências de Notificações" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">⚙️</button>
+        <button onclick="openNotifPanel()" title="Preferências de Notificações" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">⚙️</button>
     <button class="btn-bell" id="btn-bell" onclick="toggleAlerts()" title="Alertas">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
       <span class="bell-badge" id="bell-badge" style="display:none">0</span>
@@ -1284,13 +1268,15 @@ function fmtFull(n){ return Number(n).toLocaleString('pt-BR',{minimumFractionDig
 function fmtDate(d){ if(!d) return '-'; var p=d.split('-'); return p[2]+'/'+p[1]; }
 function fmtK(n){ if(n>=1000000) return (n/1000000).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'k'; return String(n); }
 
-var currentPeriodValue = '30';
+var currentPeriodValue = '30'; // mantido para compatibilidade
+var tabPeriods = {}; // período por aba: {vendas: '30', campanhas: '7', ...}
+var tabCustomDates = {}; // datas customizadas por aba
 
 function buildPeriodSubtitles(){
   var today = new Date();
   var fmt2 = function(d){ return d.getDate()+' '+['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][d.getMonth()]+' '+d.getFullYear(); };
   var sub = function(days){
-    var from = new Date(); from.setDate(from.getDate()-(days-1)); // inclui hoje
+    var from = new Date(); from.setDate(from.getDate()-days);
     return fmt2(from)+' a '+fmt2(today);
   };
   var todayStr = fmt2(today);
@@ -1311,70 +1297,104 @@ function togglePeriodDropdown(e){
   chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
 }
 
-function selectPeriodOption(value, label){
-  currentPeriodValue = value;
-  document.getElementById('period-label').textContent = label;
 
-  // Remove selected de todas
-  document.querySelectorAll('.period-menu-option').forEach(function(o){ o.classList.remove('selected'); });
-
-  // Fecha menu (exceto se custom)
-  if(value !== 'custom'){
-    document.getElementById('period-menu').classList.remove('open');
-    document.getElementById('period-trigger').classList.remove('open');
-    document.getElementById('period-chevron').style.transform = '';
-    document.getElementById('period-custom-row').classList.remove('open');
-    if(currentSellerId){ reloadCurrentTab(); }
-  } else {
-    document.getElementById('period-custom-row').classList.add('open');
-    var to = new Date(), from = new Date();
-    from.setDate(from.getDate()-29); // 30 dias incluindo hoje
-    document.getElementById('date-from').value = from.toISOString().split('T')[0];
-    document.getElementById('date-to').value = to.toISOString().split('T')[0];
-  }
-}
-
-function getPeriodDates(){
-  if(currentPeriodValue === 'custom'){
-    var df = document.getElementById('date-from').value;
-    var dt = document.getElementById('date-to').value;
+function getPeriodDates(tab){
+  var pv = (tab && tabPeriods[tab]) ? tabPeriods[tab] : currentPeriodValue;
+  if(pv === 'custom'){
+    var cd = tab ? (tabCustomDates[tab]||{}) : {};
+    var df = cd.from || '';
+    var dt = cd.to   || '';
     if(df && dt) return {date_from: df, date_to: dt};
   }
-  if(currentPeriodValue === 'today'){
+  if(pv === 'today'){
     var t = new Date().toISOString().split('T')[0];
     return {date_from: t, date_to: t};
   }
-  var days = parseInt(currentPeriodValue) || 30;
+  var days = parseInt(pv) || 30;
   var to = new Date(), from = new Date();
-  from.setDate(from.getDate() - (days - 1)); // inclui hoje: 30 dias = hoje - 29
+  from.setDate(from.getDate() - days);
   return {date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0]};
 }
 
-function applyCustomDate(){
-  var df = document.getElementById('date-from').value;
-  var dt = document.getElementById('date-to').value;
-  if(!df || !dt){ alert('Selecione as duas datas.'); return; }
-  if(df > dt){ alert('Data inicial deve ser anterior à data final.'); return; }
-  // Atualiza label
-  var fmtBR = function(s){ var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
-  document.getElementById('period-label').textContent = fmtBR(df)+' – '+fmtBR(dt);
-  document.getElementById('period-menu').classList.remove('open');
-  document.getElementById('period-trigger').classList.remove('open');
-  document.getElementById('period-chevron').style.transform = '';
-  if(currentSellerId){ reloadCurrentTab(); }
+function fmtPeriodLabel(pv, customDates){
+  var months=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  function fmt(d){ var p=d.split('-'); return p[2]+'/'+p[1]; }
+  if(pv==='custom' && customDates && customDates.from)
+    return fmt(customDates.from)+' → '+fmt(customDates.to);
+  if(pv==='today'){ var t=new Date(); return t.getDate()+' '+months[t.getMonth()]+' '+t.getFullYear(); }
+  var days=parseInt(pv)||30;
+  var to=new Date(), from=new Date();
+  from.setDate(from.getDate()-days);
+  function fmtD(d){ return d.getDate()+' '+months[d.getMonth()]; }
+  return fmtD(from)+' a '+fmtD(to)+' '+to.getFullYear();
 }
 
-// Fechar dropdown clicando fora
-document.addEventListener('click', function(e){
-  var dd = document.getElementById('period-dropdown');
-  if(dd && !dd.contains(e.target)){
-    document.getElementById('period-menu').classList.remove('open');
-    document.getElementById('period-trigger').classList.remove('open');
-    document.getElementById('period-chevron').style.transform = '';
+function renderTabPeriodBar(tab, containerId){
+  var pv  = tabPeriods[tab] || '30';
+  var cd  = tabCustomDates[tab] || {};
+  var opts = [
+    {v:'today', label:'Hoje'},
+    {v:'7',     label:'7 dias'},
+    {v:'15',    label:'15 dias'},
+    {v:'30',    label:'30 dias'},
+    {v:'custom',label:'Personalizado'},
+  ];
+  var html = '<div class="tab-period-bar" id="tpb-'+tab+'">';
+  opts.forEach(function(o){
+    var active = pv===o.v ? ' active' : '';
+    var sub = o.v!=='custom' ? '<span class="tpb-sub">'+fmtPeriodLabel(o.v,{})+'</span>' : '';
+    html += '<button class="tpb-btn'+active+'" data-tab="'+tab+'" data-val="'+o.v+'">'+o.label+sub+'</button>';
+  });
+  if(pv==='custom'){
+    html += '<div class="tpb-custom-row">'+
+      '<input type="date" class="tpb-date-input" id="tpb-from-'+tab+'" value="'+(cd.from||'')+'">'+
+      '<span style="color:var(--text3);font-size:11px">até</span>'+
+      '<input type="date" class="tpb-date-input" id="tpb-to-'+tab+'" value="'+(cd.to||'')+'">'+
+      '<button class="tpb-apply tpb-apply-btn" data-tab="'+tab+'">Aplicar</button>'+
+    '</div>';
   }
+  html += '</div>';
+  // Inserir no container
+  var el = document.getElementById(containerId);
+  if(!el) return;
+  var existing = document.getElementById('tpb-'+tab);
+  if(existing) existing.remove();
+  el.insertAdjacentHTML('afterbegin', html);
+  // Bind cliques
+  document.querySelectorAll('#tpb-'+tab+' .tpb-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      setTabPeriod(tab, this.dataset.val);
+    });
+  });
+}
+
+function setTabPeriod(tab, val){
+  tabPeriods[tab] = val;
+  if(val !== 'custom'){
+    loaded[tab] = false;
+    loadTab(tab, true);
+  } else {
+    // Mostrar inputs de data customizada — rerender a barra
+    var tabEl = document.getElementById('tab-'+tab);
+    if(tabEl) renderTabPeriodBar(tab, 'tab-'+tab);
+  }
+}
+
+function applyTabCustomDate(tab){
+  var fromEl = document.getElementById('tpb-from-'+tab);
+  var toEl   = document.getElementById('tpb-to-'+tab);
+  if(!fromEl||!toEl||!fromEl.value||!toEl.value) return;
+  tabCustomDates[tab] = {from: fromEl.value, to: toEl.value};
+  loaded[tab] = false;
+  loadTab(tab, true);
+}
+
+// Event delegation para botão Aplicar do período customizado
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('.tpb-apply-btn');
+  if(btn && btn.dataset.tab) applyTabCustomDate(btn.dataset.tab);
 });
 
-buildPeriodSubtitles();
 
 function reloadCurrentTab(){
   loaded = {};
