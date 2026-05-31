@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 import hashlib
 import json as json_lib
 import functools
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "petina-dashboard-2026-secret")
@@ -53,6 +54,15 @@ def init_db():
             "INSERT INTO dashboard_users (username, password, role) VALUES (%s, %s, 'master') ON CONFLICT DO NOTHING",
             ("master", default_pwd)
         )
+    # Tabela de cache para reduzir chamadas à API do ML
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS api_cache (
+            cache_key  TEXT PRIMARY KEY,
+            data       JSONB NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -104,6 +114,45 @@ def can_see_tab(user, tab):
     tabs  = perms.get("tabs", [])
     return not tabs or tab in tabs
 
+# ─── CACHE HELPERS ────────────────────────────────────────────────
+CACHE_TTL_MINUTES = 20  # cache por 20 minutos
+
+def cache_get(key):
+    """Busca valor do cache. Retorna None se não existir ou expirado.""\"
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute(
+            "SELECT data FROM api_cache WHERE cache_key=%s AND expires_at > NOW()",
+            (key,)
+        )
+        row = cur.fetchone()
+        cur.close(); conn.close()
+        return row["data"] if row else None
+    except Exception:
+        return None
+
+def cache_set(key, data, ttl_minutes=CACHE_TTL_MINUTES):
+    """Salva valor no cache com TTL.""\"
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO api_cache (cache_key, data, expires_at)
+               VALUES (%s, %s, NOW() + INTERVAL '%s minutes')
+               ON CONFLICT (cache_key) DO UPDATE
+               SET data=%s, expires_at=NOW() + INTERVAL '%s minutes'""",
+            (key, json_lib.dumps(data), ttl_minutes, json_lib.dumps(data), ttl_minutes)
+        )
+        conn.commit(); cur.close(); conn.close()
+    except Exception:
+        pass  # cache é best-effort
+
+def cache_key_sales(user_id, date_from, date_to):
+    return f"sales:{user_id}:{date_from}:{date_to}"
+
+def cache_key_ads(user_id, date_from, date_to):
+    return f"ads:{user_id}:{date_from}:{date_to}"
+
+# ─────────────────────────────────────────────────────────────────────
 def check_seller_access(user_id):
     """Verifica se usuário logado tem acesso ao seller."""
     user = get_current_user()
@@ -586,8 +635,37 @@ def get_sales(user_id):
         sale_orders = [o for o in all_orders if o.get("status") in SALE_STATUSES]
         return sale_orders, len(sale_orders)
 
+    # ── PARALELIZAR: busca pedidos + período anterior + visitas ao mesmo tempo ──
+    d_from = ddate.fromisoformat(date_from)
+    d_to   = ddate.fromisoformat(date_to)
+    delta  = (d_to - d_from).days + 1
+    prev_from = (d_from - tdelta(days=delta)).isoformat()
+    prev_to   = (d_from - tdelta(days=1)).isoformat()
+
+    def _fetch_current():  return fetch_all_orders(user_id, token, date_from, date_to)
+    def _fetch_prev():     return fetch_all_orders(user_id, token, prev_from, prev_to)
+    def _fetch_visits():
+        try:
+            _days = delta
+            r = requests.get(
+                f"https://api.mercadolibre.com/users/{user_id}/items_visits/time_window",
+                params={"last": _days, "unit": "day", "ending": date_to},
+                headers={"Authorization": "Bearer " + token}, timeout=8
+            )
+            d = r.json() if r.ok and r.text else {}
+            return d.get("total_visits", d.get("visits", 0))
+        except Exception:
+            return 0
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        f_cur   = ex.submit(_fetch_current)
+        f_prev  = ex.submit(_fetch_prev)
+        f_vis   = ex.submit(_fetch_visits)
+        orders, _       = f_cur.result()
+        prev_orders, _  = f_prev.result()
+        total_visits    = f_vis.result()
+
     # Periodo atual
-    orders, _ = fetch_all_orders(user_id, token, date_from, date_to)
     # Valor de uma order — inclui total_amount + frete + impostos (alinha com ML)
     def order_value(o):
         val = o.get("total_amount") or 0
@@ -628,31 +706,10 @@ def get_sales(user_id):
     total_orders = count_sales(orders)
     gmv = sum_gmv(orders)
 
-    # Periodo anterior
-    d_from = ddate.fromisoformat(date_from)
-    d_to   = ddate.fromisoformat(date_to)
-    delta  = (d_to - d_from).days + 1
-    prev_from = (d_from - tdelta(days=delta)).isoformat()
-    prev_to   = (d_from - tdelta(days=1)).isoformat()
-    prev_orders, _ = fetch_all_orders(user_id, token, prev_from, prev_to)
+    # Periodo anterior (já calculado no parallel acima)
     prev_total = count_sales(prev_orders)
-    prev_gmv = sum_gmv(prev_orders)
-
-    # Visitas — endpoint time_window (correto para apps de terceiros)
-    try:
-        from datetime import date as _ddate
-        _d_from = _ddate.fromisoformat(date_from)
-        _d_to   = _ddate.fromisoformat(date_to)
-        _days   = (_d_to - _d_from).days + 1
-        visits_resp = requests.get(
-            "https://api.mercadolibre.com/users/" + user_id + "/items_visits/time_window",
-            params={"last": _days, "unit": "day", "ending": date_to},
-            headers={"Authorization": "Bearer " + token}
-        )
-        visits_data  = visits_resp.json() if visits_resp.ok and visits_resp.text else {}
-        total_visits = visits_data.get("total_visits", visits_data.get("visits", 0))
-    except Exception:
-        total_visits = 0
+    prev_gmv   = sum_gmv(prev_orders)
+    # Visitas já calculadas no parallel acima
 
     # Vendas diarias
     daily_map = {}
@@ -754,45 +811,11 @@ def get_sales(user_id):
     except Exception as e:
         print(f"[ITEMS] Erro ao buscar todos os anúncios: {e}")
 
-    # Busca unidades vendidas via ADS por item (direct + indirect units)
-    try:
-        campaigns, base_url, aid = get_campaigns(user_id, token)
-        ads_units_by_item = {}  # item_id -> ads_qty
-        for camp in campaigns[:10]:
-            camp_id = camp.get("id")
-            # Busca itens da campanha com métricas de unidades
-            r_items = requests.get(
-                f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}/items",
-                params={
-                    "date_from": date_from,
-                    "date_to":   date_to,
-                    "metrics":   "direct_units,indirect_units",
-                    "limit":     100
-                },
-                headers={"Authorization": "Bearer " + token, "Api-Version": "2"},
-                timeout=8
-            )
-            if not r_items.ok:
-                continue
-            items_data = r_items.json()
-            items_list = items_data if isinstance(items_data, list) else items_data.get("results", items_data.get("items", []))
-            for it in items_list:
-                iid = str(it.get("item_id", it.get("id", "")))
-                if not iid:
-                    continue
-                m = it.get("metrics", it) if isinstance(it.get("metrics"), dict) else it
-                direct   = m.get("direct_units", 0) or 0
-                indirect = m.get("indirect_units", 0) or 0
-                ads_units_by_item[iid] = ads_units_by_item.get(iid, 0) + direct + indirect
-    except Exception:
-        ads_units_by_item = {}
-
-    # Aplica ads_qty no products_map
+    # ADS por item removido da carga inicial (lento)
+    # Calculado sob demanda ao abrir o modal do produto
     for key, p in products_map.items():
-        iid = p.get("item_id", "")
-        ads_q = ads_units_by_item.get(str(iid), 0)
-        p["ads_qty"]     = min(ads_q, p["qty"])  # nunca pode ser maior que o total
-        p["organic_qty"] = p["qty"] - p["ads_qty"]
+        p["ads_qty"]     = 0
+        p["organic_qty"] = p["qty"]
 
     # Busca vendas dos últimos 30 dias fixos para projeção de estoque
     try:
@@ -819,7 +842,7 @@ def get_sales(user_id):
         p["daily_rate"] = round(daily_rate, 2)
         p["days_stock"] = round(stock / daily_rate) if daily_rate > 0 else None
 
-    top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)
+    top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)[:50]
     for p in top_products:
         p["revenue"] = round(p["revenue"], 2)
 
@@ -877,7 +900,7 @@ def get_sales(user_id):
             return round(((curr - prev) / prev * 100), 1)
         return 0
 
-    return jsonify({
+    result = {
         "seller_id": user_id,
         "nickname": seller["nickname"],
         "period": {"date_from": date_from, "date_to": date_to},
@@ -909,7 +932,10 @@ def get_sales(user_id):
         },
         "daily_sales":  daily_sales,
         "top_products": top_products
-    })
+    }
+    try: cache_set(ck, result)
+    except Exception: pass
+    return jsonify(result)
 
 @app.route("/api/promotions/<user_id>")
 def get_promotions(user_id):
