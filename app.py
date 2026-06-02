@@ -8,9 +8,20 @@ import hashlib
 import json as json_lib
 import functools
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "petina-dashboard-2026-secret")
+
+# Compressão gzip automática nas respostas
+from flask_compress import Compress
+Compress(app)
+
+try:
+    from flask_compress import Compress
+    Compress(app)
+except ImportError:
+    pass
 
 CLIENT_ID     = os.environ.get("ML_CLIENT_ID")
 CLIENT_SECRET = os.environ.get("ML_CLIENT_SECRET")
@@ -62,6 +73,11 @@ def init_db():
             expires_at TIMESTAMP NOT NULL,
             created_at TIMESTAMP DEFAULT NOW()
         )
+    """)
+    # Índice para limpeza eficiente por expires_at
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_api_cache_expires
+        ON api_cache (expires_at)
     """)
     conn.commit()
     cur.close()
@@ -115,7 +131,16 @@ def can_see_tab(user, tab):
     return not tabs or tab in tabs
 
 # ─── CACHE HELPERS ────────────────────────────────────────────────
-CACHE_TTL_MINUTES = 20  # cache por 20 minutos
+CACHE_TTL_SHORT   = 5   # dados voláteis (Hoje)
+CACHE_TTL_MINUTES = 30  # dados históricos (padrão)
+CACHE_TTL_LONG    = 60  # dados estáticos (produtos/reputação)
+
+def cache_ttl(date_from, date_to):
+    """Retorna TTL baseado no período: Hoje=5min, resto=30min."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    if date_from == date_to == today:
+        return CACHE_TTL_SHORT
+    return CACHE_TTL_MINUTES
 
 def cache_get(key):
     """Busca valor do cache. Retorna None se nao existir ou expirado."""
@@ -142,9 +167,15 @@ def cache_set(key, data, ttl_minutes=CACHE_TTL_MINUTES):
                SET data=%s, expires_at=NOW() + INTERVAL '%s minutes'""",
             (key, json_lib.dumps(data), ttl_minutes, json_lib.dumps(data), ttl_minutes)
         )
+        if random.random() < 0.01:
+            cur.execute('DELETE FROM api_cache WHERE expires_at < NOW()')
         conn.commit(); cur.close(); conn.close()
     except Exception:
         pass  # cache é best-effort
+
+def cache_ttl(date_from, date_to):
+    today = datetime.now(timezone.utc).date().isoformat()
+    return 5 if date_to >= today else 30
 
 def cache_key_sales(user_id, date_from, date_to):
     return f"sales:{user_id}:{date_from}:{date_to}"
@@ -152,7 +183,30 @@ def cache_key_sales(user_id, date_from, date_to):
 def cache_key_ads(user_id, date_from, date_to):
     return f"ads:{user_id}:{date_from}:{date_to}"
 
+def cache_key_products(user_id):
+    return f"products:{user_id}"
+
 # ─────────────────────────────────────────────────────────────────────
+def cache_cleanup():
+    """Remove entradas expiradas do cache. Chamar periodicamente."""
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("DELETE FROM api_cache WHERE expires_at < NOW()")
+        deleted = cur.rowcount
+        conn.commit(); cur.close(); conn.close()
+        return deleted
+    except Exception:
+        return 0
+
+# Limpeza automática: disparada a cada N requests (probabilística)
+import random
+_cleanup_counter = 0
+def maybe_cleanup_cache():
+    global _cleanup_counter
+    _cleanup_counter += 1
+    if _cleanup_counter % 50 == 0:  # a cada ~50 requests
+        cache_cleanup()
+
 def check_seller_access(user_id):
     """Verifica se usuário logado tem acesso ao seller."""
     user = get_current_user()
@@ -510,6 +564,10 @@ def get_ads(user_id):
 def get_ads_daily(user_id):
     ok, err = check_seller_access(user_id)
     if not ok: return err
+    _df = request.args.get("date_from",""); _dt = request.args.get("date_to","")
+    _ck = f"ads_daily:{user_id}:{_df}:{_dt}"
+    _cached = cache_get(_ck)
+    if _cached: return jsonify(_cached)
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -539,13 +597,16 @@ def get_ads_daily(user_id):
         d["cost"]    = round(d["cost"], 2)
         d["revenue"] = round(d["revenue"], 2)
 
-    return jsonify({
+    _res_d = {
         "seller_id": user_id,
         "nickname": seller["nickname"],
         "date_from": date_from,
         "date_to": date_to,
         "days": days_list
-    })
+    }
+    try: cache_set(_ck, _res_d, cache_ttl(_df, _dt))
+    except Exception: pass
+    return jsonify(_res_d)
 
 @app.route("/api/reputation/<user_id>")
 def get_reputation(user_id):
@@ -602,36 +663,37 @@ def get_sales(user_id):
         "to_be_agreed"
     }
 
+    def fetch_page(uid, tok, dfrom, dto, offset, limit=50):
+        r = requests.get(
+            "https://api.mercadolibre.com/orders/search",
+            params={
+                "seller": uid,
+                "order.date_closed.from": dfrom + "T00:00:00.000-03:00",
+                "order.date_closed.to":   dto + "T23:59:59.000-03:00",
+                "limit": limit, "offset": offset, "sort": "date_asc"
+            },
+            headers={"Authorization": "Bearer " + tok},
+            timeout=15
+        )
+        if not r.ok or not r.text:
+            return [], 0
+        data = r.json()
+        return data.get("results", []), data.get("paging", {}).get("total", 0)
+
     def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
-        """Busca todos os pedidos sem filtro de status e separa localmente."""
-        all_orders = []
-        offset = 0
-        limit = 50
-        total = None
-        while True:
-            r = requests.get(
-                "https://api.mercadolibre.com/orders/search",
-                params={
-                    "seller": uid,
-                    "order.date_closed.from": dfrom + "T00:00:00.000-03:00",
-                    "order.date_closed.to":   dto + "T23:59:59.000-03:00",
-                    "limit": limit,
-                    "offset": offset,
-                    "sort": "date_asc"
-                },
-                headers={"Authorization": "Bearer " + tok}
-            )
-            if not r.ok or not r.text:
-                break
-            data = r.json()
-            results = data.get("results", [])
-            if total is None:
-                total = data.get("paging", {}).get("total", 0)
-            all_orders.extend(results)
-            offset += limit
-            if offset >= (total or 0) or not results:
-                break
-        # Filtra localmente por status
+        # Busca primeira página para saber o total
+        first_results, total = fetch_page(uid, tok, dfrom, dto, 0)
+        if not first_results or total <= 50:
+            sale_orders = [o for o in first_results if o.get("status") in SALE_STATUSES]
+            return sale_orders, len(sale_orders)
+        # Buscar páginas restantes em paralelo
+        offsets = list(range(50, min(total, max_pages * 50), 50))
+        all_orders = list(first_results)
+        with ThreadPoolExecutor(max_workers=min(8, len(offsets))) as ex:
+            futures = {ex.submit(fetch_page, uid, tok, dfrom, dto, off): off for off in offsets}
+            for f in as_completed(futures):
+                res, _ = f.result()
+                all_orders.extend(res)
         sale_orders = [o for o in all_orders if o.get("status") in SALE_STATUSES]
         return sale_orders, len(sale_orders)
 
@@ -724,6 +786,11 @@ def get_sales(user_id):
     daily_sales = sorted(daily_map.values(), key=lambda x: x["date"])
     for d in daily_sales:
         d["gmv"] = round(d["gmv"], 2)
+
+    # Cache para produtos (TTL longo — lista de anúncios não muda com frequência)
+    ck_prod = f"products:{user_id}"
+    cached_prod = cache_get(ck_prod)
+    cached_prod_items = cached_prod if cached_prod else None
 
     # Ranking de produtos — começa pelos pedidos do período
     products_map = {}
@@ -933,14 +1000,21 @@ def get_sales(user_id):
         "daily_sales":  daily_sales,
         "top_products": top_products
     }
-    try: cache_set(ck, result)
+    try: cache_set(ck, result, cache_ttl(date_from, date_to))
     except Exception: pass
-    return jsonify(result)
+    _adf=request.args.get("date_from",""); _adt=request.args.get("date_to","")
+    _res_daily = result
+    try: cache_set(f"ads_daily:{user_id}:{_adf}:{_adt}", _res_daily, cache_ttl(_adf,_adt))
+    except Exception: pass
+    return jsonify(_res_daily)
 
 @app.route("/api/promotions/<user_id>")
 def get_promotions(user_id):
     ok, err = check_seller_access(user_id)
     if not ok: return err
+    _ck_p = f"promotions:{user_id}"
+    _cached_p = cache_get(_ck_p)
+    if _cached_p: return jsonify(_cached_p)
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
@@ -994,13 +1068,18 @@ def get_promotions(user_id):
             "items_count": p.get("items_count", p.get("affected_items", 0))
         })
 
-    return jsonify({
+    _res_promo = {
         "seller_id": user_id,
         "nickname": seller["nickname"],
         "total": len(result),
         "promotions": result,
         "status_info": status_info
-    })
+    }
+    try: cache_set(_ck_p, _res_promo, 10)
+    except Exception: pass
+    try: cache_set(f"promotions:{user_id}", _res_promo, CACHE_TTL_MINUTES)
+    except Exception: pass
+    return jsonify(_res_promo)
 
 @app.route("/api/metrics/<user_id>")
 def get_metrics(user_id):
