@@ -728,24 +728,24 @@ def get_sales(user_id):
         total_visits    = f_vis.result()
 
     # Periodo atual
-    # Valor de uma order — inclui total_amount + frete + impostos (alinha com ML)
+    # Valor de uma order — usa payments[].total_paid_amount (valor real cobrado do comprador)
+    # Isso inclui acréscimo de parcelamento, igual ao painel ML "Vendas Brutas"
     def order_value(o):
+        payments = o.get("payments") or []
+        if payments:
+            # total_paid_amount = valor cobrado do comprador (inclui juros de parcelamento)
+            paid = sum(p.get("total_paid_amount") or p.get("transaction_amount") or 0 for p in payments)
+            if paid > 0:
+                return paid
+        # Fallback 1: total_amount (sem acréscimo de parcelamento)
         val = o.get("total_amount") or 0
-        # Adicionar frete se disponível
-        shipping_cost = o.get("shipping_cost") or 0
-        # Adicionar impostos se disponíveis
-        taxes = (o.get("taxes") or {}).get("amount") or 0
-        total = val + shipping_cost + taxes
-        if not total:
-            # Fallback: soma dos itens
-            items = o.get("order_items", [])
-            if items:
-                total = sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
-        if not val:
-            payments = o.get("payments", [])
-            if payments:
-                val = sum(p.get("transaction_amount", p.get("total_paid_amount", 0)) or 0 for p in payments)
-        return val or 0
+        if val > 0:
+            return val
+        # Fallback 2: preço unitário × quantidade dos itens
+        items = o.get("order_items") or []
+        if items:
+            return sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
+        return 0
 
     # Qtd vendas: agrupa por pack_id (1 pack = 1 venda, como o ML)
     def count_sales(order_list):
@@ -1434,7 +1434,7 @@ def debug_sales(user_id):
         if offset >= total_api or not results_page:
             break
 
-    gmv = sum(o.get("paid_amount", 0) or o.get("total_amount", 0) for o in all_paid)
+    gmv = sum(order_value(o) for o in all_paid)
 
     return jsonify({
         "date_range": {"from": date_from, "to": date_to},
