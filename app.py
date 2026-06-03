@@ -640,6 +640,7 @@ def get_reputation(user_id):
     })
 
 @app.route("/api/sales/<user_id>")
+@login_required
 def get_sales(user_id):
     ok, err = check_seller_access(user_id)
     if not ok: return err
@@ -647,362 +648,263 @@ def get_sales(user_id):
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
 
-    date_from = request.args.get("date_from", "2026-05-01")
-    date_to   = request.args.get("date_to",   "2026-05-26")
+    date_from = request.args.get("date_from", "")
+    date_to   = request.args.get("date_to",   "")
+    if not date_from or not date_to:
+        today     = datetime.now(timezone.utc).date()
+        date_to   = today.isoformat()
+        date_from = (today - timedelta(days=30)).isoformat()
+
+    # Cache
+    ck = cache_key_sales(user_id, date_from, date_to)
+    cached = cache_get(ck)
+    if cached:
+        return jsonify(cached)
 
     from datetime import date as ddate, timedelta as tdelta
 
-    # Status que o ML considera como "Quantidade de vendas" no painel de Negocios
-    # Removidos cancelled e pending_cancel pois o ML nao os conta como vendas
-    # Statuses contados pelo ML como "vendas" — incluindo todos os que não são cancelled/invalid
-    SALE_STATUSES = {
-        "confirmed", "payment_required", "payment_in_process",
-        "paid", "partially_paid", "partially_refunded",
-        "pending_cancel", "delivered",
-        "shipped", "handling", "ready_to_ship", "in_process",
-        "to_be_agreed"
-    }
+    # ── BUSCA DE PEDIDOS ────────────────────────────────────────────────────────
+    # Usa date_created (igual ao ML): captura todos os pedidos feitos no período
+    # incluindo os ainda em trânsito (que não têm date_closed)
+    # NÃO filtra por status: ML conta todos exceto invalid/cancelled para GMV
 
-    def fetch_page(uid, tok, dfrom, dto, offset, limit=50):
+    EXCLUDED_STATUSES = {"cancelled", "invalid"}
+
+    def fetch_page(dfrom, dto, offset, limit=50):
         r = requests.get(
             "https://api.mercadolibre.com/orders/search",
             params={
-                "seller": uid,
+                "seller": user_id,
                 "order.date_created.from": dfrom + "T00:00:00.000-03:00",
-                "order.date_created.to":   dto + "T23:59:59.000-03:00",
+                "order.date_created.to":   dto   + "T23:59:59.000-03:00",
                 "limit": limit, "offset": offset, "sort": "date_asc"
             },
-            headers={"Authorization": "Bearer " + tok},
+            headers={"Authorization": "Bearer " + token},
             timeout=15
         )
-        if not r.ok or not r.text:
-            return [], 0
-        data = r.json()
-        return data.get("results", []), data.get("paging", {}).get("total", 0)
+        if not r.ok or not r.text: return [], 0
+        d = r.json()
+        return d.get("results", []), d.get("paging", {}).get("total", 0)
 
-    def fetch_all_orders(uid, tok, dfrom, dto, max_pages=200):
-        # Busca primeira página para saber o total
-        first_results, total = fetch_page(uid, tok, dfrom, dto, 0)
-        if not first_results or total <= 50:
-            sale_orders = [o for o in first_results if o.get("status") in SALE_STATUSES]
-            return sale_orders, len(sale_orders)
-        # Buscar páginas restantes em paralelo
-        offsets = list(range(50, min(total, max_pages * 50), 50))
-        all_orders = list(first_results)
-        with ThreadPoolExecutor(max_workers=min(8, len(offsets))) as ex:
-            futures = {ex.submit(fetch_page, uid, tok, dfrom, dto, off): off for off in offsets}
-            for f in as_completed(futures):
-                res, _ = f.result()
-                all_orders.extend(res)
-        sale_orders = [o for o in all_orders if o.get("status") in SALE_STATUSES]
-        return sale_orders, len(sale_orders)
+    def fetch_all(dfrom, dto):
+        first, total = fetch_page(dfrom, dto, 0)
+        if not first: return []
+        all_orders = list(first)
+        if total > 50:
+            offsets = list(range(50, min(total, 10000), 50))
+            with ThreadPoolExecutor(max_workers=min(8, len(offsets))) as ex:
+                futures = [ex.submit(fetch_page, dfrom, dto, off) for off in offsets]
+                for f in as_completed(futures):
+                    res, _ = f.result()
+                    all_orders.extend(res)
+        # Remover apenas cancelados e inválidos
+        return [o for o in all_orders if o.get("status") not in EXCLUDED_STATUSES]
 
-    # ── PARALELIZAR: busca pedidos + período anterior + visitas ao mesmo tempo ──
-    d_from = ddate.fromisoformat(date_from)
-    d_to   = ddate.fromisoformat(date_to)
-    delta  = (d_to - d_from).days + 1
+    def order_gmv(o):
+        # total_amount = preço dos itens (Col I da planilha ML)
+        # Diferença residual vs ML (~1%) é o acréscimo de parcelamento (Col J)
+        # que não está disponível no /orders/search sem chamar /orders/{id} individualmente
+        val = o.get("total_amount") or 0
+        if val > 0: return val
+        items = o.get("order_items") or []
+        return sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
+
+    def count_unique(order_list):
+        # ML conta cada order individualmente (packs = orders separadas)
+        return len(order_list)
+
+    def sum_units(order_list):
+        total = 0
+        for o in order_list:
+            for item in (o.get("order_items") or []):
+                total += item.get("quantity") or 1
+        return total
+
+    # Buscar período atual e anterior + visitas em paralelo
+    d_from   = ddate.fromisoformat(date_from)
+    d_to     = ddate.fromisoformat(date_to)
+    delta    = (d_to - d_from).days + 1
     prev_from = (d_from - tdelta(days=delta)).isoformat()
     prev_to   = (d_from - tdelta(days=1)).isoformat()
 
-    def _fetch_current():  return fetch_all_orders(user_id, token, date_from, date_to)
-    def _fetch_prev():     return fetch_all_orders(user_id, token, prev_from, prev_to)
-    def _fetch_visits():
+    def _get_visits():
         try:
-            _days = delta
             r = requests.get(
                 f"https://api.mercadolibre.com/users/{user_id}/items_visits/time_window",
-                params={"last": _days, "unit": "day", "ending": date_to},
+                params={"last": delta, "unit": "day", "ending": date_to},
                 headers={"Authorization": "Bearer " + token}, timeout=8
             )
             d = r.json() if r.ok and r.text else {}
-            return d.get("total_visits", d.get("visits", 0))
-        except Exception:
-            return 0
+            return d.get("total_visits", d.get("visits", 0)) or 0
+        except: return 0
 
     with ThreadPoolExecutor(max_workers=3) as ex:
-        f_cur   = ex.submit(_fetch_current)
-        f_prev  = ex.submit(_fetch_prev)
-        f_vis   = ex.submit(_fetch_visits)
-        orders, _       = f_cur.result()
-        prev_orders, _  = f_prev.result()
-        total_visits    = f_vis.result()
+        f_cur  = ex.submit(fetch_all, date_from, date_to)
+        f_prev = ex.submit(fetch_all, prev_from, prev_to)
+        f_vis  = ex.submit(_get_visits)
+        orders      = f_cur.result()
+        prev_orders = f_prev.result()
+        total_visits = f_vis.result()
 
-    # Periodo atual
-    # Valor de uma order — usa total_amount (preço dos produtos)
-    # Inclui pedidos em trânsito (ainda sem date_closed), igual ao ML "Vendas Brutas"
-    # Nota: acréscimo de parcelamento (Col J planilha) não está disponível no /orders/search
-    # → diferença residual de ~R$1.000 é o acréscimo de parcelamento (inevitável via API)
-    def order_value(o):
-        # 1. total_amount — preço dos itens, sempre presente inclusive em pedidos em aberto
-        val = o.get("total_amount") or 0
-        if val > 0:
-            return val
-        # 2. preço unitário × quantidade (fallback)
-        items = o.get("order_items") or []
-        if items:
-            return sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
+    # ── MÉTRICAS PRINCIPAIS ─────────────────────────────────────────────────────
+    gmv        = round(sum(order_gmv(o) for o in orders), 2)
+    qtd_vendas = count_unique(orders)
+    units      = sum_units(orders)
+    avg_unit   = round(gmv / units, 2) if units > 0 else 0
+    avg_sale   = round(gmv / qtd_vendas, 2) if qtd_vendas > 0 else 0
+    conversion = round((qtd_vendas / total_visits) * 100, 2) if total_visits > 0 else 0
+
+    # Cancelamentos (pedidos com status cancelled, apenas para métricas separadas)
+    CANCEL_STATUSES = {"cancelled"}
+    def fetch_cancelled(dfrom, dto):
+        first, total = fetch_page(dfrom, dto, 0)
+        if not first: return []
+        all_orders = list(first)
+        if total > 50:
+            offsets = list(range(50, min(total, 10000), 50))
+            with ThreadPoolExecutor(max_workers=min(4, len(offsets))) as ex:
+                futures = [ex.submit(fetch_page, dfrom, dto, off) for off in offsets]
+                for f in as_completed(futures):
+                    res, _ = f.result()
+                    all_orders.extend(res)
+        return [o for o in all_orders if o.get("status") in CANCEL_STATUSES]
+
+    cancelled     = fetch_cancelled(date_from, date_to)
+    qtd_cancel    = count_unique(cancelled)
+    valor_cancel  = round(sum(order_gmv(o) for o in cancelled), 2)
+
+    # ── PERÍODO ANTERIOR ────────────────────────────────────────────────────────
+    prev_gmv   = round(sum(order_gmv(o) for o in prev_orders), 2)
+    prev_qtd   = count_unique(prev_orders)
+    prev_units = sum_units(prev_orders)
+    prev_avg   = round(prev_gmv / prev_units, 2) if prev_units > 0 else 0
+
+    def var(curr, prev):
+        if prev and prev != 0:
+            return round((curr - prev) / abs(prev) * 100, 1)
         return 0
 
-    # Qtd vendas: agrupa por pack_id (1 pack = 1 venda, como o ML)
-    def count_sales(order_list):
-        packs_seen = set()
-        count = 0
-        for o in order_list:
-            pack_id = o.get("pack_id")
-            if pack_id:
-                if pack_id not in packs_seen:
-                    packs_seen.add(pack_id)
-                    count += 1
-            else:
-                count += 1
-        return count
-
-    # Vendas brutas: soma todos os pedidos (igual ao ML)
-    def sum_gmv(order_list):
-        return sum(order_value(o) for o in order_list)
-
-    total_orders = count_sales(orders)
-    gmv = sum_gmv(orders)
-
-    # Periodo anterior (já calculado no parallel acima)
-    prev_total = count_sales(prev_orders)
-    prev_gmv   = sum_gmv(prev_orders)
-    # Visitas já calculadas no parallel acima
-
-    # Vendas diarias
+    # ── VENDAS DIÁRIAS ──────────────────────────────────────────────────────────
     daily_map = {}
     for o in orders:
-        day = o.get("date_created", "")[:10]
-        if not day:
-            continue
+        day = (o.get("date_created") or "")[:10]
+        if not day: continue
         if day not in daily_map:
-            daily_map[day] = {"date": day, "gmv": 0, "orders": 0}
-        daily_map[day]["gmv"]    += order_value(o)
-        daily_map[day]["orders"] += 1
+            daily_map[day] = {"date": day, "gmv": 0, "qtd": 0, "units": 0}
+        daily_map[day]["gmv"]   += order_gmv(o)
+        daily_map[day]["qtd"]   += 1
+        daily_map[day]["units"] += sum((i.get("quantity") or 1) for i in (o.get("order_items") or []))
+
     daily_sales = sorted(daily_map.values(), key=lambda x: x["date"])
     for d in daily_sales:
         d["gmv"] = round(d["gmv"], 2)
 
-    # Cache para produtos (TTL longo — lista de anúncios não muda com frequência)
-    ck_prod = f"products:{user_id}"
-    cached_prod = cache_get(ck_prod)
-    cached_prod_items = cached_prod if cached_prod else None
-
-    # Ranking de produtos — começa pelos pedidos do período
+    # ── PRODUTOS MAIS VENDIDOS (top 50) ─────────────────────────────────────────
+    ck_prod = f"products_base:{user_id}"
     products_map = {}
-    for o in orders:
-        for item in o.get("order_items", []):
-            title   = item.get("item", {}).get("title", "Produto")
-            item_id = item.get("item", {}).get("id", "")
-            qty     = item.get("quantity", 1)
-            price   = item.get("unit_price", 0)
-            key     = item_id or title
-            if key not in products_map:
-                products_map[key] = {"title": title, "item_id": item_id, "qty": 0, "revenue": 0, "ads_qty": 0, "status": "active"}
-            products_map[key]["qty"]     += qty
-            products_map[key]["revenue"] += qty * price
-
-    # Busca TODOS os anúncios ativos do seller para incluir produtos sem venda no período
     try:
         all_item_ids = []
         scroll_id = None
-        for _ in range(20):  # máx 20 páginas = 2000 itens
+        for _ in range(20):
             params = {"limit": 100}
-            if scroll_id:
-                params["scroll_id"] = scroll_id
-            r_items = requests.get(
+            if scroll_id: params["scroll_id"] = scroll_id
+            r = requests.get(
                 f"https://api.mercadolibre.com/users/{user_id}/items/search",
                 params=params,
-                headers={"Authorization": "Bearer " + token},
-                timeout=10
+                headers={"Authorization": "Bearer " + token}, timeout=8
             )
-            if not r_items.ok:
-                break
-            items_data = r_items.json()
-            batch = items_data.get("results", [])
-            if not batch:
-                break
+            if not r.ok: break
+            d = r.json()
+            batch = d.get("results", [])
+            if not batch: break
             all_item_ids.extend(batch)
-            scroll_id = items_data.get("scroll_id")
-            if not scroll_id or len(batch) < 100:
-                break
+            scroll_id = d.get("scroll_id")
+            if not scroll_id or len(batch) < 100: break
 
-        # Busca dados de TODOS os itens (inclusive os que já têm vendas, para pegar stock)
-        # Adiciona também itens do products_map que vieram dos pedidos
-        all_ids_to_fetch = list(set(all_item_ids) | set(k for k in products_map if k.startswith('MLB')))
-        for i in range(0, len(all_ids_to_fetch), 20):
-            chunk = all_ids_to_fetch[i:i+20]
-            r_t = requests.get(
+        for chunk in [all_item_ids[i:i+20] for i in range(0, len(all_item_ids), 20)]:
+            r2 = requests.get(
                 "https://api.mercadolibre.com/items",
-                params={"ids": ",".join(chunk), "attributes": "id,title,price,status,available_quantity,shipping,fulfillment,catalog_product_id"},
-                headers={"Authorization": "Bearer " + token},
-                timeout=10
+                params={"ids": ",".join(chunk),
+                        "attributes": "id,title,price,status,available_quantity,shipping,fulfillment,catalog_product_id"},
+                headers={"Authorization": "Bearer " + token}, timeout=8
             )
-            if not r_t.ok:
-                continue
-            for entry in r_t.json():
+            if not r2.ok: continue
+            for entry in r2.json():
                 body = entry.get("body", {})
                 iid  = str(body.get("id", ""))
-                _ff       = body.get("fulfillment") or {}
-                _sh       = body.get("shipping") or {}
-                is_full   = bool(
-                    _ff.get("fulfillment_id") or
-                    _ff.get("status") == "active" or
-                    _sh.get("fulfillment") or
-                    _sh.get("logistic_type") in ("fulfillment", "meli_fulfillment", "self_service_do")
-                )
-                avail_qty = body.get("available_quantity", 0) or 0
-                catalog_id = body.get("catalog_product_id") or ""
-                if iid and iid not in products_map:
-                    products_map[iid] = {
-                        "title":              body.get("title", iid),
-                        "item_id":            iid,
-                        "qty":                0,
-                        "revenue":            0,
-                        "ads_qty":            0,
-                        "status":             body.get("status", "active"),
-                        "stock_total":        avail_qty,
-                        "is_full":            is_full,
-                        "catalog_product_id": catalog_id,
-                    }
-                else:
-                    if not products_map[iid].get("status"):
-                        products_map[iid]["status"] = body.get("status", "active")
-                    products_map[iid]["stock_total"]        = avail_qty
-                    products_map[iid]["is_full"]            = is_full
-                    products_map[iid]["catalog_product_id"] = catalog_id
-    except Exception as e:
-        print(f"[ITEMS] Erro ao buscar todos os anúncios: {e}")
+                if not iid: continue
+                ff   = body.get("fulfillment") or {}
+                sh   = body.get("shipping") or {}
+                is_full = bool(ff.get("fulfillment_id") or ff.get("status") == "active" or
+                               sh.get("logistic_type") in ("fulfillment","meli_fulfillment"))
+                products_map[iid] = {
+                    "item_id": iid,
+                    "title":   body.get("title", ""),
+                    "price":   body.get("price", 0),
+                    "status":  body.get("status", ""),
+                    "stock_total": body.get("available_quantity", 0),
+                    "is_full": is_full,
+                    "catalog_product_id": body.get("catalog_product_id", ""),
+                    "qty": 0, "revenue": 0, "units": 0,
+                    "ads_qty": 0, "organic_qty": 0
+                }
+    except: pass
 
-    # ADS por item removido da carga inicial (lento)
-    # Calculado sob demanda ao abrir o modal do produto
-    for key, p in products_map.items():
-        p["ads_qty"]     = 0
-        p["organic_qty"] = p["qty"]
-
-    # Busca vendas dos últimos 30 dias fixos para projeção de estoque
-    try:
-        today_dt   = ddate.fromisoformat(date_to)
-        proj_from  = (today_dt - tdelta(days=29)).isoformat()
-        proj_orders, _ = fetch_all_orders(user_id, token, proj_from, date_to)
-        proj_map = {}
-        for o in proj_orders:
-            if o.get("status") not in SALE_STATUSES:
-                continue
-            for oi in o.get("order_items", []):
-                iid = str(oi.get("item", {}).get("id", ""))
-                if iid:
-                    proj_map[iid] = proj_map.get(iid, 0) + oi.get("quantity", 1)
-    except Exception:
-        proj_map = {}
-
-    # Calcula projeção de dias de estoque sempre com base em 30 dias
-    for p in products_map.values():
-        stock      = p.get("stock_total", 0) or 0
-        iid        = p.get("item_id", "")
-        qty_30d    = proj_map.get(str(iid), 0) if iid else 0
-        daily_rate = qty_30d / 30 if qty_30d > 0 else 0
-        p["daily_rate"] = round(daily_rate, 2)
-        p["days_stock"] = round(stock / daily_rate) if daily_rate > 0 else None
+    for o in orders:
+        for item in (o.get("order_items") or []):
+            iid = str(item.get("item", {}).get("id", "") or "")
+            if not iid: continue
+            if iid not in products_map:
+                products_map[iid] = {
+                    "item_id": iid, "title": item.get("item", {}).get("title", ""),
+                    "price": item.get("unit_price", 0), "status": "active",
+                    "stock_total": 0, "is_full": False, "catalog_product_id": "",
+                    "qty": 0, "revenue": 0, "units": 0, "ads_qty": 0, "organic_qty": 0
+                }
+            qty = item.get("quantity") or 1
+            rev = (item.get("unit_price") or 0) * qty
+            products_map[iid]["qty"]     += 1
+            products_map[iid]["units"]   += qty
+            products_map[iid]["revenue"] += rev
 
     top_products = sorted(products_map.values(), key=lambda x: x["revenue"], reverse=True)[:50]
-    for p in top_products:
-        p["revenue"] = round(p["revenue"], 2)
 
-    # Cancelamentos — busca separado com status=cancelled
-    # Busca todos os pedidos cancelados do período
-    cancelled_all = []
-    c_offset = 0
-    c_total  = None
-    while True:
-        r_c = requests.get(
-            "https://api.mercadolibre.com/orders/search",
-            params={
-                "seller": user_id,
-                "order.date_created.from": date_from + "T00:00:00.000-03:00",
-                "order.date_created.to":   date_to   + "T23:59:59.000-03:00",
-                "order.status": "cancelled",
-                "limit": 50, "offset": c_offset
-            },
-            headers={"Authorization": "Bearer " + token}
-        )
-        if not r_c.ok or not r_c.text: break
-        cd = r_c.json()
-        if c_total is None: c_total = cd.get("paging", {}).get("total", 0)
-        batch = cd.get("results", [])
-        cancelled_all.extend(batch)
-        c_offset += 50
-        if c_offset >= (c_total or 0) or not batch: break
-
-    # ML conta cancelamentos que tiveram pagamento efetivo
-    paid_cancelled  = [o for o in cancelled_all if any(
-        p.get("status") in ("approved","partially_refunded") 
-        for p in o.get("payments", [])
-    )]
-    total_cancelled = len(paid_cancelled)
-    value_cancelled = sum(order_value(o) for o in paid_cancelled)
-
-
-    # Unidades vendidas e preco medio por unidade
-    total_units = 0
-    for o in orders:
-        for item in o.get("order_items", []):
-            total_units += item.get("quantity", 1)
-
-    prev_units = 0
-    for o in prev_orders:
-        for item in o.get("order_items", []):
-            prev_units += item.get("quantity", 1)
-
-    avg_price_per_unit = round(gmv / total_units, 2) if total_units > 0 else 0
-    prev_avg_unit      = round(prev_gmv / prev_units, 2) if prev_units > 0 else 0
-
-    # Comparativo
-    def var(curr, prev):
-        if prev > 0:
-            return round(((curr - prev) / prev * 100), 1)
-        return 0
-
+    # ── RESULTADO FINAL ─────────────────────────────────────────────────────────
     result = {
         "seller_id": user_id,
-        "nickname": seller["nickname"],
-        "period": {"date_from": date_from, "date_to": date_to},
+        "nickname":  seller["nickname"],
+        "period":    {"date_from": date_from, "date_to": date_to},
         "summary": {
-            "vendas_brutas":       round(gmv, 2),
-            "unidades_vendidas":   total_units,
-            "preco_medio_unidade": avg_price_per_unit,
-            "qtd_vendas":          total_orders,
-            "preco_medio_venda":   round(gmv / total_orders, 2) if total_orders > 0 else 0,
+            "vendas_brutas":       gmv,
+            "unidades_vendidas":   units,
+            "preco_medio_unidade": avg_unit,
+            "qtd_vendas":          qtd_vendas,
+            "preco_medio_venda":   avg_sale,
             "total_visits":        total_visits,
-            "conversion":          round((total_orders / total_visits) * 100, 2) if total_visits > 0 else 0,
-            "qtd_canceladas":      total_cancelled,
-            "valor_canceladas":    round(value_cancelled, 2),
+            "conversion":          conversion,
+            "qtd_canceladas":      qtd_cancel,
+            "valor_canceladas":    valor_cancel,
         },
         "comparison": {
             "prev_period":        {"date_from": prev_from, "date_to": prev_to},
-            "prev_vendas_brutas": round(prev_gmv, 2),
-            "prev_qtd_vendas":    prev_total,
+            "prev_vendas_brutas": prev_gmv,
+            "prev_qtd_vendas":    prev_qtd,
             "prev_unidades":      prev_units,
-            "prev_avg_unit":      prev_avg_unit,
+            "prev_avg_unit":      prev_avg,
             "var_vendas_brutas":  var(gmv, prev_gmv),
-            "var_qtd_vendas":     var(total_orders, prev_total),
-            "var_unidades":       var(total_units, prev_units),
-            "var_avg_unit":       var(avg_price_per_unit, prev_avg_unit),
-            "var_conversion":     var(
-                round((total_orders / total_visits) * 100, 2) if total_visits > 0 else 0,
-                0
-            )
+            "var_qtd_vendas":     var(qtd_vendas, prev_qtd),
+            "var_unidades":       var(units, prev_units),
+            "var_avg_unit":       var(avg_unit, prev_avg),
+            "var_conversion":     var(conversion, 0),
         },
         "daily_sales":  daily_sales,
         "top_products": top_products
     }
+
+    maybe_cleanup_cache()
     try: cache_set(ck, result, cache_ttl(date_from, date_to))
     except Exception: pass
-    _adf=request.args.get("date_from",""); _adt=request.args.get("date_to","")
-    _res_daily = result
-    try: cache_set(f"ads_daily:{user_id}:{_adf}:{_adt}", _res_daily, cache_ttl(_adf,_adt))
-    except Exception: pass
-    return jsonify(_res_daily)
+    return jsonify(result)
 
 @app.route("/api/promotions/<user_id>")
 def get_promotions(user_id):
