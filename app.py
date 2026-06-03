@@ -576,6 +576,74 @@ def export_sales(user_id):
         download_name=filename
     )
 
+
+@app.route("/api/debug/visits/<user_id>")
+@login_required
+def debug_visits(user_id):
+    """Endpoint temporário para debugar o endpoint de visitas."""
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
+    token, seller = get_seller_token(user_id)
+    if not seller: return jsonify({"error": "Seller nao autorizado"}), 404
+
+    from datetime import date as _d, timedelta as _td
+    today     = _d.today().isoformat()
+    date_from = (_d.today() - _td(days=30)).isoformat()
+    date_to   = today
+    delta     = 30
+    results   = {}
+
+    # Teste 1: time_window
+    try:
+        r = requests.get(
+            f"https://api.mercadolibre.com/users/{user_id}/items_visits/time_window",
+            params={"last": delta, "unit": "day", "ending": date_to},
+            headers={"Authorization": "Bearer " + token}, timeout=8
+        )
+        results["time_window"] = {
+            "status": r.status_code,
+            "body": r.json() if r.ok and r.text else r.text[:200]
+        }
+    except Exception as e:
+        results["time_window"] = {"error": str(e)}
+
+    # Teste 2: date_from/date_to simples
+    try:
+        r = requests.get(
+            f"https://api.mercadolibre.com/users/{user_id}/items_visits",
+            params={"date_from": date_from, "date_to": date_to},
+            headers={"Authorization": "Bearer " + token}, timeout=8
+        )
+        results["date_range"] = {
+            "status": r.status_code,
+            "body": r.json() if r.ok and r.text else r.text[:200]
+        }
+    except Exception as e:
+        results["date_range"] = {"error": str(e)}
+
+    # Teste 3: com timezone
+    try:
+        r = requests.get(
+            f"https://api.mercadolibre.com/users/{user_id}/items_visits",
+            params={
+                "date_from": date_from + "T00:00:00.000-03:00",
+                "date_to":   date_to   + "T23:59:59.000-03:00"
+            },
+            headers={"Authorization": "Bearer " + token}, timeout=8
+        )
+        results["date_range_tz"] = {
+            "status": r.status_code,
+            "body": r.json() if r.ok and r.text else r.text[:200]
+        }
+    except Exception as e:
+        results["date_range_tz"] = {"error": str(e)}
+
+    return jsonify({
+        "seller": seller["nickname"],
+        "period": {"from": date_from, "to": date_to},
+        "results": results
+    })
+
 @app.route("/api/sellers")
 @login_required
 def get_sellers():
@@ -952,15 +1020,49 @@ def get_sales(user_id):
     prev_to   = (d_from - tdelta(days=1)).isoformat()
 
     def _get_visits():
+        # Tentativa 1: endpoint time_window (ML recomendado para apps de terceiros)
         try:
             r = requests.get(
                 f"https://api.mercadolibre.com/users/{user_id}/items_visits/time_window",
                 params={"last": delta, "unit": "day", "ending": date_to},
                 headers={"Authorization": "Bearer " + token}, timeout=8
             )
-            d = r.json() if r.ok and r.text else {}
-            return d.get("total_visits", d.get("visits", 0)) or 0
-        except: return 0
+            if r.ok and r.text:
+                d = r.json()
+                v = d.get("total_visits") or d.get("visits") or 0
+                if v > 0: return v
+        except: pass
+
+        # Tentativa 2: endpoint com date_from/date_to explícitos
+        try:
+            r = requests.get(
+                f"https://api.mercadolibre.com/users/{user_id}/items_visits",
+                params={"date_from": date_from, "date_to": date_to},
+                headers={"Authorization": "Bearer " + token}, timeout=8
+            )
+            if r.ok and r.text:
+                d = r.json()
+                v = d.get("total_visits") or d.get("visits") or 0
+                if v > 0: return v
+        except: pass
+
+        # Tentativa 3: endpoint de visitas por item (soma total)
+        try:
+            r = requests.get(
+                f"https://api.mercadolibre.com/users/{user_id}/items_visits",
+                params={
+                    "date_from": date_from + "T00:00:00.000-03:00",
+                    "date_to":   date_to   + "T23:59:59.000-03:00"
+                },
+                headers={"Authorization": "Bearer " + token}, timeout=8
+            )
+            if r.ok and r.text:
+                d = r.json()
+                v = d.get("total_visits") or d.get("visits") or 0
+                if v > 0: return v
+        except: pass
+
+        return 0
 
     with ThreadPoolExecutor(max_workers=3) as ex:
         # fetch_all_merged: combina date_created + date_closed para capturar
