@@ -381,6 +381,201 @@ def callback():
 
     return redirect("/?seller_added=" + nickname)
 
+
+@app.route("/api/export/sales/<user_id>")
+@login_required
+def export_sales(user_id):
+    """Exporta todos os pedidos do período em XLSX com todos os campos disponíveis."""
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    date_from = request.args.get("date_from", "")
+    date_to   = request.args.get("date_to",   "")
+    if not date_from or not date_to:
+        today     = datetime.now(timezone.utc).date()
+        date_to   = today.isoformat()
+        date_from = (today - timedelta(days=30)).isoformat()
+
+    # Buscar todos os pedidos
+    def fetch_page_exp(offset, limit=50):
+        r = requests.get(
+            "https://api.mercadolibre.com/orders/search",
+            params={
+                "seller": user_id,
+                "order.date_created.from": date_from + "T00:00:00.000-03:00",
+                "order.date_created.to":   date_to   + "T23:59:59.000-03:00",
+                "limit": limit, "offset": offset, "sort": "date_asc"
+            },
+            headers={"Authorization": "Bearer " + token},
+            timeout=15
+        )
+        if not r.ok or not r.text: return [], 0
+        d = r.json()
+        return d.get("results", []), d.get("paging", {}).get("total", 0)
+
+    first, total = fetch_page_exp(0)
+    all_orders = list(first)
+    if total > 50:
+        offsets = list(range(50, min(total, 10000), 50))
+        with ThreadPoolExecutor(max_workers=min(8, len(offsets))) as ex:
+            futures = {ex.submit(fetch_page_exp, off): off for off in offsets}
+            for f in as_completed(futures):
+                res, _ = f.result()
+                if res: all_orders.extend(res)
+        # Deduplicar
+        seen = set()
+        unique = []
+        for o in all_orders:
+            oid = o.get("id")
+            if oid and oid not in seen:
+                seen.add(oid)
+                unique.append(o)
+        all_orders = unique
+
+    # Ordenar por data
+    all_orders.sort(key=lambda x: x.get("date_created", ""))
+
+    # Gerar XLSX
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+    except ImportError:
+        return jsonify({"error": "openpyxl nao instalado"}), 500
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Pedidos"
+
+    # Cabeçalhos
+    headers = [
+        "N.° Pedido", "Pack ID", "Data Criação", "Data Fechamento",
+        "Status", "Status Detail", "Substatus",
+        "Item ID", "Item Título", "SKU", "Qtd", "Preço Unit.",
+        "Total Amount", "Paid Amount", "Currency",
+        "Forma Pagamento", "Parcelas", "Total Pago (payments)",
+        "Frete Tipo", "Frete Status", "Data Envio", "Data Entrega",
+        "Comprador ID", "Comprador Nickname",
+        "Tags", "Feedback Comprador", "Feedback Vendedor",
+        "Mediação", "Data Mediação",
+        "Campaing", "Venda por ADS",
+    ]
+
+    # Estilo do cabeçalho
+    header_fill = PatternFill("solid", fgColor="0d4a47")
+    header_font = Font(color="FFFFFF", bold=True, size=10)
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", wrap_text=True)
+
+    # Preencher dados — uma linha por item do pedido
+    row_num = 2
+    for o in all_orders:
+        oid          = o.get("id", "")
+        pack_id      = o.get("pack_id", "")
+        date_created = (o.get("date_created") or "")[:19].replace("T", " ")
+        date_closed  = (o.get("date_closed")  or "")[:19].replace("T", " ")
+        status       = o.get("status", "")
+        status_detail= o.get("status_detail", "")
+        substatus    = o.get("substatus", "")
+        total_amount = o.get("total_amount", 0) or 0
+        paid_amount  = o.get("paid_amount",  0) or 0
+        currency     = o.get("currency_id", "BRL")
+        tags         = ", ".join(o.get("tags") or [])
+        buyer        = o.get("buyer") or {}
+        buyer_id     = buyer.get("id", "")
+        buyer_nick   = buyer.get("nickname", "")
+
+        # Pagamentos
+        payments = o.get("payments") or []
+        pay_type     = ", ".join(set(p.get("payment_type", "") for p in payments if p.get("payment_type")))
+        pay_install  = max((p.get("installments", 1) or 1 for p in payments), default=1)
+        pay_total    = sum(p.get("total_paid_amount", 0) or 0 for p in payments)
+
+        # Envio
+        shipping     = o.get("shipping") or {}
+        ship_type    = shipping.get("shipping_option", {}).get("name", "") if isinstance(shipping.get("shipping_option"), dict) else ""
+        ship_status  = shipping.get("status", "")
+        ship_date    = (shipping.get("date_shipped") or "")[:19].replace("T", " ")
+        deliver_date = (shipping.get("date_delivered") or "")[:19].replace("T", " ")
+
+        # Feedback
+        feedback     = o.get("feedback") or {}
+        fb_buyer     = (feedback.get("purchase") or {}).get("rating", "")
+        fb_seller    = (feedback.get("sale")     or {}).get("rating", "")
+
+        # Mediação
+        med          = o.get("mediations") or []
+        med_flag     = "Sim" if med else "Não"
+        med_date     = (med[0].get("date_started", "") if med else "")[:10]
+
+        # Contexto (ADS)
+        context      = o.get("context") or {}
+        campaign     = context.get("campaign_id", "")
+        is_ads       = "Sim" if context.get("ads_type") else "Não"
+
+        items = o.get("order_items") or []
+        if not items:
+            items = [{}]
+
+        for item in items:
+            it        = item.get("item") or {}
+            item_id   = it.get("id", "")
+            item_title= it.get("title", "")
+            item_sku  = item.get("item", {}).get("seller_custom_field", "") if item.get("item") else ""
+            qty       = item.get("quantity", 1) or 1
+            unit_price= item.get("unit_price", 0) or 0
+
+            ws.append([
+                oid, pack_id, date_created, date_closed,
+                status, status_detail, substatus,
+                item_id, item_title, item_sku, qty, unit_price,
+                total_amount, paid_amount, currency,
+                pay_type, pay_install, pay_total,
+                ship_type, ship_status, ship_date, deliver_date,
+                buyer_id, buyer_nick,
+                tags, fb_buyer, fb_seller,
+                med_flag, med_date,
+                campaign, is_ads,
+            ])
+            row_num += 1
+            # Após primeiro item: limpar campos de nível de order (evitar duplicação)
+            total_amount = paid_amount = pay_total = ""
+            pack_id = date_created = date_closed = ""
+            status = status_detail = substatus = ""
+            buyer_id = buyer_nick = tags = ""
+            pay_type = pay_install = ""
+            ship_type = ship_status = ship_date = deliver_date = ""
+            fb_buyer = fb_seller = med_flag = med_date = ""
+            campaign = is_ads = ""
+
+    # Ajustar largura das colunas
+    col_widths = [15,12,20,20,15,15,15,15,45,15,6,12,14,14,8,15,8,14,18,14,18,18,12,20,25,12,12,8,12,15,8]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    # Congelar primeira linha
+    ws.freeze_panes = "A2"
+
+    # Salvar e retornar
+    import io
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    from flask import send_file
+    filename = f"pedidos_{seller['nickname']}_{date_from}_{date_to}.xlsx"
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename
+    )
+
 @app.route("/api/sellers")
 @login_required
 def get_sellers():
