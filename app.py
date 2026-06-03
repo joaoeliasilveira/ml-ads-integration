@@ -668,8 +668,6 @@ def get_sales(user_id):
     # incluindo os ainda em trânsito (que não têm date_closed)
     # NÃO filtra por status: ML conta todos exceto invalid/cancelled para GMV
 
-    EXCLUDED_STATUSES = {"cancelled", "invalid"}
-
     def fetch_page(dfrom, dto, offset, limit=50):
         r = requests.get(
             "https://api.mercadolibre.com/orders/search",
@@ -697,8 +695,8 @@ def get_sales(user_id):
                 for f in as_completed(futures):
                     res, _ = f.result()
                     all_orders.extend(res)
-        # Remover apenas cancelados e inválidos
-        return [o for o in all_orders if o.get("status") not in EXCLUDED_STATUSES]
+        # ML inclui TODOS os pedidos para GMV e Unidades (inclusive cancelados e devoluções)
+        return all_orders
 
     def order_gmv(o):
         # total_amount = preço dos itens (Col I da planilha ML)
@@ -754,24 +752,11 @@ def get_sales(user_id):
     avg_sale   = round(gmv / qtd_vendas, 2) if qtd_vendas > 0 else 0
     conversion = round((qtd_vendas / total_visits) * 100, 2) if total_visits > 0 else 0
 
-    # Cancelamentos (pedidos com status cancelled, apenas para métricas separadas)
+    # Cancelamentos — extraídos do array já buscado (sem chamada extra)
     CANCEL_STATUSES = {"cancelled"}
-    def fetch_cancelled(dfrom, dto):
-        first, total = fetch_page(dfrom, dto, 0)
-        if not first: return []
-        all_orders = list(first)
-        if total > 50:
-            offsets = list(range(50, min(total, 10000), 50))
-            with ThreadPoolExecutor(max_workers=min(4, len(offsets))) as ex:
-                futures = [ex.submit(fetch_page, dfrom, dto, off) for off in offsets]
-                for f in as_completed(futures):
-                    res, _ = f.result()
-                    all_orders.extend(res)
-        return [o for o in all_orders if o.get("status") in CANCEL_STATUSES]
-
-    cancelled     = fetch_cancelled(date_from, date_to)
-    qtd_cancel    = count_unique(cancelled)
-    valor_cancel  = round(sum(order_gmv(o) for o in cancelled), 2)
+    cancelled    = [o for o in orders if o.get("status") in CANCEL_STATUSES]
+    qtd_cancel   = count_unique(cancelled)
+    valor_cancel = round(sum(order_gmv(o) for o in cancelled), 2)
 
     # ── PERÍODO ANTERIOR ────────────────────────────────────────────────────────
     prev_gmv   = round(sum(order_gmv(o) for o in prev_orders), 2)
