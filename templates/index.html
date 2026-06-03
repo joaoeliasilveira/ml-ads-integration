@@ -1186,6 +1186,16 @@ function saveGoalsInline(){
   setTimeout(function(){ msg.style.display = 'none'; }, 2000);
 }
 
+function exportSales(){
+  if(!currentSellerId){ alert('Selecione um seller primeiro.'); return; }
+  var dates = getPeriodDates(activeTab);
+  var url = '/api/export/sales/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to;
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  a.click();
+}
+
 function closeNotifPanel(){
   document.getElementById('notif-panel').classList.remove('open');
   var no = document.getElementById('notif-overlay');
@@ -1487,6 +1497,11 @@ function applyTabCustomDate(tab){
   loadTab(tab, true);
 }
 
+// Event delegation para exportar vendas
+document.addEventListener('click', function(e){
+  if(e.target.closest('.export-sales-btn')) exportSales();
+});
+
 // Event delegation para botão Aplicar do período customizado
 document.addEventListener('click', function(e){
   var btn = e.target.closest('.tpb-apply-btn');
@@ -1737,7 +1752,10 @@ function renderVendas(el, data, isToday){
     : null;
 
   el.innerHTML =
-    '<div class="section-label">Resumo de Desempenho<\/div>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'+
+      '<div class="section-label" style="margin-bottom:0">Resumo de Desempenho<\/div>'+
+      '<button class="export-sales-btn" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--td);color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Poppins,sans-serif;font-size:11px;font-weight:600">⬇️ Exportar Excel<\/button>'+
+    '<\/div>'+
     '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(165px,1fr))">'+
       '<div class="metric-card"><div class="metric-label">Vendas Brutas<\/div><div class="metric-value">'+fmt(s.vendas_brutas||0)+'<\/div><div class="metric-delta">'+varBadge(cmp.var_vendas_brutas)+' vs período anterior<\/div><\/div>'+
       '<div class="metric-card"><div class="metric-label">Unidades Vendidas<\/div><div class="metric-value">'+fmtFull(s.unidades_vendidas||0)+'<\/div><div class="metric-delta">'+varBadge(cmp.var_unidades)+' vs período anterior<\/div><\/div>'+
