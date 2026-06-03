@@ -576,74 +576,6 @@ def export_sales(user_id):
         download_name=filename
     )
 
-
-@app.route("/api/debug/visits/<user_id>")
-@login_required
-def debug_visits(user_id):
-    """Endpoint temporário para debugar o endpoint de visitas."""
-    ok, err = check_seller_access(user_id)
-    if not ok: return err
-    token, seller = get_seller_token(user_id)
-    if not seller: return jsonify({"error": "Seller nao autorizado"}), 404
-
-    from datetime import date as _d, timedelta as _td
-    today     = _d.today().isoformat()
-    date_from = (_d.today() - _td(days=30)).isoformat()
-    date_to   = today
-    delta     = 30
-    results   = {}
-
-    # Teste 1: time_window
-    try:
-        r = requests.get(
-            f"https://api.mercadolibre.com/users/{user_id}/items_visits/time_window",
-            params={"last": delta, "unit": "day", "ending": date_to},
-            headers={"Authorization": "Bearer " + token}, timeout=8
-        )
-        results["time_window"] = {
-            "status": r.status_code,
-            "body": r.json() if r.ok and r.text else r.text[:200]
-        }
-    except Exception as e:
-        results["time_window"] = {"error": str(e)}
-
-    # Teste 2: date_from/date_to simples
-    try:
-        r = requests.get(
-            f"https://api.mercadolibre.com/users/{user_id}/items_visits",
-            params={"date_from": date_from, "date_to": date_to},
-            headers={"Authorization": "Bearer " + token}, timeout=8
-        )
-        results["date_range"] = {
-            "status": r.status_code,
-            "body": r.json() if r.ok and r.text else r.text[:200]
-        }
-    except Exception as e:
-        results["date_range"] = {"error": str(e)}
-
-    # Teste 3: com timezone
-    try:
-        r = requests.get(
-            f"https://api.mercadolibre.com/users/{user_id}/items_visits",
-            params={
-                "date_from": date_from + "T00:00:00.000-03:00",
-                "date_to":   date_to   + "T23:59:59.000-03:00"
-            },
-            headers={"Authorization": "Bearer " + token}, timeout=8
-        )
-        results["date_range_tz"] = {
-            "status": r.status_code,
-            "body": r.json() if r.ok and r.text else r.text[:200]
-        }
-    except Exception as e:
-        results["date_range_tz"] = {"error": str(e)}
-
-    return jsonify({
-        "seller": seller["nickname"],
-        "period": {"from": date_from, "to": date_to},
-        "results": results
-    })
-
 @app.route("/api/sellers")
 @login_required
 def get_sellers():
@@ -1019,6 +951,28 @@ def get_sales(user_id):
     prev_from = (d_from - tdelta(days=delta)).isoformat()
     prev_to   = (d_from - tdelta(days=1)).isoformat()
 
+    def _extract_visits(d):
+        """Extrai total_visits de qualquer estrutura de resposta do ML.
+        A API pode retornar total_visits na raiz ou dentro de d['results'].
+        """
+        # Raiz direta
+        v = d.get("total_visits") or d.get("visits") or 0
+        if v > 0:
+            return v
+        # Aninhado em results (estrutura observada no endpoint date_range)
+        inner = d.get("results")
+        if isinstance(inner, dict):
+            v = inner.get("total_visits") or inner.get("visits") or 0
+            if v > 0:
+                return v
+            # Fallback: somar visits_detail se existir
+            detail = inner.get("visits_detail") or []
+            if detail:
+                total = sum(entry.get("total", 0) for entry in detail)
+                if total > 0:
+                    return total
+        return 0
+
     def _get_visits():
         # Tentativa 1: endpoint time_window (ML recomendado para apps de terceiros)
         try:
@@ -1028,12 +982,11 @@ def get_sales(user_id):
                 headers={"Authorization": "Bearer " + token}, timeout=8
             )
             if r.ok and r.text:
-                d = r.json()
-                v = d.get("total_visits") or d.get("visits") or 0
+                v = _extract_visits(r.json())
                 if v > 0: return v
         except: pass
 
-        # Tentativa 2: endpoint com date_from/date_to explícitos
+        # Tentativa 2: endpoint com date_from/date_to explícitos (confirmado funcionando)
         try:
             r = requests.get(
                 f"https://api.mercadolibre.com/users/{user_id}/items_visits",
@@ -1041,12 +994,11 @@ def get_sales(user_id):
                 headers={"Authorization": "Bearer " + token}, timeout=8
             )
             if r.ok and r.text:
-                d = r.json()
-                v = d.get("total_visits") or d.get("visits") or 0
+                v = _extract_visits(r.json())
                 if v > 0: return v
         except: pass
 
-        # Tentativa 3: endpoint de visitas por item (soma total)
+        # Tentativa 3: com timezone explícito
         try:
             r = requests.get(
                 f"https://api.mercadolibre.com/users/{user_id}/items_visits",
@@ -1057,8 +1009,7 @@ def get_sales(user_id):
                 headers={"Authorization": "Bearer " + token}, timeout=8
             )
             if r.ok and r.text:
-                d = r.json()
-                v = d.get("total_visits") or d.get("visits") or 0
+                v = _extract_visits(r.json())
                 if v > 0: return v
         except: pass
 
