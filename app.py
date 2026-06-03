@@ -770,13 +770,40 @@ def get_sales(user_id):
     avg_sale   = round(gmv / qtd_vendas, 2) if qtd_vendas > 0 else 0
     conversion = round((qtd_vendas / total_visits) * 100, 2) if total_visits > 0 else 0
 
-    # Cancelamentos — status "cancelled" na API cobre tanto cancelamentos reais quanto devoluções
-    # Para distinguir como o ML faz, verificamos se o cancelamento foi pré-entrega (real cancel)
-    # vs pós-entrega (devolução). Usamos status="cancelled" para Qtd Canceladas (alinhado com ML)
+    # Cancelamentos vs Devoluções — separar como o painel de Métricas do ML
+    # Na API: status="cancelled" cobre ambos
+    # Distinguir pelo campo "substatus" ou "status_detail":
+    #   - Cancelamento real (pré-entrega): substatus em {"buyer_cancel_purchase",
+    #     "seller_cancel_purchase", "already_cancelled", "not_delivered",
+    #     "buyer_default", "other"} OU sem substatus claro
+    #   - Devolução (pós-entrega): substatus em {"return"} ou com pack_id de troca
+    # Fallback: se não há substatus, classificar pelo que a IA do ML descreveu:
+    #   cancelamento real = nunca chegou ao comprador (não foi enviado ou não entregue)
+    #   devolução = foi entregue e retornado
+
     CANCEL_STATUSES = {"cancelled"}
-    cancelled    = [o for o in orders if o.get("status") in CANCEL_STATUSES]
-    qtd_cancel   = count_unique(cancelled)
-    valor_cancel = round(sum(order_gmv(o) for o in cancelled), 2)
+    all_cancelled = [o for o in orders if o.get("status") in CANCEL_STATUSES]
+
+    # Separar: devolução tem substatus "return" ou shipping_return
+    def is_return(o):
+        substatus = o.get("substatus") or o.get("status_detail") or ""
+        tags = o.get("tags") or []
+        # Checar substatus
+        if substatus in ("return", "delivering_return_sender",
+                         "return_to_sender", "return_success"):
+            return True
+        # Checar tags
+        if any("return" in str(t).lower() for t in tags):
+            return True
+        return False
+
+    returns    = [o for o in all_cancelled if is_return(o)]
+    cancelled  = [o for o in all_cancelled if not is_return(o)]
+
+    qtd_cancel    = count_unique(cancelled)
+    valor_cancel  = round(sum(order_gmv(o) for o in cancelled), 2)
+    qtd_returns   = count_unique(returns)
+    valor_returns = round(sum(order_gmv(o) for o in returns), 2)
 
     # ── PERÍODO ANTERIOR ────────────────────────────────────────────────────────
     prev_gmv   = round(sum(order_gmv(o) for o in prev_orders), 2)
@@ -889,6 +916,8 @@ def get_sales(user_id):
             "conversion":          conversion,
             "qtd_canceladas":      qtd_cancel,
             "valor_canceladas":    valor_cancel,
+            "qtd_devolvidas":      qtd_returns,
+            "valor_devolvidas":    valor_returns,
         },
         "comparison": {
             "prev_period":        {"date_from": prev_from, "date_to": prev_to},
