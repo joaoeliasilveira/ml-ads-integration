@@ -670,7 +670,8 @@ def get_sales(user_id):
                 "seller": uid,
                 "order.date_closed.from": dfrom + "T00:00:00.000-03:00",
                 "order.date_closed.to":   dto + "T23:59:59.000-03:00",
-                "limit": limit, "offset": offset, "sort": "date_asc"
+                "limit": limit, "offset": offset, "sort": "date_asc",
+                "fields": "id,status,date_created,date_closed,total_amount,paid_amount,pack_id,order_items,payments"
             },
             headers={"Authorization": "Bearer " + tok},
             timeout=15
@@ -729,19 +730,23 @@ def get_sales(user_id):
 
     # Periodo atual
     # Valor de uma order — usa payments[].total_paid_amount (valor real cobrado do comprador)
-    # Isso inclui acréscimo de parcelamento, igual ao painel ML "Vendas Brutas"
+    # total_paid_amount inclui acréscimo de parcelamento, alinhado com "Vendas Brutas" do ML
     def order_value(o):
+        # 1. paid_amount no nível da order (mais confiável, sempre presente)
+        paid_amount = o.get("paid_amount") or 0
+        if paid_amount > 0:
+            return paid_amount
+        # 2. payments[].total_paid_amount (inclui juros de parcelamento)
         payments = o.get("payments") or []
         if payments:
-            # total_paid_amount = valor cobrado do comprador (inclui juros de parcelamento)
             paid = sum(p.get("total_paid_amount") or p.get("transaction_amount") or 0 for p in payments)
             if paid > 0:
                 return paid
-        # Fallback 1: total_amount (sem acréscimo de parcelamento)
+        # 3. total_amount (sem acréscimo de parcelamento — fallback)
         val = o.get("total_amount") or 0
         if val > 0:
             return val
-        # Fallback 2: preço unitário × quantidade dos itens
+        # 4. preço unitário × quantidade dos itens
         items = o.get("order_items") or []
         if items:
             return sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
