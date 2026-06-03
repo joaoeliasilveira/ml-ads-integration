@@ -786,14 +786,21 @@ def get_sales(user_id):
 
     # Separar: devolução tem substatus "return" ou shipping_return
     def is_return(o):
-        substatus = o.get("substatus") or o.get("status_detail") or ""
-        tags = o.get("tags") or []
-        # Checar substatus
-        if substatus in ("return", "delivering_return_sender",
-                         "return_to_sender", "return_success"):
+        """Devolução = pedido que foi ENTREGUE ao comprador e depois cancelado/devolvido.
+        Cancelamento real = pedido cancelado antes de ser enviado.
+        Usamos shipping.status para distinguir — se chegou a ser enviado, é devolução."""
+        shipping = o.get("shipping") or {}
+        ship_status = shipping.get("status") or ""
+        # Se o envio passou de "ready_to_ship" → foi enviado → devolução
+        SHIPPED_STATUSES = {"shipped", "delivered", "not_delivered",
+                            "lost", "returned", "returning"}
+        if ship_status in SHIPPED_STATUSES:
             return True
-        # Checar tags
-        if any("return" in str(t).lower() for t in tags):
+        # Verificar substatus como fallback
+        substatus = o.get("substatus") or ""
+        RETURN_SUBSTATUS = {"return", "delivering_return_sender", "return_to_sender",
+                            "return_success", "returning_to_seller"}
+        if substatus in RETURN_SUBSTATUS:
             return True
         return False
 
