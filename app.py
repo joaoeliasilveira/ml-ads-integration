@@ -934,18 +934,8 @@ def get_sales(user_id):
         return 0
 
     def count_unique(order_list):
-        """Conta vendas - packs agrupados por pack_id = 1 venda (igual ML)."""
-        seen_packs = set()
-        count = 0
-        for o in order_list:
-            pk = o.get("pack_id")
-            if pk:
-                if pk not in seen_packs:
-                    seen_packs.add(pk)
-                    count += 1
-            else:
-                count += 1
-        return count
+        """Conta orders individualmente — o ML nao agrupa packs para Qtd de Vendas."""
+        return len(order_list)
 
     def sum_units(order_list):
         total = 0
