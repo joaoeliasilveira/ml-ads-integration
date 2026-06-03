@@ -920,40 +920,17 @@ def get_sales(user_id):
         return merged
 
     def order_gmv(o):
-        """GMV = total_amount + acrescimo de parcelamento.
-        Acrescimo = installments * installment_amount - total_amount (por payment).
-        Confirmado pelo ML AI: payments[].installments e payments[].installment_amount
-        sao os campos que carregam o valor parcelado com juros.
+        """GMV = total_amount.
+        Nota: acrescimo de parcelamento nao tem campo direto confiavel no /orders/search.
+        Diferenca residual de ~R$247 vs ML e o acrescimo de parcelamento (Col J planilha).
         """
-        total_amount = o.get("total_amount") or 0
-
-        # Calcular acrescimo de parcelamento via payments[]
-        payments = o.get("payments") or []
-        acrescimo = 0.0
-        for p in payments:
-            installments     = p.get("installments") or 1
-            installment_amt  = p.get("installment_amount") or 0
-            transaction_amt  = p.get("transaction_amount") or 0
-            total_paid       = p.get("total_paid_amount") or 0
-            # Valor com juros = installments * installment_amount
-            valor_com_juros = installments * installment_amt if installment_amt > 0 else 0
-            # Acrescimo desta parcela
-            if valor_com_juros > transaction_amt and transaction_amt > 0:
-                acrescimo += valor_com_juros - transaction_amt
-            elif total_paid > transaction_amt and transaction_amt > 0:
-                acrescimo += total_paid - transaction_amt
-
-        gmv = total_amount + acrescimo
-        if gmv > 0: return round(gmv, 2)
-
-        # Fallback: gross_price * qty
+        val = o.get("total_amount") or 0
+        if val > 0: return val
         items = o.get("order_items") or []
         if items:
-            total = 0
-            for i in items:
-                gp = i.get("gross_price") or i.get("unit_price") or 0
-                total += gp * (i.get("quantity") or 1)
-            if total > 0: return round(total, 2)
+            total = sum((i.get("gross_price") or i.get("unit_price") or 0) *
+                        (i.get("quantity") or 1) for i in items)
+            if total > 0: return total
         return 0
 
     def count_unique(order_list):
@@ -1013,44 +990,65 @@ def get_sales(user_id):
     avg_sale   = round(gmv / qtd_vendas, 2) if qtd_vendas > 0 else 0
     conversion = round((qtd_vendas / total_visits) * 100, 2) if total_visits > 0 else 0
 
-    # Cancelamentos vs Devoluções - separar como o painel de Métricas do ML
-    # Na API: status="cancelled" cobre ambos
-    # Distinguir pelo campo "substatus" ou "status_detail":
-    #   - Cancelamento real (pré-entrega): substatus em {"buyer_cancel_purchase",
-    #     "seller_cancel_purchase", "already_cancelled", "not_delivered",
-    #     "buyer_default", "other"} OU sem substatus claro
-    #   - Devolução (pós-entrega): substatus em {"return"} ou com pack_id de troca
-    # Fallback: se não há substatus, classificar pelo que a IA do ML descreveu:
-    #   cancelamento real = nunca chegou ao comprador (não foi enviado ou não entregue)
-    #   devolução = foi entregue e retornado
+    # Cancelamentos vs Devolucoes
+    # shipping.status nao vem preenchido no /orders/search para pedidos cancelados.
+    # Solucao: para cada cancelado com shipping_id, buscar /shipments/{id} em paralelo
+    # para checar se foi entregue antes de ser cancelado (= devolucao).
 
     CANCEL_STATUSES = {"cancelled"}
     all_cancelled = [o for o in orders if o.get("status") in CANCEL_STATUSES]
 
-    # Separar: devolução tem substatus "return" ou shipping_return
+    def get_shipment_status(ship_id):
+        try:
+            r = requests.get(
+                f"https://api.mercadolibre.com/shipments/{ship_id}",
+                headers={"Authorization": "Bearer " + token},
+                timeout=8
+            )
+            if r.ok and r.text:
+                d = r.json()
+                return d.get("status", ""), d.get("substatus", "")
+        except Exception:
+            pass
+        return "", ""
+
+    DELIVERED_STATUSES = {"shipped", "delivered", "not_delivered", "lost",
+                          "returned", "returning", "return_to_sender"}
+    order_is_return = {}
+
+    ship_ids = {}
+    for o in all_cancelled:
+        shipping = o.get("shipping") or {}
+        sid = shipping.get("id")
+        if sid:
+            ship_ids[str(o.get("id", ""))] = str(sid)
+
+    if ship_ids:
+        with ThreadPoolExecutor(max_workers=min(16, len(ship_ids))) as ex:
+            futures = {ex.submit(get_shipment_status, sid): oid
+                       for oid, sid in ship_ids.items()}
+            for f in as_completed(futures):
+                oid = futures[f]
+                s_status, _ = f.result()
+                order_is_return[oid] = (s_status in DELIVERED_STATUSES)
+
     def is_return(o):
-        """Distingue devolucao de cancelamento usando cancel_detail (campo oficial ML API)."""
-        # 1. cancel_detail - campo oficial da API ML
+        """Devolucao = pedido que foi entregue antes de ser cancelado.
+        Usa resultado do lookup de /shipments/{id} feito em paralelo acima.
+        Fallback para cancel_detail se shipment nao disponivel.
+        """
+        oid = str(o.get("id", ""))
+        # Resultado do lookup de shipment
+        if oid in order_is_return:
+            return order_is_return[oid]
+        # Fallback: cancel_detail
         cd = o.get("cancel_detail") or {}
         cd_code = str(cd.get("code") or "").lower()
         cd_desc = str(cd.get("description") or "").lower()
-        RETURN_CODES = {"return", "not_received", "item_not_as_described",
-                        "buyer_remorse", "damaged_item", "wrong_item"}
-        if cd_code in RETURN_CODES:
+        if cd_code in {"return", "not_received", "item_not_as_described",
+                       "buyer_remorse", "damaged_item", "wrong_item"}:
             return True
         if "devol" in cd_desc or "return" in cd_desc:
-            return True
-        # 2. Fallback: shipping.status
-        shipping = o.get("shipping") or {}
-        ship_status = shipping.get("status") or ""
-        SHIPPED_STATUSES = {"shipped", "delivered", "not_delivered",
-                            "lost", "returned", "returning"}
-        if ship_status in SHIPPED_STATUSES:
-            return True
-        # 3. Substatus
-        substatus = o.get("substatus") or ""
-        if substatus in {"return", "delivering_return_sender", "return_to_sender",
-                         "return_success", "returning_to_seller"}:
             return True
         return False
 
