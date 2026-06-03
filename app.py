@@ -1002,8 +1002,22 @@ def get_sales(user_id):
             pass
         return "", ""
 
-    DELIVERED_STATUSES = {"shipped", "delivered", "not_delivered", "lost",
-                          "returned", "returning", "return_to_sender"}
+    # Critério ML (confirmado pela IA):
+    # DEVOLUÇÃO  = produto foi ENTREGUE ao comprador e depois entrou em fluxo de retorno
+    # CANCELAMENTO = reembolso ANTES da entrega (not_delivered, lost, shipped, etc.)
+    # Apenas "delivered" como status do shipment garante que houve entrega real.
+    # "returned"/"returning" sozinhos podem ocorrer sem entrega prévia confirmada,
+    # mas quando o shipment chegou a "delivered" antes = devolução.
+
+    RETURN_STATUSES = {"delivered"}          # entregue = possível devolução
+    CANCEL_STATUSES_SHIP = {               # nunca chegou = cancelamento
+        "not_shipped", "pending",
+        "shipped",                          # a caminho, não entregue
+        "not_delivered",                    # tentativa falhou, devolvido ao remetente
+        "lost",                             # perdido em trânsito
+        "cancelled",
+    }
+
     order_is_return = {}
 
     ship_ids = {}
@@ -1019,8 +1033,15 @@ def get_sales(user_id):
                        for oid, sid in ship_ids.items()}
             for f in as_completed(futures):
                 oid = futures[f]
-                s_status, _ = f.result()
-                order_is_return[oid] = (s_status in DELIVERED_STATUSES)
+                s_status, s_substatus = f.result()
+                # Devolução = foi entregue (delivered) ou está em processo de retorno
+                # após ter sido entregue (returned/returning com substatus de retorno)
+                is_ret = s_status in RETURN_STATUSES
+                if not is_ret and s_status in {"returned", "returning", "return_to_sender"}:
+                    # Só conta como devolução se o substatus indica retorno pós-entrega
+                    is_ret = s_substatus in {"returning_to_sender", "delivered_to_sender",
+                                             "return_success", "returning"}
+                order_is_return[oid] = is_ret
 
     def is_return(o):
         """Devolucao = pedido que foi entregue antes de ser cancelado.
