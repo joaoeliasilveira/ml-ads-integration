@@ -668,10 +668,9 @@ def get_sales(user_id):
             "https://api.mercadolibre.com/orders/search",
             params={
                 "seller": uid,
-                "order.date_closed.from": dfrom + "T00:00:00.000-03:00",
-                "order.date_closed.to":   dto + "T23:59:59.000-03:00",
-                "limit": limit, "offset": offset, "sort": "date_asc",
-                "fields": "id,status,date_created,date_closed,total_amount,paid_amount,pack_id,order_items,payments"
+                "order.date_created.from": dfrom + "T00:00:00.000-03:00",
+                "order.date_created.to":   dto + "T23:59:59.000-03:00",
+                "limit": limit, "offset": offset, "sort": "date_asc"
             },
             headers={"Authorization": "Bearer " + tok},
             timeout=15
@@ -729,24 +728,16 @@ def get_sales(user_id):
         total_visits    = f_vis.result()
 
     # Periodo atual
-    # Valor de uma order — usa payments[].total_paid_amount (valor real cobrado do comprador)
-    # total_paid_amount inclui acréscimo de parcelamento, alinhado com "Vendas Brutas" do ML
+    # Valor de uma order — usa total_amount (preço dos produtos)
+    # Inclui pedidos em trânsito (ainda sem date_closed), igual ao ML "Vendas Brutas"
+    # Nota: acréscimo de parcelamento (Col J planilha) não está disponível no /orders/search
+    # → diferença residual de ~R$1.000 é o acréscimo de parcelamento (inevitável via API)
     def order_value(o):
-        # 1. paid_amount no nível da order (mais confiável, sempre presente)
-        paid_amount = o.get("paid_amount") or 0
-        if paid_amount > 0:
-            return paid_amount
-        # 2. payments[].total_paid_amount (inclui juros de parcelamento)
-        payments = o.get("payments") or []
-        if payments:
-            paid = sum(p.get("total_paid_amount") or p.get("transaction_amount") or 0 for p in payments)
-            if paid > 0:
-                return paid
-        # 3. total_amount (sem acréscimo de parcelamento — fallback)
+        # 1. total_amount — preço dos itens, sempre presente inclusive em pedidos em aberto
         val = o.get("total_amount") or 0
         if val > 0:
             return val
-        # 4. preço unitário × quantidade dos itens
+        # 2. preço unitário × quantidade (fallback)
         items = o.get("order_items") or []
         if items:
             return sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
