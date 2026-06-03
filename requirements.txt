@@ -3,3 +3,4 @@ flask-compress
 requests
 gunicorn
 psycopg2-binary
+openpyxl
