@@ -1438,7 +1438,8 @@ function renderTabPeriodBar(tab, containerId){
     var trig = document.getElementById(triggId);
     if(trig){
       trig.querySelector('.tpt-label').textContent = getLabel(pv);
-      trig.querySelector('[style*="margin-top:1px"]').textContent = sub;
+      var subEl = trig.querySelector('.tpt-sub');
+      if(subEl) subEl.textContent = sub;
     }
     return;
   }
@@ -1707,13 +1708,22 @@ async function loadTab(tab){
   var dates = getPeriodDates(tab);
   var el = document.getElementById('tab-'+tab);
 
+  // Mostrar loading antes de qualquer chamada à API
+  var periodBar = document.getElementById('tab-period-dropdown-container');
+  var periodBarHtml = periodBar ? periodBar.innerHTML : '';
+  el.innerHTML =
+    '<div class="loading-state" style="padding:40px 0">'+
+      '<div class="spinner"></div>'+
+      '<span style="color:var(--text3);font-size:13px">Carregando dados...</span>'+
+    '</div>';
+
   // Renderizar barra de período no topo da aba
   renderTabPeriodBar(tab, 'tab-'+tab);
 
-  console.log("[loadTab] seller:", currentSellerId, "tab:", tab, "period:", tabPeriods[tab]);
   try {
     if(tab === 'vendas'){
       var isToday = dates.date_from === dates.date_to && dates.date_from === new Date().toISOString().split('T')[0];
+      var _ts = Date.now();
       var _sr = await fetch('/api/sales/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to);
       if(!_sr.ok) throw new Error('HTTP '+_sr.status+' em /api/sales');
       var d = await _sr.json();
