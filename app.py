@@ -904,29 +904,57 @@ def get_sales(user_id):
         return unique
 
     def fetch_all_merged(dfrom, dto):
-        """Busca por date_created E date_closed, une e deduplica.
-        Recupera pedidos entregues que foram criados antes do período
-        mas fechados dentro dele (os 231 que estavam só no ML)."""
+        """Busca por date_closed (primario, ML AI confirmou) + date_created (secundario).
+        Une e deduplica por order_id.
+        """
         with ThreadPoolExecutor(max_workers=2) as ex:
-            f1 = ex.submit(fetch_all, dfrom, dto, "date_created")
-            f2 = ex.submit(fetch_all, dfrom, dto, "date_closed")
-            by_created = f1.result()
-            by_closed  = f2.result()
+            f1 = ex.submit(fetch_all, dfrom, dto, "date_closed")
+            f2 = ex.submit(fetch_all, dfrom, dto, "date_created")
+            by_closed  = f1.result()
+            by_created = f2.result()
         seen = set(); merged = []
-        for o in by_created + by_closed:
+        for o in by_closed + by_created:
             oid = o.get("id")
             if oid and oid not in seen:
                 seen.add(oid); merged.append(o)
         return merged
 
     def order_gmv(o):
-        # total_amount = preço dos itens (Col I da planilha ML)
-        # Diferença residual vs ML (~1%) é o acréscimo de parcelamento (Col J)
-        # que não está disponível no /orders/search sem chamar /orders/{id} individualmente
-        val = o.get("total_amount") or 0
-        if val > 0: return val
+        """GMV = total_amount + acrescimo de parcelamento.
+        Acrescimo = installments * installment_amount - total_amount (por payment).
+        Confirmado pelo ML AI: payments[].installments e payments[].installment_amount
+        sao os campos que carregam o valor parcelado com juros.
+        """
+        total_amount = o.get("total_amount") or 0
+
+        # Calcular acrescimo de parcelamento via payments[]
+        payments = o.get("payments") or []
+        acrescimo = 0.0
+        for p in payments:
+            installments     = p.get("installments") or 1
+            installment_amt  = p.get("installment_amount") or 0
+            transaction_amt  = p.get("transaction_amount") or 0
+            total_paid       = p.get("total_paid_amount") or 0
+            # Valor com juros = installments * installment_amount
+            valor_com_juros = installments * installment_amt if installment_amt > 0 else 0
+            # Acrescimo desta parcela
+            if valor_com_juros > transaction_amt and transaction_amt > 0:
+                acrescimo += valor_com_juros - transaction_amt
+            elif total_paid > transaction_amt and transaction_amt > 0:
+                acrescimo += total_paid - transaction_amt
+
+        gmv = total_amount + acrescimo
+        if gmv > 0: return round(gmv, 2)
+
+        # Fallback: gross_price * qty
         items = o.get("order_items") or []
-        return sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
+        if items:
+            total = 0
+            for i in items:
+                gp = i.get("gross_price") or i.get("unit_price") or 0
+                total += gp * (i.get("quantity") or 1)
+            if total > 0: return round(total, 2)
+        return 0
 
     def count_unique(order_list):
         """Conta vendas - packs agrupados por pack_id = 1 venda (igual ML)."""
@@ -1001,21 +1029,28 @@ def get_sales(user_id):
 
     # Separar: devolução tem substatus "return" ou shipping_return
     def is_return(o):
-        """Devolução = pedido que foi ENTREGUE ao comprador e depois cancelado/devolvido.
-        Cancelamento real = pedido cancelado antes de ser enviado.
-        Usamos shipping.status para distinguir - se chegou a ser enviado, é devolução."""
+        """Distingue devolucao de cancelamento usando cancel_detail (campo oficial ML API)."""
+        # 1. cancel_detail - campo oficial da API ML
+        cd = o.get("cancel_detail") or {}
+        cd_code = str(cd.get("code") or "").lower()
+        cd_desc = str(cd.get("description") or "").lower()
+        RETURN_CODES = {"return", "not_received", "item_not_as_described",
+                        "buyer_remorse", "damaged_item", "wrong_item"}
+        if cd_code in RETURN_CODES:
+            return True
+        if "devol" in cd_desc or "return" in cd_desc:
+            return True
+        # 2. Fallback: shipping.status
         shipping = o.get("shipping") or {}
         ship_status = shipping.get("status") or ""
-        # Se o envio passou de "ready_to_ship" → foi enviado → devolução
         SHIPPED_STATUSES = {"shipped", "delivered", "not_delivered",
                             "lost", "returned", "returning"}
         if ship_status in SHIPPED_STATUSES:
             return True
-        # Verificar substatus como fallback
+        # 3. Substatus
         substatus = o.get("substatus") or ""
-        RETURN_SUBSTATUS = {"return", "delivering_return_sender", "return_to_sender",
-                            "return_success", "returning_to_seller"}
-        if substatus in RETURN_SUBSTATUS:
+        if substatus in {"return", "delivering_return_sender", "return_to_sender",
+                         "return_success", "returning_to_seller"}:
             return True
         return False
 
