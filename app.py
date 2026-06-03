@@ -472,7 +472,7 @@ def export_sales(user_id):
         cell.font = header_font
         cell.alignment = Alignment(horizontal="center", wrap_text=True)
 
-    # Preencher dados — uma linha por item do pedido
+    # Preencher dados - uma linha por item do pedido
     row_num = 2
     for o in all_orders:
         oid          = o.get("id", "")
@@ -863,13 +863,13 @@ def get_sales(user_id):
     # incluindo os ainda em trânsito (que não têm date_closed)
     # NÃO filtra por status: ML conta todos exceto invalid/cancelled para GMV
 
-    def fetch_page(dfrom, dto, offset, limit=50):
+    def fetch_page(dfrom, dto, offset, limit=50, date_field="date_created"):
         r = requests.get(
             "https://api.mercadolibre.com/orders/search",
             params={
                 "seller": user_id,
-                "order.date_created.from": dfrom + "T00:00:00.000-03:00",
-                "order.date_created.to":   dto   + "T23:59:59.000-03:00",
+                f"order.{date_field}.from": dfrom + "T00:00:00.000-03:00",
+                f"order.{date_field}.to":   dto   + "T23:59:59.000-03:00",
                 "limit": limit, "offset": offset, "sort": "date_asc"
             },
             headers={"Authorization": "Bearer " + token},
@@ -879,37 +879,45 @@ def get_sales(user_id):
         d = r.json()
         return d.get("results", []), d.get("paging", {}).get("total", 0)
 
-    def fetch_all(dfrom, dto):
-        first, total = fetch_page(dfrom, dto, 0)
+    def fetch_all(dfrom, dto, date_field="date_created"):
+        first, total = fetch_page(dfrom, dto, 0, date_field=date_field)
         if not first: return []
         all_orders = list(first)
         if total > 50:
             offsets = list(range(50, min(total, 10000), 50))
-            # Buscar páginas com retry: se uma falhar, tenta de novo sequencialmente
             with ThreadPoolExecutor(max_workers=min(8, len(offsets))) as ex:
-                futures = {ex.submit(fetch_page, dfrom, dto, off): off for off in offsets}
+                futures = {ex.submit(fetch_page, dfrom, dto, off, date_field=date_field): off
+                           for off in offsets}
                 failed = []
                 for f in as_completed(futures):
                     res, _ = f.result()
-                    if res:
-                        all_orders.extend(res)
-                    else:
-                        failed.append(futures[f])
-            # Retry sequencial para páginas que falharam
+                    if res: all_orders.extend(res)
+                    else:   failed.append(futures[f])
             for off in failed:
-                res, _ = fetch_page(dfrom, dto, off)
+                res, _ = fetch_page(dfrom, dto, off, date_field=date_field)
                 if res: all_orders.extend(res)
-        # Deduplicar por order_id (segurança contra páginas sobrepostas)
-        seen = set()
-        unique = []
+        seen = set(); unique = []
         for o in all_orders:
             oid = o.get("id")
             if oid and oid not in seen:
-                seen.add(oid)
-                unique.append(o)
-        import logging
-        logging.info(f"[fetch_all] seller={user_id} total_api={total} got={len(all_orders)} unique={len(unique)}")
+                seen.add(oid); unique.append(o)
         return unique
+
+    def fetch_all_merged(dfrom, dto):
+        """Busca por date_created E date_closed, une e deduplica.
+        Recupera pedidos entregues que foram criados antes do período
+        mas fechados dentro dele (os 231 que estavam só no ML)."""
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            f1 = ex.submit(fetch_all, dfrom, dto, "date_created")
+            f2 = ex.submit(fetch_all, dfrom, dto, "date_closed")
+            by_created = f1.result()
+            by_closed  = f2.result()
+        seen = set(); merged = []
+        for o in by_created + by_closed:
+            oid = o.get("id")
+            if oid and oid not in seen:
+                seen.add(oid); merged.append(o)
+        return merged
 
     def order_gmv(o):
         # total_amount = preço dos itens (Col I da planilha ML)
@@ -921,8 +929,18 @@ def get_sales(user_id):
         return sum((i.get("unit_price") or 0) * (i.get("quantity") or 1) for i in items)
 
     def count_unique(order_list):
-        # ML conta cada order individualmente (packs = orders separadas)
-        return len(order_list)
+        """Conta vendas - packs agrupados por pack_id = 1 venda (igual ML)."""
+        seen_packs = set()
+        count = 0
+        for o in order_list:
+            pk = o.get("pack_id")
+            if pk:
+                if pk not in seen_packs:
+                    seen_packs.add(pk)
+                    count += 1
+            else:
+                count += 1
+        return count
 
     def sum_units(order_list):
         total = 0
@@ -950,8 +968,10 @@ def get_sales(user_id):
         except: return 0
 
     with ThreadPoolExecutor(max_workers=3) as ex:
-        f_cur  = ex.submit(fetch_all, date_from, date_to)
-        f_prev = ex.submit(fetch_all, prev_from, prev_to)
+        # fetch_all_merged: combina date_created + date_closed para capturar
+        # todos os pedidos incluindo os entregues criados antes do período
+        f_cur  = ex.submit(fetch_all_merged, date_from, date_to)
+        f_prev = ex.submit(fetch_all_merged, prev_from, prev_to)
         f_vis  = ex.submit(_get_visits)
         orders      = f_cur.result()
         prev_orders = f_prev.result()
@@ -965,7 +985,7 @@ def get_sales(user_id):
     avg_sale   = round(gmv / qtd_vendas, 2) if qtd_vendas > 0 else 0
     conversion = round((qtd_vendas / total_visits) * 100, 2) if total_visits > 0 else 0
 
-    # Cancelamentos vs Devoluções — separar como o painel de Métricas do ML
+    # Cancelamentos vs Devoluções - separar como o painel de Métricas do ML
     # Na API: status="cancelled" cobre ambos
     # Distinguir pelo campo "substatus" ou "status_detail":
     #   - Cancelamento real (pré-entrega): substatus em {"buyer_cancel_purchase",
@@ -983,7 +1003,7 @@ def get_sales(user_id):
     def is_return(o):
         """Devolução = pedido que foi ENTREGUE ao comprador e depois cancelado/devolvido.
         Cancelamento real = pedido cancelado antes de ser enviado.
-        Usamos shipping.status para distinguir — se chegou a ser enviado, é devolução."""
+        Usamos shipping.status para distinguir - se chegou a ser enviado, é devolução."""
         shipping = o.get("shipping") or {}
         ship_status = shipping.get("status") or ""
         # Se o envio passou de "ready_to_ship" → foi enviado → devolução
@@ -2033,7 +2053,7 @@ def get_promo_items(user_id, promo_id):
 
         # seller_percentage:
         # - started: vem direto do campo ou calculado pelo preço atual
-        # - candidate: ML não retorna o campo — calcula via suggested_discounted_price
+        # - candidate: ML não retorna o campo - calcula via suggested_discounted_price
         seller_pct = item.get("seller_percentage", 0)
         if not seller_pct and orig > 0:
             if status == "candidate":
@@ -2167,7 +2187,7 @@ def get_price_suggestion(user_id, item_id):
 def get_full_stock(user_id):
     ok, err = check_seller_access(user_id)
     if not ok: return err
-    """Retorna apenas produtos Full ML com estoque atual — endpoint leve para alertas"""
+    """Retorna apenas produtos Full ML com estoque atual - endpoint leve para alertas"""
     token, seller = get_seller_token(user_id)
     if not seller:
         return jsonify({"error": "Seller nao autorizado"}), 404
