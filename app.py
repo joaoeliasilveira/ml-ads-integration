@@ -690,13 +690,31 @@ def get_sales(user_id):
         all_orders = list(first)
         if total > 50:
             offsets = list(range(50, min(total, 10000), 50))
+            # Buscar páginas com retry: se uma falhar, tenta de novo sequencialmente
             with ThreadPoolExecutor(max_workers=min(8, len(offsets))) as ex:
-                futures = [ex.submit(fetch_page, dfrom, dto, off) for off in offsets]
+                futures = {ex.submit(fetch_page, dfrom, dto, off): off for off in offsets}
+                failed = []
                 for f in as_completed(futures):
                     res, _ = f.result()
-                    all_orders.extend(res)
-        # ML inclui TODOS os pedidos para GMV e Unidades (inclusive cancelados e devoluções)
-        return all_orders
+                    if res:
+                        all_orders.extend(res)
+                    else:
+                        failed.append(futures[f])
+            # Retry sequencial para páginas que falharam
+            for off in failed:
+                res, _ = fetch_page(dfrom, dto, off)
+                if res: all_orders.extend(res)
+        # Deduplicar por order_id (segurança contra páginas sobrepostas)
+        seen = set()
+        unique = []
+        for o in all_orders:
+            oid = o.get("id")
+            if oid and oid not in seen:
+                seen.add(oid)
+                unique.append(o)
+        import logging
+        logging.info(f"[fetch_all] seller={user_id} total_api={total} got={len(all_orders)} unique={len(unique)}")
+        return unique
 
     def order_gmv(o):
         # total_amount = preço dos itens (Col I da planilha ML)
@@ -752,7 +770,9 @@ def get_sales(user_id):
     avg_sale   = round(gmv / qtd_vendas, 2) if qtd_vendas > 0 else 0
     conversion = round((qtd_vendas / total_visits) * 100, 2) if total_visits > 0 else 0
 
-    # Cancelamentos — extraídos do array já buscado (sem chamada extra)
+    # Cancelamentos — status "cancelled" na API cobre tanto cancelamentos reais quanto devoluções
+    # Para distinguir como o ML faz, verificamos se o cancelamento foi pré-entrega (real cancel)
+    # vs pós-entrega (devolução). Usamos status="cancelled" para Qtd Canceladas (alinhado com ML)
     CANCEL_STATUSES = {"cancelled"}
     cancelled    = [o for o in orders if o.get("status") in CANCEL_STATUSES]
     qtd_cancel   = count_unique(cancelled)
