@@ -667,8 +667,9 @@ body.dark .detail-name{color:#f0f0f5}
   position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;
   opacity:0;pointer-events:none;transition:opacity .2s;
   display:flex;align-items:center;justify-content:center;padding:20px;
+  visibility:hidden;
 }
-.camp-modal-overlay.open{opacity:1;pointer-events:all}
+.camp-modal-overlay.open{opacity:1;pointer-events:all;visibility:visible}
 .camp-modal{
   background:#1e1e26;border-radius:14px;border:1px solid rgba(255,255,255,.1);
   width:100%;max-width:580px;max-height:90vh;overflow-y:auto;
