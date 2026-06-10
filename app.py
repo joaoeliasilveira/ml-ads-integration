@@ -1501,6 +1501,88 @@ def debug_metrics(user_id):
     })
 
 
+@app.route("/api/ads/<user_id>/campaign/<camp_id>")
+@login_required
+def get_campaign_detail(user_id, camp_id):
+    """Retorna detalhes completos de uma campanha específica."""
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    date_from = request.args.get("date_from", "")
+    date_to   = request.args.get("date_to", "")
+
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+
+    # Buscar dados da campanha
+    camp_data = {}
+    for url in [
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/campaigns/{camp_id}",
+    ]:
+        r = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"}, timeout=8)
+        if r.ok and r.text:
+            try:
+                camp_data = r.json()
+                break
+            except: pass
+
+    # Buscar métricas detalhadas
+    metrics_data = {}
+    if date_from and date_to:
+        r = requests.get(
+            f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}",
+            params={
+                "date_from": date_from,
+                "date_to": date_to,
+                "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
+            },
+            headers={"Authorization": "Bearer " + token, "Api-Version": "2"}, timeout=8
+        )
+        if r.ok and r.text:
+            try:
+                metrics_data = r.json()
+            except: pass
+
+    # Extrair métricas
+    m = {}
+    if isinstance(metrics_data, dict) and "metrics" in metrics_data:
+        m = metrics_data["metrics"]
+    elif isinstance(metrics_data, dict):
+        m = metrics_data
+
+    spend   = m.get("cost", 0)
+    revenue = m.get("total_amount", m.get("direct_amount", 0))
+    clicks  = m.get("clicks", 0)
+    imps    = m.get("prints", m.get("impressions", 0))
+    direct  = m.get("direct_amount", 0)
+    indirect = m.get("indirect_amount", 0)
+
+    return jsonify({
+        "id":           camp_id,
+        "name":         camp_data.get("name", "Campanha " + str(camp_id)),
+        "status":       camp_data.get("status", "unknown"),
+        "type":         camp_data.get("type", camp_data.get("campaign_type", "-")),
+        "budget":       camp_data.get("budget", camp_data.get("daily_budget", 0)),
+        "budget_type":  camp_data.get("budget_type", "daily"),
+        "start_date":   camp_data.get("start_date", camp_data.get("start", "")),
+        "end_date":     camp_data.get("end_date", camp_data.get("end", "")),
+        "spend":        round(spend, 2),
+        "revenue":      round(revenue, 2),
+        "direct_revenue": round(direct, 2),
+        "indirect_revenue": round(indirect, 2),
+        "clicks":       clicks,
+        "impressions":  imps,
+        "roas":         round(revenue / spend, 2) if spend > 0 else 0,
+        "acos":         round((spend / revenue) * 100, 1) if revenue > 0 else 0,
+        "ctr":          round((clicks / imps) * 100, 2) if imps > 0 else 0,
+        "cpc":          round(spend / clicks, 2) if clicks > 0 else 0,
+    })
+
+
 @app.route("/api/debug-campaign/<user_id>/<camp_id>")
 def debug_campaign(user_id, camp_id):
     token, seller = get_seller_token(user_id)
