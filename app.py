@@ -1702,6 +1702,37 @@ def get_campaign_detail(user_id, camp_id):
     })
 
 
+@app.route("/api/debug-camp-products/<user_id>/<camp_id>")
+def debug_camp_products(user_id, camp_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+
+    results = {}
+    urls = [
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/ads",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/campaigns/{camp_id}/ads",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/items",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/products",
+        f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}/ads",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/ads?campaign_id={camp_id}",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/ads?campaign_id={camp_id}",
+    ]
+    for url in urls:
+        for version in ["1", "2"]:
+            key = f"v{version}_{url.split('/')[-1].split('?')[0]}"
+            try:
+                r = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": version}, timeout=8)
+                results[f"{key}_v{version}"] = {"status": r.status_code, "url": url, "response": r.json() if r.ok else r.text[:300]}
+            except Exception as e:
+                results[f"{key}_v{version}"] = {"error": str(e), "url": url}
+
+    return jsonify({"advertiser_id": aid, "camp_id": camp_id, "results": results})
+
+
 @app.route("/api/debug-campaign/<user_id>/<camp_id>")
 def debug_campaign(user_id, camp_id):
     token, seller = get_seller_token(user_id)
