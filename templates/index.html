@@ -2829,7 +2829,7 @@ function openCampModal(campId, campName, campStatus) {
   var stBadge = (campStatus==='active'||campStatus==='enabled') ? 'badge-green' : campStatus==='paused' ? 'badge-amber' : 'badge-red';
 
   overlay.innerHTML =
-    '<div id="camp-modal" style="background:#1e1e26;border-radius:14px;border:1px solid rgba(255,255,255,.1);width:100%;max-width:580px;max-height:90vh;overflow-y:auto">'+
+    '<div id="camp-modal" style="background:#1e1e26;border-radius:14px;border:1px solid rgba(255,255,255,.1);width:100%;max-width:900px;max-height:90vh;overflow-y:auto">'+
       '<div style="padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:flex-start;justify-content:space-between;gap:12px">'+
         '<div>'+
           '<div style="font-size:16px;font-weight:700;color:#f0f0f5;line-height:1.3">'+campName+'</div>'+
@@ -2850,14 +2850,14 @@ function openCampModal(campId, campName, campStatus) {
   var dates = getPeriodDates('campanhas');
   fetch('/api/ads/' + currentSellerId + '/campaign/' + campId + '?date_from=' + dates.date_from + '&date_to=' + dates.date_to)
     .then(function(r){ return r.json(); })
-    .then(function(d){ renderCampModal(d); })
+    .then(function(d){ renderCampModal(d, campId, dates.date_from, dates.date_to); })
     .catch(function(){
       document.getElementById('camp-modal-body').innerHTML =
         '<div style="text-align:center;padding:40px;color:#ff5c7a">Erro ao carregar dados da campanha.</div>';
     });
 }
 
-function renderCampModal(d) {
+function renderCampModal(d, campId, dateFrom, dateTo) {
   var body = document.getElementById('camp-modal-body');
   if (!body) return;
 
@@ -2875,32 +2875,108 @@ function renderCampModal(d) {
     'product_ads':'Product Ads','brand_ads':'Brand Ads',
     'display':'Display','sponsored':'Patrocinado','automatic':'Automático'
   };
-  var typeLabel  = typeMap[d.type] || d.type || '-';
+  var typeLabel   = typeMap[d.type] || d.type || '-';
   var budgetLabel = d.budget > 0 ? fmt(d.budget) + (d.budget_type==='daily'?'/dia':' total') : 'Sem limite';
 
   body.innerHTML =
+    // Métricas resumo
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'+
-      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Gasto</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmt(d.spend)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">no período</div></div>'+
-      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Receita ADS</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmt(d.revenue)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">no período</div></div>'+
-      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">ROAS</div><div style="font-size:18px;font-weight:700;color:'+roasColor+'">'+d.roas+'x</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">'+(d.roas>=3?'✅ Acima da meta':'⚠️ Abaixo da meta')+'</div></div>'+
-      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">ACOS</div><div style="font-size:18px;font-weight:700;color:'+acosColor+'">'+d.acos+'%</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">'+(d.acos<=15?'✅ Dentro da meta':'⚠️ Acima da meta')+'</div></div>'+
-      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Cliques</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmtK(d.clicks)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">CTR: '+d.ctr+'%</div></div>'+
-      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Impressões</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmtK(d.impressions)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">CPC: '+fmt(d.cpc)+'</div></div>'+
+      mkMetric('Gasto', fmt(d.spend), 'no período') +
+      mkMetric('Receita ADS', fmt(d.revenue), 'no período') +
+      mkMetric('ROAS', d.roas+'x', d.roas>=3?'✅ Acima da meta':'⚠️ Abaixo da meta', roasColor) +
+      mkMetric('ACOS', d.acos+'%', d.acos<=15?'✅ Dentro da meta':'⚠️ Acima da meta', acosColor) +
+      mkMetric('Cliques', fmtK(d.clicks), 'CTR: '+d.ctr+'%') +
+      mkMetric('Impressões', fmtK(d.impressions), 'CPC: '+fmt(d.cpc)) +
     '</div>'+
 
-    '<div style="font-size:11px;font-weight:600;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Detalhes da Receita</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">'+
-      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Receita Direta</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmt(d.direct_revenue)+'</div></div>'+
-      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Receita Indireta</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmt(d.indirect_revenue)+'</div></div>'+
+    // Info campanha
+    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">'+
+      mkInfo('Tipo', typeLabel) + mkInfo('Orçamento', budgetLabel) +
+      mkInfo('Início', fmtD(d.start_date)) + mkInfo('Término', fmtD(d.end_date)) +
     '</div>'+
 
-    '<div style="font-size:11px;font-weight:600;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Informações da Campanha</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Tipo</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+typeLabel+'</div></div>'+
-      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Orçamento</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+budgetLabel+'</div></div>'+
-      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Início</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmtD(d.start_date)+'</div></div>'+
-      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Término</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmtD(d.end_date)+'</div></div>'+
+    // Tabela de produtos
+    '<div style="font-size:11px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Produtos na Campanha</div>'+
+    '<div id="camp-products-area">'+
+      '<div style="text-align:center;padding:30px;color:#6e6e88">'+
+        '<div class="spinner" style="margin:0 auto 10px"></div>Carregando produtos...'+
+      '</div>'+
     '</div>';
+
+  // Buscar produtos
+  fetch('/api/ads/'+currentSellerId+'/campaign/'+campId+'/products?date_from='+dateFrom+'&date_to='+dateTo)
+    .then(function(r){ return r.json(); })
+    .then(function(data){ renderCampProducts(data.products || []); })
+    .catch(function(){
+      var el = document.getElementById('camp-products-area');
+      if(el) el.innerHTML = '<div style="color:#ff5c7a;font-size:12px;padding:12px 0">Erro ao carregar produtos.</div>';
+    });
+}
+
+function mkMetric(label, value, sub, color) {
+  return '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)">'+
+    '<div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">'+label+'</div>'+
+    '<div style="font-size:18px;font-weight:700;color:'+(color||'#f0f0f5')+'">'+value+'</div>'+
+    '<div style="font-size:10px;color:#6e6e88;margin-top:2px">'+sub+'</div>'+
+  '</div>';
+}
+
+function mkInfo(label, value) {
+  return '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)">'+
+    '<div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">'+label+'</div>'+
+    '<div style="font-size:13px;font-weight:600;color:#d0d0e0">'+value+'</div>'+
+  '</div>';
+}
+
+function renderCampProducts(products) {
+  var el = document.getElementById('camp-products-area');
+  if (!el) return;
+
+  if (!products.length) {
+    el.innerHTML = '<div style="text-align:center;color:#6e6e88;padding:24px;font-size:13px">Nenhum produto encontrado nesta campanha.</div>';
+    return;
+  }
+
+  var rows = products.map(function(p) {
+    var acosC = p.acos<=15?'#2ecc9a':p.acos<=25?'#f5a623':'#ff5c7a';
+    var roasC = p.roas>=3?'#2ecc9a':'#ff5c7a';
+    var stColor = (p.status==='active'||p.status==='enabled') ? '#2ecc9a' : '#f5a623';
+    return '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">'+
+      '<td style="padding:10px 8px;max-width:220px">'+
+        '<div style="font-size:12px;font-weight:500;color:#f0f0f5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.title+'">'+p.title+'</div>'+
+        '<div style="font-size:10px;color:#6e6e88;margin-top:2px;font-family:monospace">'+p.item_id+'</div>'+
+      '</td>'+
+      '<td style="padding:10px 8px;font-size:12px;font-weight:600;color:#f0f0f5;white-space:nowrap">'+fmt(p.spend)+'</td>'+
+      '<td style="padding:10px 8px;font-size:12px;font-weight:600;color:#2ecc9a;white-space:nowrap">'+fmt(p.revenue)+'</td>'+
+      '<td style="padding:10px 8px;font-size:12px;font-weight:700;color:'+roasC+';white-space:nowrap">'+p.roas+'x</td>'+
+      '<td style="padding:10px 8px;white-space:nowrap"><span style="font-size:11px;font-weight:700;color:'+acosC+'">'+p.acos+'%</span></td>'+
+      '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmtK(p.impressions)+'</td>'+
+      '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmtK(p.clicks)+'</td>'+
+      '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmt(p.cpc)+'</td>'+
+      '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+p.orders+'</td>'+
+    '</tr>';
+  }).join('');
+
+  el.innerHTML =
+    '<div style="overflow-x:auto;border-radius:8px;border:1px solid rgba(255,255,255,.07)">'+
+    '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif">'+
+      '<thead>'+
+        '<tr style="background:#1a1a22">'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Produto</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Investimento</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Receita</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">ROAS</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">ACOS</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Impressões</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Cliques</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">CPC</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Vendas ADS</th>'+
+        '</tr>'+
+      '</thead>'+
+      '<tbody>'+rows+'</tbody>'+
+    '</table>'+
+    '</div>'+
+    '<div style="font-size:10px;color:#6e6e88;margin-top:8px">'+products.length+' produto(s) encontrado(s)</div>';
 }
 
 function closeCampModal() {
