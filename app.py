@@ -1700,6 +1700,54 @@ def get_campaign_detail(user_id, camp_id):
     })
 
 
+@app.route("/api/debug-item-metrics/<user_id>/<camp_id>/<item_id>")
+def debug_item_metrics(user_id, camp_id, item_id):
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao encontrado"}), 404
+
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+    date_from = request.args.get("date_from", "2026-06-01")
+    date_to   = request.args.get("date_to",   "2026-06-15")
+
+    results = {}
+    tests = [
+        ("items_with_metrics_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items",
+         {"campaign_id": camp_id, "item_id": item_id, "date_from": date_from, "date_to": date_to,
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "1"),
+        ("items_with_metrics_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items",
+         {"campaign_id": camp_id, "item_id": item_id, "date_from": date_from, "date_to": date_to,
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("mlb_campaign_item_v2", f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}",
+         {"item_id": item_id, "date_from": date_from, "date_to": date_to,
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("advertiser_campaign_item_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}",
+         {"item_id": item_id, "date_from": date_from, "date_to": date_to,
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("item_summary_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to}, "1"),
+        ("item_summary_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to,
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("mlb_item_v2", f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to,
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("items_no_filter_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items",
+         {"item_id": item_id, "date_from": date_from, "date_to": date_to}, "1"),
+    ]
+    for name, url, params, version in tests:
+        try:
+            r = requests.get(url, params=params,
+                headers={"Authorization": "Bearer " + token, "Api-Version": version}, timeout=8)
+            results[name] = {"status": r.status_code, "url": url, "params": params,
+                             "response": r.json() if r.text else {}}
+        except Exception as e:
+            results[name] = {"error": str(e)}
+
+    return jsonify({"aid": aid, "camp_id": camp_id, "item_id": item_id, "results": results})
+
+
 @app.route("/api/debug-camp-products/<user_id>/<camp_id>")
 def debug_camp_products(user_id, camp_id):
     token, seller = get_seller_token(user_id)
