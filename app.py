@@ -1675,6 +1675,7 @@ def get_campaign_detail(user_id, camp_id):
     # Buscar dados da campanha
     camp_data = {}
     for url in [
+        f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}",
         f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}",
         f"https://api.mercadolibre.com/advertising/advertisers/{aid}/campaigns/{camp_id}",
     ]:
