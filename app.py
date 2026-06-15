@@ -1711,24 +1711,33 @@ def debug_camp_products(user_id, camp_id):
     advertiser_id = get_advertiser_id(user_id, token)
     aid = advertiser_id if advertiser_id else user_id
 
+    date_from = request.args.get("date_from", "2026-06-01")
+    date_to   = request.args.get("date_to",   "2026-06-15")
+
     results = {}
-    urls = [
-        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/ads",
-        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/campaigns/{camp_id}/ads",
-        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/items",
-        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/products",
-        f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}/ads",
-        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/ads?campaign_id={camp_id}",
-        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/ads?campaign_id={camp_id}",
+    tests = [
+        # Relatório por item para o advertiser filtrado por campanha
+        ("items_report_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items", {"date_from": date_from, "date_to": date_to, "campaign_id": camp_id}, "1"),
+        ("items_report_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items", {"date_from": date_from, "date_to": date_to, "campaign_id": camp_id}, "2"),
+        # Reports
+        ("reports_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/reports", {"date_from": date_from, "date_to": date_to, "campaign_id": camp_id, "group_by": "ITEM"}, "1"),
+        ("reports_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/reports", {"date_from": date_from, "date_to": date_to, "campaign_id": camp_id, "group_by": "ITEM"}, "2"),
+        # Endpoint de summary por item
+        ("summary_items_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/summary", {"date_from": date_from, "date_to": date_to, "group_by": "ITEM"}, "1"),
+        ("summary_items_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/summary", {"date_from": date_from, "date_to": date_to, "group_by": "ITEM"}, "2"),
+        # MLB genérico
+        ("mlb_items_v2", f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}", {"date_from": date_from, "date_to": date_to, "group_by": "ITEM"}, "2"),
+        ("mlb_ads_v2", f"https://api.mercadolibre.com/advertising/MLB/product_ads/ads", {"date_from": date_from, "date_to": date_to, "campaign_id": camp_id}, "2"),
+        # Ads do advertiser
+        ("advertiser_ads_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/ads", {"date_from": date_from, "date_to": date_to, "campaign_id": camp_id}, "1"),
+        ("advertiser_ads_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/ads", {"date_from": date_from, "date_to": date_to, "campaign_id": camp_id}, "2"),
     ]
-    for url in urls:
-        for version in ["1", "2"]:
-            key = f"v{version}_{url.split('/')[-1].split('?')[0]}"
-            try:
-                r = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": version}, timeout=8)
-                results[f"{key}_v{version}"] = {"status": r.status_code, "url": url, "response": r.json() if r.ok else r.text[:300]}
-            except Exception as e:
-                results[f"{key}_v{version}"] = {"error": str(e), "url": url}
+    for name, url, params, version in tests:
+        try:
+            r = requests.get(url, params=params, headers={"Authorization": "Bearer " + token, "Api-Version": version}, timeout=8)
+            results[name] = {"status": r.status_code, "url": url, "response": r.json() if r.text else {}}
+        except Exception as e:
+            results[name] = {"error": str(e), "url": url}
 
     return jsonify({"advertiser_id": aid, "camp_id": camp_id, "results": results})
 
