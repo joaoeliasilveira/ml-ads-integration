@@ -1553,30 +1553,21 @@ def get_campaign_products(user_id, camp_id):
 
         m = {}
         if date_from and date_to and item_id:
-            for url, params, version in [
-                (
-                    f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}",
-                    {"date_from": date_from, "date_to": date_to, "item_id": item_id,
-                     "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,direct_orders,total_orders"},
-                    "2"
-                ),
-                (
-                    f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}",
-                    {"date_from": date_from, "date_to": date_to, "item_id": item_id,
-                     "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"},
-                    "2"
-                ),
-            ]:
-                try:
-                    rm = requests.get(url, params=params,
-                        headers={"Authorization": "Bearer " + token, "Api-Version": version}, timeout=8)
-                    if rm.ok and rm.text:
-                        rd = rm.json()
-                        if isinstance(rd, dict) and "metrics" in rd:
-                            m = rd["metrics"]; break
-                        elif isinstance(rd, dict) and "cost" in rd:
-                            m = rd; break
-                except: pass
+            # Endpoint confirmado funcionando: /advertising/MLB/product_ads/items/{item_id}
+            try:
+                rm = requests.get(
+                    f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
+                    params={
+                        "date_from": date_from, "date_to": date_to,
+                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
+                    },
+                    headers={"Authorization": "Bearer " + token, "Api-Version": "2"}, timeout=8
+                )
+                if rm.ok and rm.text:
+                    rd = rm.json()
+                    if isinstance(rd, dict) and "metrics" in rd:
+                        m = rd["metrics"]
+            except: pass
 
         spend    = m.get("cost", 0)
         revenue  = m.get("total_amount", m.get("direct_amount", 0))
