@@ -1501,6 +1501,125 @@ def debug_metrics(user_id):
     })
 
 
+@app.route("/api/ads/<user_id>/campaign/<camp_id>/products")
+@login_required
+def get_campaign_products(user_id, camp_id):
+    """Retorna produtos e métricas individuais de uma campanha."""
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    date_from = request.args.get("date_from", "")
+    date_to   = request.args.get("date_to", "")
+    advertiser_id = get_advertiser_id(user_id, token)
+    aid = advertiser_id if advertiser_id else user_id
+
+    products = []
+
+    # Buscar produtos/itens da campanha
+    items = []
+    for url in [
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/ads",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/campaigns/{camp_id}/ads",
+        f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/items",
+    ]:
+        r = requests.get(url, headers={"Authorization": "Bearer " + token, "Api-Version": "1"}, timeout=10)
+        if r.ok and r.text:
+            try:
+                d = r.json()
+                if isinstance(d, list) and len(d) > 0:
+                    items = d; break
+                if isinstance(d, dict) and "results" in d:
+                    items = d["results"]; break
+                if isinstance(d, dict) and "ads" in d:
+                    items = d["ads"]; break
+            except: pass
+
+    if not items:
+        return jsonify({"products": [], "total": 0})
+
+    # Buscar métricas por item em paralelo
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def fetch_item_metrics(item):
+        item_id = item.get("item_id") or item.get("id") or item.get("ad_id", "")
+        if not item_id:
+            return None
+
+        # Título do produto
+        title = item.get("title", "")
+        if not title:
+            try:
+                ri = requests.get(
+                    f"https://api.mercadolibre.com/items/{item_id}",
+                    headers={"Authorization": "Bearer " + token}, timeout=5
+                )
+                if ri.ok:
+                    title = ri.json().get("title", str(item_id))
+            except: title = str(item_id)
+
+        # Métricas do item na campanha
+        m = {}
+        if date_from and date_to:
+            for murl in [
+                f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}/ads/{item_id}",
+                f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}/ads/{item_id}",
+            ]:
+                try:
+                    rm = requests.get(murl, params={
+                        "date_from": date_from,
+                        "date_to": date_to,
+                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,direct_orders,total_orders"
+                    }, headers={"Authorization": "Bearer " + token, "Api-Version": "2"}, timeout=8)
+                    if rm.ok and rm.text:
+                        rd = rm.json()
+                        if isinstance(rd, dict) and "metrics" in rd:
+                            m = rd["metrics"]; break
+                        elif isinstance(rd, dict) and "cost" in rd:
+                            m = rd; break
+                except: pass
+
+        spend    = m.get("cost", 0)
+        revenue  = m.get("total_amount", m.get("direct_amount", 0))
+        clicks   = m.get("clicks", 0)
+        imps     = m.get("prints", m.get("impressions", 0))
+        direct   = m.get("direct_amount", 0)
+        indirect = m.get("indirect_amount", 0)
+        orders   = m.get("total_orders", m.get("direct_orders", 0))
+
+        return {
+            "item_id":    str(item_id),
+            "title":      title,
+            "status":     item.get("status", "active"),
+            "spend":      round(spend, 2),
+            "revenue":    round(revenue, 2),
+            "direct_revenue":   round(direct, 2),
+            "indirect_revenue": round(indirect, 2),
+            "clicks":     clicks,
+            "impressions": imps,
+            "orders":     orders,
+            "roas":       round(revenue / spend, 2) if spend > 0 else 0,
+            "acos":       round((spend / revenue) * 100, 1) if revenue > 0 else 0,
+            "cpc":        round(spend / clicks, 2) if clicks > 0 else 0,
+            "ctr":        round((clicks / imps) * 100, 2) if imps > 0 else 0,
+        }
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futures = {ex.submit(fetch_item_metrics, item): item for item in items[:20]}
+        for f in as_completed(futures):
+            try:
+                result = f.result()
+                if result: products.append(result)
+            except: pass
+
+    # Ordenar por gasto (maior primeiro)
+    products.sort(key=lambda x: x["spend"], reverse=True)
+
+    return jsonify({"products": products, "total": len(products)})
+
+
 @app.route("/api/ads/<user_id>/campaign/<camp_id>")
 @login_required
 def get_campaign_detail(user_id, camp_id):
