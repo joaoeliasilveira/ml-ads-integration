@@ -1605,8 +1605,55 @@ def get_campaign_products(user_id, camp_id):
                 if result: products.append(result)
             except: pass
 
-    products.sort(key=lambda x: x["spend"], reverse=True)
-    return jsonify({"products": products, "total": len(products)})
+    # Agrupar produtos com mesmo user_product_id (mesmo produto, anúncios diferentes)
+    # Cada item do array 'items' tem user_product_id — precisamos mapear item_id → user_product_id
+    upid_map = {str(item.get("item_id","")): item.get("user_product_id","") for item in items}
+    family_map = {str(item.get("item_id","")): item.get("family_name", item.get("title","")) for item in items}
+
+    groups = {}
+    for p in products:
+        upid = upid_map.get(p["item_id"], "") or p["item_id"]
+        if upid not in groups:
+            groups[upid] = {
+                "group_id":    upid,
+                "title":       family_map.get(p["item_id"], p["title"]),
+                "items":       [],
+                "spend":       0, "revenue": 0, "direct_revenue": 0,
+                "indirect_revenue": 0, "clicks": 0, "impressions": 0, "orders": 0,
+            }
+        groups[upid]["items"].append({
+            "item_id":  p["item_id"],
+            "title":    p["title"],
+            "status":   p["status"],
+            "price":    p["price"],
+            "thumbnail":p["thumbnail"],
+            "spend":    p["spend"],
+            "revenue":  p["revenue"],
+            "clicks":   p["clicks"],
+            "impressions": p["impressions"],
+        })
+        groups[upid]["spend"]            += p["spend"]
+        groups[upid]["revenue"]          += p["revenue"]
+        groups[upid]["direct_revenue"]   += p["direct_revenue"]
+        groups[upid]["indirect_revenue"] += p["indirect_revenue"]
+        groups[upid]["clicks"]           += p["clicks"]
+        groups[upid]["impressions"]      += p["impressions"]
+        groups[upid]["orders"]           += p["orders"]
+
+    # Recalcular métricas consolidadas
+    grouped = []
+    for upid, g in groups.items():
+        sp = g["spend"]; rv = g["revenue"]; cl = g["clicks"]; im = g["impressions"]
+        g["roas"] = round(rv / sp, 2) if sp > 0 else 0
+        g["acos"] = round((sp / rv) * 100, 1) if rv > 0 else 0
+        g["cpc"]  = round(sp / cl, 2) if cl > 0 else 0
+        g["ctr"]  = round((cl / im) * 100, 2) if im > 0 else 0
+        g["spend"]   = round(sp, 2)
+        g["revenue"] = round(rv, 2)
+        grouped.append(g)
+
+    grouped.sort(key=lambda x: x["spend"], reverse=True)
+    return jsonify({"products": grouped, "total": len(grouped)})
 
 
 @app.route("/api/ads/<user_id>/campaign/<camp_id>")
