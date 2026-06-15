@@ -2812,55 +2812,54 @@ if(params.get('seller_added')){
 
 loadList();
 </script>
-<!-- Modal de Campanha -->
-<div class="camp-modal-overlay" id="camp-modal-overlay" onclick="closeCampModal(event)">
-  <div class="camp-modal" id="camp-modal">
-    <div class="camp-modal-header">
-      <div>
-        <div class="camp-modal-title" id="camp-modal-title"></div>
-        <div style="margin-top:6px;display:flex;gap:6px;align-items:center" id="camp-modal-badges"></div>
-      </div>
-      <button class="camp-modal-close" onclick="closeCampModal()">✕</button>
-    </div>
-    <div class="camp-modal-body" id="camp-modal-body"></div>
-  </div>
-</div>
 
 <script>
-var _campModalDateFrom = '';
-var _campModalDateTo   = '';
-var _campModalSellerId = '';
-
 function openCampModal(campId, campName, campStatus) {
-  var dates = getPeriodDates('campanhas');
-  var dateFrom = dates.date_from;
-  var dateTo   = dates.date_to;
-  var sellerId = currentSellerId;
+  // Remove modal anterior se existir
+  var existing = document.getElementById('camp-modal-overlay');
+  if (existing) existing.remove();
 
-  var overlay = document.getElementById('camp-modal-overlay');
-  var title   = document.getElementById('camp-modal-title');
-  var badges  = document.getElementById('camp-modal-badges');
-  var body    = document.getElementById('camp-modal-body');
+  // Cria o modal dinamicamente
+  var overlay = document.createElement('div');
+  overlay.id = 'camp-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick = function(e){ if(e.target === overlay) closeCampModal(); };
 
-  title.textContent = campName;
+  var stLabel = (campStatus==='active'||campStatus==='enabled') ? 'Ativa' : campStatus==='paused' ? 'Pausada' : 'Parada';
+  var stBadge = (campStatus==='active'||campStatus==='enabled') ? 'badge-green' : campStatus==='paused' ? 'badge-amber' : 'badge-red';
 
-  var dotColor  = (campStatus==='active'||campStatus==='enabled') ? 'var(--green)' : campStatus==='paused' ? 'var(--amber)' : 'var(--red)';
-  var stLabel   = (campStatus==='active'||campStatus==='enabled') ? 'Ativa' : campStatus==='paused' ? 'Pausada' : 'Parada';
-  var stBadge   = (campStatus==='active'||campStatus==='enabled') ? 'badge-green' : campStatus==='paused' ? 'badge-amber' : 'badge-red';
-  badges.innerHTML = '<span class="badge ' + stBadge + '">' + stLabel + '</span>';
+  overlay.innerHTML =
+    '<div id="camp-modal" style="background:#1e1e26;border-radius:14px;border:1px solid rgba(255,255,255,.1);width:100%;max-width:580px;max-height:90vh;overflow-y:auto">'+
+      '<div style="padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:flex-start;justify-content:space-between;gap:12px">'+
+        '<div>'+
+          '<div style="font-size:16px;font-weight:700;color:#f0f0f5;line-height:1.3">'+campName+'</div>'+
+          '<div style="margin-top:6px"><span class="badge '+stBadge+'">'+stLabel+'</span></div>'+
+        '</div>'+
+        '<button onclick="closeCampModal()" style="background:#26262f;border:1px solid rgba(255,255,255,.15);color:#f0f0f5;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px">✕</button>'+
+      '</div>'+
+      '<div id="camp-modal-body" style="padding:20px 24px">'+
+        '<div style="text-align:center;padding:40px;color:#6e6e88">'+
+          '<div class="spinner" style="margin:0 auto 12px"></div>Carregando...'+
+        '</div>'+
+      '</div>'+
+    '</div>';
 
-  body.innerHTML = '<div style="text-align:center;padding:40px;color:#6e6e88"><div class="spinner" style="margin:0 auto 12px"></div>Carregando...</div>';
-  overlay.classList.add('open');
+  document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
 
-  fetch('/api/ads/' + sellerId + '/campaign/' + campId + '?date_from=' + dateFrom + '&date_to=' + dateTo)
+  var dates = getPeriodDates('campanhas');
+  fetch('/api/ads/' + currentSellerId + '/campaign/' + campId + '?date_from=' + dates.date_from + '&date_to=' + dates.date_to)
     .then(function(r){ return r.json(); })
     .then(function(d){ renderCampModal(d); })
-    .catch(function(){ body.innerHTML = '<div style="text-align:center;padding:40px;color:#ff5c7a">Erro ao carregar dados da campanha.</div>'; });
+    .catch(function(){
+      document.getElementById('camp-modal-body').innerHTML =
+        '<div style="text-align:center;padding:40px;color:#ff5c7a">Erro ao carregar dados da campanha.</div>';
+    });
 }
 
 function renderCampModal(d) {
   var body = document.getElementById('camp-modal-body');
+  if (!body) return;
 
   var acosColor = d.acos <= 15 ? 'var(--green)' : d.acos <= 25 ? 'var(--amber)' : 'var(--red)';
   var roasColor = d.roas >= 3 ? 'var(--green)' : 'var(--red)';
@@ -2873,85 +2872,40 @@ function renderCampModal(d) {
   };
 
   var typeMap = {
-    'product_ads': 'Product Ads', 'brand_ads': 'Brand Ads',
-    'display': 'Display', 'sponsored': 'Patrocinado', 'automatic': 'Automático'
+    'product_ads':'Product Ads','brand_ads':'Brand Ads',
+    'display':'Display','sponsored':'Patrocinado','automatic':'Automático'
   };
-  var typeLabel = typeMap[d.type] || d.type || '-';
-  var budgetLabel = d.budget > 0 ? fmt(d.budget) + (d.budget_type === 'daily' ? '/dia' : ' total') : 'Sem limite';
+  var typeLabel  = typeMap[d.type] || d.type || '-';
+  var budgetLabel = d.budget > 0 ? fmt(d.budget) + (d.budget_type==='daily'?'/dia':' total') : 'Sem limite';
 
   body.innerHTML =
-    '<div class="camp-modal-metrics">' +
-      '<div class="camp-modal-metric">' +
-        '<div class="camp-modal-metric-label">Gasto</div>' +
-        '<div class="camp-modal-metric-value">' + fmt(d.spend) + '</div>' +
-        '<div class="camp-modal-metric-sub">no período</div>' +
-      '</div>' +
-      '<div class="camp-modal-metric">' +
-        '<div class="camp-modal-metric-label">Receita ADS</div>' +
-        '<div class="camp-modal-metric-value">' + fmt(d.revenue) + '</div>' +
-        '<div class="camp-modal-metric-sub">no período</div>' +
-      '</div>' +
-      '<div class="camp-modal-metric">' +
-        '<div class="camp-modal-metric-label">ROAS</div>' +
-        '<div class="camp-modal-metric-value" style="color:' + roasColor + '">' + d.roas + 'x</div>' +
-        '<div class="camp-modal-metric-sub">' + (d.roas >= 3 ? '✅ Acima da meta' : '⚠️ Abaixo da meta') + '</div>' +
-      '</div>' +
-      '<div class="camp-modal-metric">' +
-        '<div class="camp-modal-metric-label">ACOS</div>' +
-        '<div class="camp-modal-metric-value" style="color:' + acosColor + '">' + d.acos + '%</div>' +
-        '<div class="camp-modal-metric-sub">' + (d.acos <= 15 ? '✅ Dentro da meta' : '⚠️ Acima da meta') + '</div>' +
-      '</div>' +
-      '<div class="camp-modal-metric">' +
-        '<div class="camp-modal-metric-label">Cliques</div>' +
-        '<div class="camp-modal-metric-value">' + fmtK(d.clicks) + '</div>' +
-        '<div class="camp-modal-metric-sub">CTR: ' + d.ctr + '%</div>' +
-      '</div>' +
-      '<div class="camp-modal-metric">' +
-        '<div class="camp-modal-metric-label">Impressões</div>' +
-        '<div class="camp-modal-metric-value">' + fmtK(d.impressions) + '</div>' +
-        '<div class="camp-modal-metric-sub">CPC: ' + fmt(d.cpc) + '</div>' +
-      '</div>' +
-    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'+
+      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Gasto</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmt(d.spend)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">no período</div></div>'+
+      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Receita ADS</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmt(d.revenue)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">no período</div></div>'+
+      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">ROAS</div><div style="font-size:18px;font-weight:700;color:'+roasColor+'">'+d.roas+'x</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">'+(d.roas>=3?'✅ Acima da meta':'⚠️ Abaixo da meta')+'</div></div>'+
+      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">ACOS</div><div style="font-size:18px;font-weight:700;color:'+acosColor+'">'+d.acos+'%</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">'+(d.acos<=15?'✅ Dentro da meta':'⚠️ Acima da meta')+'</div></div>'+
+      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Cliques</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmtK(d.clicks)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">CTR: '+d.ctr+'%</div></div>'+
+      '<div style="background:#26262f;border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;text-transform:uppercase;color:#6e6e88;letter-spacing:.5px;margin-bottom:4px">Impressões</div><div style="font-size:18px;font-weight:700;color:#f0f0f5">'+fmtK(d.impressions)+'</div><div style="font-size:10px;color:#6e6e88;margin-top:2px">CPC: '+fmt(d.cpc)+'</div></div>'+
+    '</div>'+
 
-    '<div style="font-size:11px;font-weight:600;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Detalhes da Receita</div>' +
-    '<div class="camp-modal-info" style="margin-bottom:20px">' +
-      '<div class="camp-modal-info-row">' +
-        '<div class="camp-modal-info-label">Receita Direta</div>' +
-        '<div class="camp-modal-info-value">' + fmt(d.direct_revenue) + '</div>' +
-      '</div>' +
-      '<div class="camp-modal-info-row">' +
-        '<div class="camp-modal-info-label">Receita Indireta</div>' +
-        '<div class="camp-modal-info-value">' + fmt(d.indirect_revenue) + '</div>' +
-      '</div>' +
-    '</div>' +
+    '<div style="font-size:11px;font-weight:600;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Detalhes da Receita</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">'+
+      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Receita Direta</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmt(d.direct_revenue)+'</div></div>'+
+      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Receita Indireta</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmt(d.indirect_revenue)+'</div></div>'+
+    '</div>'+
 
-    '<div style="font-size:11px;font-weight:600;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Informações da Campanha</div>' +
-    '<div class="camp-modal-info">' +
-      '<div class="camp-modal-info-row">' +
-        '<div class="camp-modal-info-label">Tipo</div>' +
-        '<div class="camp-modal-info-value">' + typeLabel + '</div>' +
-      '</div>' +
-      '<div class="camp-modal-info-row">' +
-        '<div class="camp-modal-info-label">Orçamento</div>' +
-        '<div class="camp-modal-info-value">' + budgetLabel + '</div>' +
-      '</div>' +
-      '<div class="camp-modal-info-row">' +
-        '<div class="camp-modal-info-label">Início</div>' +
-        '<div class="camp-modal-info-value">' + fmtD(d.start_date) + '</div>' +
-      '</div>' +
-      '<div class="camp-modal-info-row">' +
-        '<div class="camp-modal-info-label">Término</div>' +
-        '<div class="camp-modal-info-value">' + fmtD(d.end_date) + '</div>' +
-      '</div>' +
+    '<div style="font-size:11px;font-weight:600;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Informações da Campanha</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Tipo</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+typeLabel+'</div></div>'+
+      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Orçamento</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+budgetLabel+'</div></div>'+
+      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Início</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmtD(d.start_date)+'</div></div>'+
+      '<div style="background:#26262f;border-radius:8px;padding:10px 12px;border:1px solid rgba(255,255,255,.06)"><div style="font-size:10px;color:#6e6e88;text-transform:uppercase;margin-bottom:3px">Término</div><div style="font-size:13px;font-weight:600;color:#d0d0e0">'+fmtD(d.end_date)+'</div></div>'+
     '</div>';
 }
 
-function closeCampModal(e) {
-  if (e && e.target !== document.getElementById('camp-modal-overlay')) return;
-  document.getElementById('camp-modal-overlay').classList.remove('open');
-  document.getElementById('camp-modal-body').innerHTML = '';
-  document.getElementById('camp-modal-title').textContent = '';
-  document.getElementById('camp-modal-badges').innerHTML = '';
+function closeCampModal() {
+  var overlay = document.getElementById('camp-modal-overlay');
+  if (overlay) overlay.remove();
   document.body.style.overflow = '';
 }
 </script>
