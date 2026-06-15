@@ -729,6 +729,14 @@ def get_ads(user_id):
         total_revenue += revenue
         total_clicks += clicks
         total_impressions += imps
+        # roas_target vem do objeto da campanha (não das métricas)
+        roas_target = camp.get("roas_target", metrics.get("roas_target", None))
+        if roas_target is not None:
+            try:
+                roas_target = round(float(roas_target), 2)
+            except Exception:
+                roas_target = None
+
         result.append({
             "id": camp_id,
             "name": camp.get("name", "Campanha " + str(camp_id)),
@@ -738,7 +746,8 @@ def get_ads(user_id):
             "clicks": clicks,
             "impressions": imps,
             "roas": roas,
-            "acos": acos
+            "acos": acos,
+            "roas_target": roas_target
         })
 
     return jsonify({
