@@ -666,10 +666,9 @@ body.dark .detail-name{color:#f0f0f5}
 .camp-modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;
   opacity:0;pointer-events:none;transition:opacity .2s;
-  display:flex;align-items:center;justify-content:center;padding:20px;
-  visibility:hidden;
+  display:none;align-items:center;justify-content:center;padding:20px;
 }
-.camp-modal-overlay.open{opacity:1;pointer-events:all;visibility:visible}
+.camp-modal-overlay.open{opacity:1;pointer-events:all;display:flex}
 .camp-modal{
   background:#1e1e26;border-radius:14px;border:1px solid rgba(255,255,255,.1);
   width:100%;max-width:580px;max-height:90vh;overflow-y:auto;
@@ -2818,17 +2817,12 @@ loadList();
   <div class="camp-modal" id="camp-modal">
     <div class="camp-modal-header">
       <div>
-        <div class="camp-modal-title" id="camp-modal-title">Campanha</div>
+        <div class="camp-modal-title" id="camp-modal-title"></div>
         <div style="margin-top:6px;display:flex;gap:6px;align-items:center" id="camp-modal-badges"></div>
       </div>
       <button class="camp-modal-close" onclick="closeCampModal()">✕</button>
     </div>
-    <div class="camp-modal-body" id="camp-modal-body">
-      <div style="text-align:center;padding:40px;color:#6e6e88">
-        <div class="spinner" style="margin:0 auto 12px"></div>
-        Carregando...
-      </div>
-    </div>
+    <div class="camp-modal-body" id="camp-modal-body"></div>
   </div>
 </div>
 
@@ -2955,6 +2949,9 @@ function renderCampModal(d) {
 function closeCampModal(e) {
   if (e && e.target !== document.getElementById('camp-modal-overlay')) return;
   document.getElementById('camp-modal-overlay').classList.remove('open');
+  document.getElementById('camp-modal-body').innerHTML = '';
+  document.getElementById('camp-modal-title').textContent = '';
+  document.getElementById('camp-modal-badges').innerHTML = '';
   document.body.style.overflow = '';
 }
 </script>
