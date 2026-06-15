@@ -1691,6 +1691,146 @@ def get_campaign_detail(user_id, camp_id):
     })
 
 
+@app.route("/api/ai/analyze-campaign", methods=["POST"])
+@login_required
+def ai_analyze_campaign():
+    """Analisa uma campanha usando a API do Claude com a skill de ADS."""
+    import json as json_lib2
+
+    data = request.get_json() or {}
+    camp = data.get("camp", {})
+    products = data.get("products", [])
+
+    # Montar o contexto da campanha
+    date_from = camp.get("_date_from", "")
+    date_to   = camp.get("_date_to", "")
+
+    products_text = ""
+    if products:
+        products_text = "\n\nPRODUTOS NA CAMPANHA:\n"
+        for p in products:
+            products_text += f"""
+- {p.get('title','?')} ({p.get('item_id','')})
+  Status: {p.get('status','?')}
+  Investimento: R${p.get('spend',0):.2f}
+  Receita: R${p.get('revenue',0):.2f}
+  ROAS: {p.get('roas',0)}x
+  ACOS: {p.get('acos',0)}%
+  Impressões: {p.get('impressions',0)}
+  Cliques: {p.get('clicks',0)}
+  CTR: {p.get('ctr',0)}%
+  CPC: R${p.get('cpc',0):.2f}
+  Vendas ADS: {p.get('orders',0)}
+"""
+
+    prompt = f"""Analise a seguinte campanha de Product Ads do Mercado Livre e forneça um diagnóstico completo com recomendações de ação.
+
+CAMPANHA: {camp.get('name','?')}
+PERÍODO: {date_from} a {date_to}
+STATUS: {camp.get('status','?')}
+TIPO: {camp.get('type','-')}
+ORÇAMENTO: {camp.get('budget',0)} ({camp.get('budget_type','daily')})
+
+MÉTRICAS CONSOLIDADAS:
+- Investimento: R${camp.get('spend',0):.2f}
+- Receita ADS: R${camp.get('revenue',0):.2f}
+- Receita Direta: R${camp.get('direct_revenue',0):.2f}
+- Receita Indireta: R${camp.get('indirect_revenue',0):.2f}
+- ROAS: {camp.get('roas',0)}x
+- ACOS: {camp.get('acos',0)}%
+- Cliques: {camp.get('clicks',0)}
+- Impressões: {camp.get('impressions',0)}
+- CTR: {camp.get('ctr',0)}%
+- CPC: R${camp.get('cpc',0):.2f}
+{products_text}
+
+Forneça a análise em HTML usando exatamente este formato:
+
+<div style="font-family:Inter,sans-serif;color:#f0f0f5">
+
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1)">
+    <span style="font-size:18px">🤖</span>
+    <span style="font-weight:700;font-size:14px">Análise IA — {camp.get('name','?')}</span>
+  </div>
+
+  <!-- ZONA DE PERFORMANCE -->
+  <div style="background:#26262f;border-radius:10px;padding:14px;margin-bottom:12px;border-left:4px solid [COR_ZONA]">
+    <div style="font-size:10px;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Zona de Performance</div>
+    <div style="font-size:20px;font-weight:700">[EMOJI] [NOME_ZONA]</div>
+    <div style="font-size:12px;color:#9898b0;margin-top:4px">[DESCRIÇÃO_ZONA]</div>
+  </div>
+
+  <!-- DIAGNÓSTICO -->
+  <div style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Diagnóstico</div>
+    <div style="font-size:13px;color:#d0d0e0;line-height:1.6">[DIAGNÓSTICO_DETALHADO]</div>
+  </div>
+
+  <!-- DECISÃO PRINCIPAL -->
+  <div style="background:#1a1a22;border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid rgba(255,255,255,.08)">
+    <div style="font-size:11px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Decisão Recomendada</div>
+    <div style="font-size:14px;font-weight:600;color:#f0f0f5;margin-bottom:6px">[DECISÃO_PRINCIPAL]</div>
+    <div style="font-size:12px;color:#9898b0">[INSTRUÇÃO_ESPECÍFICA_COM_VALORES_EXATOS]</div>
+  </div>
+
+  <!-- PRÓXIMOS PASSOS -->
+  <div style="margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Próximos Passos</div>
+    [LISTA_DE_PASSOS_EM_HTML]
+  </div>
+
+  <!-- ALERTAS SE HOUVER -->
+  [ALERTAS_OPCIONAIS]
+
+</div>
+
+Use cores: #2ecc9a (verde/escalar), #f5a623 (âmbar/atenção), #ff5c7a (vermelho/crítico), #4a5fe8 (azul/manter).
+Seja objetivo e específico — informe valores exatos de ROAS Objetivo recomendado, porcentagem de aumento de orçamento, etc.
+Responda SOMENTE com o HTML, sem texto antes ou depois."""
+
+    system_prompt = """Você é um especialista em Product Ads do Mercado Livre com experiência em 16 sellers e +40 relatórios gerados. 
+
+Você domina completamente a skill de análise de campanhas ADS ML, incluindo:
+- Zonas ACOS: Escalar (<10%), Ótimo (10-15%), Saudável (15-22%), Atenção (22-30%), Sangrando (>30%)
+- ROAS Objetivo deve ser configurado próximo ao ROAS histórico real
+- NUNCA alterar orçamento e ROAS Objetivo ao mesmo tempo
+- Campanhas com <30 dias estão em aprendizado — não agir se ACOS < 40%
+- Escalar = aumentar orçamento (não ROAS Objetivo)
+- Ajustar = aumentar ROAS Objetivo em 0,5x incrementos
+- Pausar só em casos extremos (ACOS > 60% ou sem estoque)
+- Indiretas são contexto, diretas são base de decisão
+
+Seja preciso, objetivo e sempre informe valores numéricos específicos nas recomendações.
+Responda SOMENTE com HTML formatado conforme solicitado."""
+
+    try:
+        import urllib.request
+        req_data = json_lib2.dumps({
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 1500,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": prompt}]
+        }).encode("utf-8")
+
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=req_data,
+            headers={
+                "Content-Type": "application/json",
+                "anthropic-version": "2023-06-01",
+                "x-api-key": anthropic_key
+            }
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json_lib2.loads(resp.read().decode("utf-8"))
+            html = result["content"][0]["text"]
+            return jsonify({"html": html})
+
+    except Exception as e:
+        return jsonify({"error": str(e), "html": f'<div style="color:#ff5c7a;padding:12px">Erro: {str(e)}</div>'}), 500
+
+
 @app.route("/api/debug-item-metrics/<user_id>/<camp_id>/<item_id>")
 def debug_item_metrics(user_id, camp_id, item_id):
     token, seller = get_seller_token(user_id)
