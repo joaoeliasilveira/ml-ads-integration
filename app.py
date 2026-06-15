@@ -1568,7 +1568,7 @@ def get_campaign_products(user_id, camp_id):
                     f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
                     params={
                         "date_from": date_from, "date_to": date_to,
-                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
+                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,orders,units_sold,direct_orders"
                     },
                     headers={"Authorization": "Bearer " + token, "Api-Version": "2"}, timeout=8
                 )
@@ -1584,7 +1584,7 @@ def get_campaign_products(user_id, camp_id):
         imps     = m.get("prints", m.get("impressions", 0))
         direct   = m.get("direct_amount", 0)
         indirect = m.get("indirect_amount", 0)
-        orders   = m.get("total_orders", m.get("direct_orders", 0))
+        orders   = m.get("orders", m.get("units_sold", m.get("direct_orders", m.get("total_orders", 0))))
 
         return {
             "item_id":   str(item_id),
