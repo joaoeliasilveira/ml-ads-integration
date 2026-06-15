@@ -2880,12 +2880,12 @@ function renderCampModal(d, campId, dateFrom, dateTo) {
     'product_ads':'Product Ads','brand_ads':'Brand Ads',
     'display':'Display','sponsored':'Patrocinado','automatic':'Automático'
   };
-  var typeLabel   = typeMap[d.type] || d.type || '-';
-  var budgetLabel = d.budget > 0 ? fmt(d.budget) + (d.budget_type==='daily'?'/dia':' total') : 'Sem limite';
+  var budgetValue = d.budget > 0 ? fmt(d.budget) + '/dia' : 'Sem limite definido';
+  var budgetColor = d.budget > 0 ? '#f0f0f5' : '#6e6e88';
 
   body.innerHTML =
     // Métricas resumo
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'+
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">'+
       mkMetric('Gasto', fmt(d.spend), 'no período') +
       mkMetric('Receita ADS', fmt(d.revenue), 'no período') +
       mkMetric('ROAS', d.roas+'x', d.roas>=3?'✅ Acima da meta':'⚠️ Abaixo da meta', roasColor) +
@@ -2894,10 +2894,10 @@ function renderCampModal(d, campId, dateFrom, dateTo) {
       mkMetric('Impressões', fmtK(d.impressions), 'CPC: '+fmt(d.cpc)) +
     '</div>'+
 
-    // Info campanha
-    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">'+
-      mkInfo('Tipo', typeLabel) + mkInfo('Orçamento', budgetLabel) +
-      mkInfo('Início', fmtD(d.start_date)) + mkInfo('Término', fmtD(d.end_date)) +
+    // Orçamento Diário
+    '<div style="background:#26262f;border-radius:10px;padding:14px 16px;margin-bottom:16px;border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between">'+
+      '<div style="font-size:11px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px">💰 Orçamento Diário</div>'+
+      '<div style="font-size:18px;font-weight:700;color:'+budgetColor+'">'+budgetValue+'</div>'+
     '</div>'+
 
     // Tabela de produtos
