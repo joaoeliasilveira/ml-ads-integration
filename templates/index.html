@@ -1968,16 +1968,30 @@ function renderCampanhas(el, ads, daily){
     var dotColor = (c.status==='active'||c.status==='enabled')?'var(--green)':c.status==='paused'?'var(--amber)':'var(--red)';
     var stLabel = (c.status==='active'||c.status==='enabled')?'Ativa':c.status==='paused'?'Pausada':'Parada';
     var stBadge = (c.status==='active'||c.status==='enabled')?'badge-green':c.status==='paused'?'badge-amber':'badge-red';
+    // ROAS Objetivo: compara real vs meta configurada na campanha
+    var roasObjCell;
+    if(c.roas_target != null && c.roas_target > 0){
+      var batendo = c.roas >= c.roas_target;
+      var roasObjColor = batendo ? 'var(--green)' : 'var(--red)';
+      var roasObjIcon = batendo ? '↑' : '↓';
+      roasObjCell = '<td style="white-space:nowrap">'+
+        '<span style="color:var(--text3);font-size:11px">'+c.roas_target+'x</span> '+
+        '<span style="color:'+roasObjColor+';font-size:11px;font-weight:600">'+roasObjIcon+'</span>'+
+      '</td>';
+    } else {
+      roasObjCell = '<td style="color:var(--text3);font-size:11px">—</td>';
+    }
     return '<tr class="camp-row-clickable" onclick="openCampModal(\''+c.id+'\',\''+c.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',\''+c.status+'\')">'+
       '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:6px;vertical-align:middle"></span><span class="cell-name" title="'+c.name+'">'+c.name+'</span></td>'+
       '<td>'+fmtDec(c.spend)+'</td><td>'+fmtDec(c.revenue)+'</td>'+
       '<td style="color:'+(c.roas>=3?'var(--green)':'var(--red)')+'">'+c.roas+'x</td>'+
+      roasObjCell+
       '<td><span class="badge '+acosC+'">'+c.acos+'%</span></td>'+
       '<td>'+fmtK(c.clicks)+'</td><td>'+fmtK(c.impressions)+'</td>'+
       '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
     '</tr>';
   }).join('');
-  var emptyCamps = camps.length===0 ? '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Nenhuma campanha no período<\/td><\/tr>' : campRows;
+  var emptyCamps = camps.length===0 ? '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Nenhuma campanha no período<\/td><\/tr>' : campRows;
 
   el.innerHTML =
     '<div class="section-label">Resumo do Período<\/div>'+
@@ -2001,7 +2015,7 @@ function renderCampanhas(el, ads, daily){
     '<div class="section-label">Publicidade<\/div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
       '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Detalhamento por Campanha<\/div><div class="card-sub" style="margin-bottom:0">'+camps.length+' campanhas no período<\/div><\/div>'+
-      '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Campanha<\/th><th>Gasto<\/th><th>Receita<\/th><th>ROAS<\/th><th>ACOS<\/th><th>Cliques<\/th><th>Impressões<\/th><th>Status<\/th><\/tr><\/thead><tbody>'+emptyCamps+'<\/tbody><\/table><\/div>'+
+      '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Campanha<\/th><th>Gasto<\/th><th>Receita<\/th><th>ROAS<\/th><th>ROAS Obj.<\/th><th>ACOS<\/th><th>Cliques<\/th><th>Impressões<\/th><th>Status<\/th><\/tr><\/thead><tbody>'+emptyCamps+'<\/tbody><\/table><\/div>'+
     '<\/div>';
 
   setTimeout(function(){
