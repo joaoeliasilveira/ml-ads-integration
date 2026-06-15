@@ -2948,11 +2948,25 @@ function renderCampProducts(products) {
   var rows = products.map(function(p) {
     var acosC = p.acos<=15?'#2ecc9a':p.acos<=25?'#f5a623':'#ff5c7a';
     var roasC = p.roas>=3?'#2ecc9a':'#ff5c7a';
-    var stColor = (p.status==='active'||p.status==='enabled') ? '#2ecc9a' : '#f5a623';
+
+    // Badges dos MLBs individuais
+    var itemBadges = '';
+    if (p.items && p.items.length > 0) {
+      itemBadges = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">';
+      p.items.forEach(function(it) {
+        var stColor = (it.status==='active'||it.status==='enabled') ? '#2ecc9a' : '#f5a623';
+        var stDot = '<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:'+stColor+';margin-right:3px;vertical-align:middle"></span>';
+        var spendBadge = it.spend > 0 ? ' · R$'+it.spend.toFixed(0) : '';
+        itemBadges += '<span style="font-size:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 6px;color:#9898b0;white-space:nowrap">'+
+          stDot+it.item_id+spendBadge+'</span>';
+      });
+      itemBadges += '</div>';
+    }
+
     return '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">'+
-      '<td style="padding:10px 8px;max-width:220px">'+
+      '<td style="padding:10px 8px;max-width:240px">'+
         '<div style="font-size:12px;font-weight:500;color:#f0f0f5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.title+'">'+p.title+'</div>'+
-        '<div style="font-size:10px;color:#6e6e88;margin-top:2px;font-family:monospace">'+p.item_id+'</div>'+
+        itemBadges+
       '</td>'+
       '<td style="padding:10px 8px;font-size:12px;font-weight:600;color:#f0f0f5;white-space:nowrap">'+fmt(p.spend)+'</td>'+
       '<td style="padding:10px 8px;font-size:12px;font-weight:600;color:#2ecc9a;white-space:nowrap">'+fmt(p.revenue)+'</td>'+
