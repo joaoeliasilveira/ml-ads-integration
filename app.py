@@ -1804,30 +1804,33 @@ Seja preciso, objetivo e sempre informe valores numéricos específicos nas reco
 Responda SOMENTE com HTML formatado conforme solicitado."""
 
     try:
-        import urllib.request
-        req_data = json_lib2.dumps({
-            "model": "claude-sonnet-4-6",
-            "max_tokens": 1500,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": prompt}]
-        }).encode("utf-8")
-
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        req = urllib.request.Request(
+        resp = requests.post(
             "https://api.anthropic.com/v1/messages",
-            data=req_data,
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 1500,
+                "system": system_prompt,
+                "messages": [{"role": "user", "content": prompt}]
+            },
             headers={
                 "Content-Type": "application/json",
                 "anthropic-version": "2023-06-01",
                 "x-api-key": anthropic_key
-            }
+            },
+            timeout=30
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json_lib2.loads(resp.read().decode("utf-8"))
-            html = result["content"][0]["text"]
-            return jsonify({"html": html})
+        if not resp.ok:
+            err_detail = resp.text[:500]
+            print(f"[AI] Erro {resp.status_code}: {err_detail}")
+            return jsonify({"html": f'<div style="color:#ff5c7a;padding:12px">Erro da API: {resp.status_code} — {err_detail}</div>'}), 500
+
+        result = resp.json()
+        html = result["content"][0]["text"]
+        return jsonify({"html": html})
 
     except Exception as e:
+        print(f"[AI] Exceção: {str(e)}")
         return jsonify({"error": str(e), "html": f'<div style="color:#ff5c7a;padding:12px">Erro: {str(e)}</div>'}), 500
 
 
