@@ -2850,7 +2850,12 @@ function openCampModal(campId, campName, campStatus) {
   var dates = getPeriodDates('campanhas');
   fetch('/api/ads/' + currentSellerId + '/campaign/' + campId + '?date_from=' + dates.date_from + '&date_to=' + dates.date_to)
     .then(function(r){ return r.json(); })
-    .then(function(d){ renderCampModal(d, campId, dates.date_from, dates.date_to); })
+    .then(function(d){
+      _aiCampData = d;
+      _aiCampData._date_from = dates.date_from;
+      _aiCampData._date_to   = dates.date_to;
+      renderCampModal(d, campId, dates.date_from, dates.date_to);
+    })
     .catch(function(){
       document.getElementById('camp-modal-body').innerHTML =
         '<div style="text-align:center;padding:40px;color:#ff5c7a">Erro ao carregar dados da campanha.</div>';
@@ -2906,7 +2911,10 @@ function renderCampModal(d, campId, dateFrom, dateTo) {
   // Buscar produtos
   fetch('/api/ads/'+currentSellerId+'/campaign/'+campId+'/products?date_from='+dateFrom+'&date_to='+dateTo)
     .then(function(r){ return r.json(); })
-    .then(function(data){ renderCampProducts(data.products || []); })
+    .then(function(data){
+      _aiProducts = data.products || [];
+      renderCampProducts(data.products || []);
+    })
     .catch(function(){
       var el = document.getElementById('camp-products-area');
       if(el) el.innerHTML = '<div style="color:#ff5c7a;font-size:12px;padding:12px 0">Erro ao carregar produtos.</div>';
@@ -2976,7 +2984,47 @@ function renderCampProducts(products) {
       '<tbody>'+rows+'</tbody>'+
     '</table>'+
     '</div>'+
-    '<div style="font-size:10px;color:#6e6e88;margin-top:8px">'+products.length+' produto(s) encontrado(s)</div>';
+    '<div style="font-size:10px;color:#6e6e88;margin-top:8px">'+products.length+' produto(s) encontrado(s)</div>'+
+    '<div style="margin-top:16px">'+
+      '<button id="btn-ai-analysis" onclick="runAiAnalysis()" style="width:100%;padding:12px;background:linear-gradient(135deg,#4a5fe8,#2ecc9a);color:#fff;border:none;border-radius:10px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px">'+
+        '🤖 Analisar Campanha com IA'+
+      '</button>'+
+    '</div>'+
+    '<div id="ai-analysis-result" style="margin-top:16px"></div>';
+}
+
+// Armazena dados da campanha para a análise IA
+var _aiCampData = null;
+var _aiProducts = [];
+
+function runAiAnalysis() {
+  var btn = document.getElementById('btn-ai-analysis');
+  var result = document.getElementById('ai-analysis-result');
+  if (!btn || !result) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 8px 0 0"></div> Analisando...';
+
+  var payload = {
+    camp: _aiCampData,
+    products: _aiProducts
+  };
+
+  fetch('/api/ai/analyze-campaign', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    btn.style.display = 'none';
+    result.innerHTML = d.html || '<div style="color:#ff5c7a;padding:12px">Erro ao gerar análise.</div>';
+  })
+  .catch(function(){
+    btn.disabled = false;
+    btn.innerHTML = '🤖 Analisar Campanha com IA';
+    result.innerHTML = '<div style="color:#ff5c7a;font-size:12px;padding:8px 0">Erro ao conectar com a IA. Tente novamente.</div>';
+  });
 }
 
 function closeCampModal() {
