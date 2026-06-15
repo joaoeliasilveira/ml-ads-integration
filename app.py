@@ -1568,7 +1568,7 @@ def get_campaign_products(user_id, camp_id):
                     f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
                     params={
                         "date_from": date_from, "date_to": date_to,
-                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,orders,units_sold,direct_orders"
+                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
                     },
                     headers={"Authorization": "Bearer " + token, "Api-Version": "2"}, timeout=8
                 )
@@ -2956,6 +2956,46 @@ def debug_promo_items(user_id, promo_id):
         return jsonify({"promo_id": promo_id, "user_id": user_id, "results": results})
     except Exception as e:
         return jsonify({"fatal_error": str(e)}), 500
+
+
+@app.route("/api/debug-item/<user_id>/<item_id>")
+def debug_item(user_id, item_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
+    token, seller = get_seller_token(user_id)
+    if not seller:
+        return jsonify({"error": "Seller nao autorizado"}), 404
+
+    date_from = request.args.get("date_from", "2026-06-01")
+    date_to   = request.args.get("date_to",   "2026-06-15")
+
+    results = {}
+    # Testa várias combinações de métricas e versões para descobrir o que a API aceita
+    tests = [
+        ("v2_padrao",     f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("v2_com_orders", f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,orders"}, "2"),
+        ("v2_sem_metrics",f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to}, "2"),
+        ("v1_padrao",     f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "1"),
+        ("v1_sem_metrics",f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
+         {"date_from": date_from, "date_to": date_to}, "1"),
+    ]
+    for name, url, params, version in tests:
+        try:
+            r = requests.get(url, params=params,
+                             headers={"Authorization": "Bearer " + token, "Api-Version": version},
+                             timeout=8)
+            try:
+                results[name] = {"status": r.status_code, "response": r.json(), "url": url, "params": params, "version": version}
+            except:
+                results[name] = {"status": r.status_code, "response": r.text[:300], "url": url}
+        except Exception as e:
+            results[name] = {"error": str(e)}
+
+    return jsonify({"user_id": user_id, "item_id": item_id, "results": results})
 
 
 if __name__ == "__main__":
