@@ -1236,7 +1236,8 @@ function saveGoalsInline(){
   var msg = document.getElementById('goals-saved-msg');
   msg.style.display = 'block';
   setTimeout(function(){ msg.style.display = 'none'; }, 2000);
-  // Re-renderiza o dashboard com as novas metas
+  // Fecha painel e re-renderiza com as novas metas
+  closeNotifPanel();
   reloadCurrentTab();
 }
 
@@ -1773,7 +1774,7 @@ async function loadTab(tab){
     } else if(tab === 'campanhas'){
       var ads = await fetch('/api/ads/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();});
       var daily = await fetch('/api/ads/'+currentSellerId+'/daily?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
-      renderCampanhas(el, ads, daily);
+      renderCampanhas(el, ads, daily, currentSellerId);
     } else if(tab === 'promocoes'){
       var promos = await fetch('/api/promotions/'+currentSellerId).then(function(r){return r.json();});
       renderPromocoes(el, promos);
@@ -1961,7 +1962,7 @@ function renderVendas(el, data, isToday){
   }, 50);
 }
 
-function renderCampanhas(el, ads, daily){
+function renderCampanhas(el, ads, daily, sellerId){
   var s = ads.summary;
   var camps = ads.campaigns || [];
   var hasDailyData = daily && daily.days && daily.days.length > 0;
@@ -1969,7 +1970,7 @@ function renderCampanhas(el, ads, daily){
 
   // Buscar metas salvas do seller atual
   var goals = {};
-  try { goals = JSON.parse(localStorage.getItem('seller_goals_'+currentSellerId)||'{}'); } catch(e){}
+  try { goals = JSON.parse(localStorage.getItem('seller_goals_'+(sellerId||currentSellerId))||'{}'); } catch(e){}
   var acosWarn = goals.acosWarn || 15;
   var acosCrit = goals.acosCrit || 25;
   var roasWarn = goals.roasWarn || 3;
