@@ -698,8 +698,8 @@ body.dark .detail-name{color:#f0f0f5}
 .camp-modal-info-value{font-size:13px;font-weight:600;color:#d0d0e0}
 .camp-row-clickable{cursor:pointer;transition:background .15s}
 .camp-row-clickable:hover{background:rgba(255,255,255,.04)}
-.camp-filt-btn{background:var(--card);color:var(--text3);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;transition:all .15s}
-.camp-filt-btn:hover{color:var(--text1);border-color:var(--tl)}
+.camp-filt-btn{background:var(--s2);color:var(--mu);border:1.5px solid var(--br);border-radius:6px;padding:5px 12px;font-size:11px;font-family:Inter,sans-serif;cursor:pointer;transition:all .15s}
+.camp-filt-btn:hover{color:var(--tl);border-color:var(--tl)}
 .camp-filt-active{background:var(--tl)!important;color:#fff!important;border-color:var(--tl)!important}
 </style>
 </head>
@@ -1114,8 +1114,7 @@ function saveSellerGoals(){
   localStorage.setItem('seller_goals_'+uid, JSON.stringify({acosWarn,acosCrit,roasWarn,roasCrit}));
   document.getElementById('goals-modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
-  alertsLoaded = false;
-  reloadCurrentTab();
+  alertsLoaded = false; // força refresh dos alertas
 }
 
 // -- PAINEL DE PREFERENCIAS DE NOTIFICACOES --
@@ -1154,7 +1153,6 @@ function saveNotifPrefs(){
   };
   localStorage.setItem(key, JSON.stringify(prefs));
   alertsLoaded = false;
-  reloadCurrentTab();
 }
 
 function getFullStockThreshold(itemId){
@@ -1163,8 +1161,6 @@ function getFullStockThreshold(itemId){
 
 function saveFullStockThreshold(itemId, val){
   localStorage.setItem('fst_'+itemId, parseInt(val)||0);
-  alertsLoaded = false;
-  reloadCurrentTab();
 }
 
 function toggleNotifSection(key){
@@ -1239,9 +1235,6 @@ function saveGoalsInline(){
   var msg = document.getElementById('goals-saved-msg');
   msg.style.display = 'block';
   setTimeout(function(){ msg.style.display = 'none'; }, 2000);
-  // Fecha painel e re-renderiza com as novas metas
-  closeNotifPanel();
-  reloadCurrentTab();
 }
 
 function exportSales(){
@@ -1405,8 +1398,8 @@ function getPeriodDates(tab){
     return {date_from: t, date_to: t};
   }
   var days = parseInt(pv) || 30;
-  var to = new Date();
-  var from = new Date(); from.setDate(from.getDate() - days);
+  var to = new Date(), from = new Date();
+  from.setDate(from.getDate() - days);
   return {date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0]};
 }
 
@@ -1417,8 +1410,8 @@ function fmtPeriodLabel(pv, customDates){
     return fmt(customDates.from)+' → '+fmt(customDates.to);
   if(pv==='today'){ var t=new Date(); return t.getDate()+' '+months[t.getMonth()]+' '+t.getFullYear(); }
   var days=parseInt(pv)||30;
-  var to=new Date();
-  var from=new Date(); from.setDate(from.getDate()-days);
+  var to=new Date(), from=new Date();
+  from.setDate(from.getDate()-days);
   function fmtD(d){ return d.getDate()+' '+months[d.getMonth()]; }
   return fmtD(from)+' a '+fmtD(to)+' '+to.getFullYear();
 }
@@ -1777,7 +1770,7 @@ async function loadTab(tab){
     } else if(tab === 'campanhas'){
       var ads = await fetch('/api/ads/'+currentSellerId+'?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.json();});
       var daily = await fetch('/api/ads/'+currentSellerId+'/daily?date_from='+dates.date_from+'&date_to='+dates.date_to).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
-      renderCampanhas(el, ads, daily, currentSellerId);
+      renderCampanhas(el, ads, daily);
     } else if(tab === 'promocoes'){
       var promos = await fetch('/api/promotions/'+currentSellerId).then(function(r){return r.json();});
       renderPromocoes(el, promos);
@@ -1965,52 +1958,41 @@ function renderVendas(el, data, isToday){
   }, 50);
 }
 
-function renderCampanhas(el, ads, daily, sellerId){
+function renderCampanhas(el, ads, daily){
   var s = ads.summary;
   var camps = ads.campaigns || [];
-  var hasDailyData = daily && daily.days && daily.days.length > 0;
   var ctr = s.impressions>0 ? ((s.clicks/s.impressions)*100).toFixed(2) : '0.00';
 
-  // Buscar metas salvas do seller atual
-  var goals = {};
-  try { goals = JSON.parse(localStorage.getItem('seller_goals_'+(sellerId||currentSellerId))||'{}'); } catch(e){}
-  var acosWarn = goals.acosWarn || 15;
-  var acosCrit = goals.acosCrit || 25;
-  var roasWarn = goals.roasWarn || 3;
-  var roasCrit = goals.roasCrit || 2;
-
-  // Cores do resumo usando metas do seller
-  var acosColor = s.acos<=acosWarn?'var(--green)':s.acos<=acosCrit?'var(--amber)':'var(--red)';
-  var roasColor = s.roas>=roasWarn?'var(--green)':s.roas>=roasCrit?'var(--amber)':'var(--red)';
+  var acosColor = s.acos<=15?'var(--green)':s.acos<=25?'var(--amber)':'var(--red)';
+  var roasColor = s.roas>=3?'var(--green)':'var(--red)';
 
   var campRows = camps.map(function(c){
-    var acosC = c.acos<=acosWarn?'badge-green':c.acos<=acosCrit?'badge-amber':'badge-red';
-    var roasLineColor = c.roas>=roasWarn?'var(--green)':c.roas>=roasCrit?'var(--amber)':'var(--red)';
+    var acosC = c.acos<=15?'badge-green':c.acos<=25?'badge-amber':'badge-red';
+    var roasLineColor = c.roas>=3?'var(--green)':'var(--red)';
     var dotColor = (c.status==='active'||c.status==='enabled')?'var(--green)':c.status==='paused'?'var(--amber)':'var(--red)';
     var stLabel = (c.status==='active'||c.status==='enabled')?'Ativa':c.status==='paused'?'Pausada':'Parada';
     var stBadge = (c.status==='active'||c.status==='enabled')?'badge-green':c.status==='paused'?'badge-amber':'badge-red';
-    // ROAS Objetivo: compara real vs meta configurada na campanha
     var roasObjCell;
     if(c.roas_target != null && c.roas_target > 0){
       var batendo = c.roas >= c.roas_target;
       var roasObjColor = batendo ? 'var(--green)' : 'var(--red)';
       var roasObjIcon = batendo ? '↑' : '↓';
       roasObjCell = '<td style="white-space:nowrap">'+
-        '<span style="color:var(--text3);font-size:11px">'+c.roas_target+'x</span> '+
-        '<span style="color:'+roasObjColor+';font-size:11px;font-weight:600">'+roasObjIcon+'</span>'+
-      '</td>';
+        '<span style="color:var(--text3);font-size:11px">'+c.roas_target+'x<\/span> '+
+        '<span style="color:'+roasObjColor+';font-size:11px;font-weight:600">'+roasObjIcon+'<\/span>'+
+      '<\/td>';
     } else {
-      roasObjCell = '<td style="color:var(--text3);font-size:11px">—</td>';
+      roasObjCell = '<td style="color:var(--text3);font-size:11px">—<\/td>';
     }
     return '<tr class="camp-row-clickable" data-status="'+(c.status==='active'||c.status==='enabled'?'active':'paused')+'" data-roas="'+c.roas+'" data-acos="'+c.acos+'" data-spend="'+c.spend+'" data-revenue="'+c.revenue+'" onclick="openCampModal(\''+c.id+'\',\''+c.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',\''+c.status+'\')">'+
-      '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:6px;vertical-align:middle"></span><span class="cell-name" title="'+c.name+'">'+c.name+'</span></td>'+
-      '<td>'+fmtDec(c.spend)+'</td><td>'+fmtDec(c.revenue)+'</td>'+
-      '<td style="color:'+roasLineColor+'">'+c.roas+'x</td>'+
+      '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:6px;vertical-align:middle"><\/span><span class="cell-name" title="'+c.name+'">'+c.name+'<\/span><\/td>'+
+      '<td>'+fmtDec(c.spend)+'<\/td><td>'+fmtDec(c.revenue)+'<\/td>'+
+      '<td style="color:'+roasLineColor+'">'+c.roas+'x<\/td>'+
       roasObjCell+
-      '<td><span class="badge '+acosC+'">'+c.acos+'%</span></td>'+
-      '<td>'+fmtK(c.clicks)+'</td><td>'+fmtK(c.impressions)+'</td>'+
-      '<td><span class="badge '+stBadge+'">'+stLabel+'</span></td>'+
-    '</tr>';
+      '<td><span class="badge '+acosC+'">'+c.acos+'%<\/span><\/td>'+
+      '<td>'+fmtK(c.clicks)+'<\/td><td>'+fmtK(c.impressions)+'<\/td>'+
+      '<td><span class="badge '+stBadge+'">'+stLabel+'<\/span><\/td>'+
+    '<\/tr>';
   }).join('');
   var emptyCamps = camps.length===0 ? '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Nenhuma campanha no período<\/td><\/tr>' : campRows;
 
@@ -2019,8 +2001,8 @@ function renderCampanhas(el, ads, daily, sellerId){
     '<div class="metrics-grid" style="grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:16px">'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Gasto<\/div><div class="metric-value" style="font-size:16px">'+fmt(s.spend)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Receita ADS<\/div><div class="metric-value" style="font-size:16px">'+fmt(s.revenue)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ROAS<\/div><div class="metric-value" style="font-size:16px;color:'+roasColor+'">'+s.roas+'x<\/div><div class="metric-delta '+(s.roas>=roasWarn?'delta-up':'delta-down')+'">'+(s.roas>=roasWarn?'Acima':'Abaixo')+' da meta ('+roasWarn+'x)<\/div><\/div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ACOS<\/div><div class="metric-value" style="font-size:16px;color:'+acosColor+'">'+s.acos+'%<\/div><div class="metric-delta '+(s.acos<=acosWarn?'delta-up':'delta-down')+'">'+(s.acos<=acosWarn?'Dentro':'Acima')+' da meta ('+acosWarn+'%)<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ROAS<\/div><div class="metric-value" style="font-size:16px;color:'+roasColor+'">'+s.roas+'x<\/div><div class="metric-delta '+(s.roas>=3?'delta-up':'delta-down')+'">'+(s.roas>=3?'Acima':'Abaixo')+' da meta (3x)<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ACOS<\/div><div class="metric-value" style="font-size:16px;color:'+acosColor+'">'+s.acos+'%<\/div><div class="metric-delta '+(s.acos<=15?'delta-up':'delta-down')+'">'+(s.acos<=15?'Dentro':'Acima')+' da meta (15%)<\/div><\/div>'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Cliques<\/div><div class="metric-value" style="font-size:16px">'+fmtK(s.clicks)+'<\/div><div class="metric-delta">CTR: '+ctr+'%<\/div><\/div>'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Impressões<\/div><div class="metric-value" style="font-size:16px">'+fmtK(s.impressions)+'<\/div><div class="metric-delta">total do período<\/div><\/div>'+
     '<\/div>'+
@@ -2035,7 +2017,7 @@ function renderCampanhas(el, ads, daily, sellerId){
             '<button onclick="filterCamps(\'active\')" id="filt-active" class="camp-filt-btn">Ativas<\/button>'+
             '<button onclick="filterCamps(\'paused\')" id="filt-paused" class="camp-filt-btn">Pausadas<\/button>'+
           '<\/div>'+
-          '<select id="camps-sort-sel" onchange="sortCamps(this.value)" style="background:var(--card);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer">'+
+          '<select id="camps-sort-sel" onchange="sortCamps(this.value)" style="background:var(--sf);color:var(--tx);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;font-family:Inter,sans-serif;cursor:pointer">'+
             '<option value="">Ordenar por...<\/option>'+
             '<option value="roas-desc">ROAS ↓ maior<\/option>'+
             '<option value="roas-asc">ROAS ↑ menor<\/option>'+
@@ -2048,15 +2030,12 @@ function renderCampanhas(el, ads, daily, sellerId){
       '<\/div>'+
       '<div style="overflow-x:auto"><table class="data-table" id="camps-table"><thead><tr><th>Campanha<\/th><th>Gasto<\/th><th>Receita<\/th><th>ROAS<\/th><th>ROAS Obj.<\/th><th>ACOS<\/th><th>Cliques<\/th><th>Impressões<\/th><th>Status<\/th><\/tr><\/thead><tbody id="camps-tbody">'+emptyCamps+'<\/tbody><\/table><\/div>'+
     '<\/div>';
-
 }
 
-var _allCampRows = []; // guarda todas as linhas renderizadas
 var _activeCampFilter = 'all';
 
 function filterCamps(status){
   _activeCampFilter = status;
-  // atualiza botões
   ['all','active','paused'].forEach(function(s){
     var btn = document.getElementById('filt-'+s);
     if(btn) btn.classList.toggle('camp-filt-active', s===status);
@@ -2064,36 +2043,27 @@ function filterCamps(status){
   _applyCampView();
 }
 
-function sortCamps(val){
-  _applyCampView(val);
-}
+function sortCamps(val){ _applyCampView(val); }
 
 function _applyCampView(sortVal){
   var tbody = document.getElementById('camps-tbody');
   if(!tbody) return;
-  // pega todas as linhas originais
   var rows = Array.from(tbody.querySelectorAll('tr[data-status]'));
   if(!rows.length) return;
-
-  // filtro
   var visible = rows.filter(function(r){
-    if(_activeCampFilter === 'all') return true;
-    return r.dataset.status === _activeCampFilter;
+    return _activeCampFilter==='all' || r.dataset.status===_activeCampFilter;
   });
-
-  // sort
-  var sv = sortVal || (document.getElementById('camps-sort-sel') ? document.getElementById('camps-sort-sel').value : '');
+  var sv = sortVal || (document.getElementById('camps-sort-sel')?document.getElementById('camps-sort-sel').value:'');
   if(sv){
     visible.sort(function(a,b){
-      var av = parseFloat(a.dataset[sv.split('-')[0]])||0;
-      var bv = parseFloat(b.dataset[sv.split('-')[0]])||0;
+      var key = sv.split('-')[0];
+      var av = parseFloat(a.dataset[key])||0;
+      var bv = parseFloat(b.dataset[key])||0;
       return sv.endsWith('asc') ? av-bv : bv-av;
     });
   }
-
-  // re-renderiza
   tbody.innerHTML = '';
-  if(visible.length === 0){
+  if(!visible.length){
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Nenhuma campanha encontrada<\/td><\/tr>';
   } else {
     visible.forEach(function(r){ tbody.appendChild(r); });
@@ -2101,6 +2071,8 @@ function _applyCampView(sortVal){
   var lbl = document.getElementById('camps-count-label');
   if(lbl) lbl.textContent = visible.length+' campanha'+(visible.length!==1?'s':'')+' exibida'+(visible.length!==1?'s':'');
 }
+
+
 
 function promoTypeLabel(type){
   var map = {
@@ -3044,6 +3016,7 @@ function renderCampProducts(products) {
       '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmtK(p.impressions)+'</td>'+
       '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmtK(p.clicks)+'</td>'+
       '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmt(p.cpc)+'</td>'+
+      '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+p.orders+'</td>'+
     '</tr>';
   }).join('');
 
@@ -3060,6 +3033,7 @@ function renderCampProducts(products) {
           '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Impressões</th>'+
           '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Cliques</th>'+
           '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">CPC</th>'+
+          '<th style="padding:10px 8px;font-size:10px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.4px;text-align:left;white-space:nowrap">Vendas ADS</th>'+
         '</tr>'+
       '</thead>'+
       '<tbody>'+rows+'</tbody>'+
