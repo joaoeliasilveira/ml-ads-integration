@@ -698,6 +698,9 @@ body.dark .detail-name{color:#f0f0f5}
 .camp-modal-info-value{font-size:13px;font-weight:600;color:#d0d0e0}
 .camp-row-clickable{cursor:pointer;transition:background .15s}
 .camp-row-clickable:hover{background:rgba(255,255,255,.04)}
+.camp-filt-btn{background:var(--card);color:var(--text3);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer;transition:all .15s}
+.camp-filt-btn:hover{color:var(--text1);border-color:var(--tl)}
+.camp-filt-active{background:var(--tl)!important;color:#fff!important;border-color:var(--tl)!important}
 </style>
 </head>
 <body>
@@ -1999,7 +2002,7 @@ function renderCampanhas(el, ads, daily, sellerId){
     } else {
       roasObjCell = '<td style="color:var(--text3);font-size:11px">—</td>';
     }
-    return '<tr class="camp-row-clickable" onclick="openCampModal(\''+c.id+'\',\''+c.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',\''+c.status+'\')">'+
+    return '<tr class="camp-row-clickable" data-status="'+(c.status==='active'||c.status==='enabled'?'active':'paused')+'" data-roas="'+c.roas+'" data-acos="'+c.acos+'" data-spend="'+c.spend+'" data-revenue="'+c.revenue+'" onclick="openCampModal(\''+c.id+'\',\''+c.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',\''+c.status+'\')">'+
       '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:6px;vertical-align:middle"></span><span class="cell-name" title="'+c.name+'">'+c.name+'</span></td>'+
       '<td>'+fmtDec(c.spend)+'</td><td>'+fmtDec(c.revenue)+'</td>'+
       '<td style="color:'+roasLineColor+'">'+c.roas+'x</td>'+
@@ -2022,47 +2025,81 @@ function renderCampanhas(el, ads, daily, sellerId){
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Impressões<\/div><div class="metric-value" style="font-size:16px">'+fmtK(s.impressions)+'<\/div><div class="metric-delta">total do período<\/div><\/div>'+
     '<\/div>'+
 
-    '<div class="section-label">'+(hasDailyData?'Evolução Diária':'Gasto vs Receita por Campanha')+'<\/div>'+
-    '<div class="card">'+
-      '<div class="card-title">'+(hasDailyData?'Gasto e Receita Diários':'Performance por Campanha')+'<\/div>'+
-      '<div class="card-sub">'+(hasDailyData?'Dia a dia no período':'Top campanhas de publicidade')+'<\/div>'+
-      '<div class="legend"><span class="leg"><span class="leg-dot" style="background:#4a5fe8"><\/span>Receita<\/span><span class="leg"><span class="leg-dot" style="background:#ff5c7a"><\/span>Gasto<\/span><\/div>'+
-      '<div style="position:relative;height:220px"><canvas id="chart-camps"><\/canvas><\/div>'+
-    '<\/div>'+
-
     '<div class="section-label">Publicidade<\/div>'+
     '<div class="card" style="padding:0;overflow:hidden">'+
-      '<div style="padding:16px 20px;border-bottom:1px solid var(--border)"><div class="card-title">Detalhamento por Campanha<\/div><div class="card-sub" style="margin-bottom:0">'+camps.length+' campanhas no período<\/div><\/div>'+
-      '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Campanha<\/th><th>Gasto<\/th><th>Receita<\/th><th>ROAS<\/th><th>ROAS Obj.<\/th><th>ACOS<\/th><th>Cliques<\/th><th>Impressões<\/th><th>Status<\/th><\/tr><\/thead><tbody>'+emptyCamps+'<\/tbody><\/table><\/div>'+
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'+
+        '<div><div class="card-title">Detalhamento por Campanha<\/div><div class="card-sub" style="margin-bottom:0" id="camps-count-label">'+camps.length+' campanhas no período<\/div><\/div>'+
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+          '<div style="display:flex;gap:4px">'+
+            '<button onclick="filterCamps(\'all\')" id="filt-all" class="camp-filt-btn camp-filt-active">Todas<\/button>'+
+            '<button onclick="filterCamps(\'active\')" id="filt-active" class="camp-filt-btn">Ativas<\/button>'+
+            '<button onclick="filterCamps(\'paused\')" id="filt-paused" class="camp-filt-btn">Pausadas<\/button>'+
+          '<\/div>'+
+          '<select id="camps-sort-sel" onchange="sortCamps(this.value)" style="background:var(--card);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;font-family:Poppins,sans-serif;cursor:pointer">'+
+            '<option value="">Ordenar por...<\/option>'+
+            '<option value="roas-desc">ROAS ↓ maior<\/option>'+
+            '<option value="roas-asc">ROAS ↑ menor<\/option>'+
+            '<option value="acos-asc">ACOS ↑ menor<\/option>'+
+            '<option value="acos-desc">ACOS ↓ maior<\/option>'+
+            '<option value="spend-desc">Gasto ↓ maior<\/option>'+
+            '<option value="revenue-desc">Receita ↓ maior<\/option>'+
+          '<\/select>'+
+        '<\/div>'+
+      '<\/div>'+
+      '<div style="overflow-x:auto"><table class="data-table" id="camps-table"><thead><tr><th>Campanha<\/th><th>Gasto<\/th><th>Receita<\/th><th>ROAS<\/th><th>ROAS Obj.<\/th><th>ACOS<\/th><th>Cliques<\/th><th>Impressões<\/th><th>Status<\/th><\/tr><\/thead><tbody id="camps-tbody">'+emptyCamps+'<\/tbody><\/table><\/div>'+
     '<\/div>';
 
-  setTimeout(function(){
-    var canvas = document.getElementById('chart-camps');
-    if(!canvas) return;
-    if(charts.camps){ charts.camps.destroy(); charts.camps=null; }
-    if(hasDailyData){
-      charts.camps = new Chart(canvas, {
-        type: 'line',
-        data: { labels: daily.days.map(function(d){return d.date;}), datasets: [
-          {label:'Receita',data:daily.days.map(function(d){return d.revenue;}),borderColor:'#4a5fe8',backgroundColor:'rgba(74,95,232,0.08)',borderWidth:2,tension:0.3,fill:true,pointRadius:3},
-          {label:'Gasto',data:daily.days.map(function(d){return d.cost;}),borderColor:'#ff5c7a',backgroundColor:'rgba(255,92,122,0.06)',borderWidth:2,tension:0.3,fill:true,pointRadius:3}
-        ]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#9898b0',font:{size:11,family:'Poppins'},boxWidth:10}}},
-          scales:{x:{ticks:{font:{size:10},color:'#5a5a70',maxRotation:35},grid:{display:false}},y:{ticks:{font:{size:10},color:'#5a5a70',callback:function(v){return 'R$'+fmtK(v);}},grid:{color:'rgba(255,255,255,0.04)'}}}}
-      });
-    } else {
-      var c10 = camps.slice(0,10);
-      charts.camps = new Chart(canvas, {
-        type:'bar',
-        data:{labels:c10.map(function(c){return c.name.length>18?c.name.slice(0,18)+'...':c.name;}),datasets:[
-          {label:'Receita',data:c10.map(function(c){return c.revenue;}),backgroundColor:'rgba(74,95,232,0.7)',borderRadius:4,borderSkipped:false},
-          {label:'Gasto',data:c10.map(function(c){return c.spend;}),backgroundColor:'rgba(255,92,122,0.7)',borderRadius:4,borderSkipped:false}
-        ]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#9898b0',font:{size:11,family:'Poppins'},boxWidth:10}}},
-          scales:{x:{ticks:{font:{size:10},color:'#5a5a70',maxRotation:40},grid:{display:false}},y:{ticks:{font:{size:10},color:'#5a5a70',callback:function(v){return 'R$'+fmtK(v);}},grid:{color:'rgba(255,255,255,0.04)'}}}}
-      });
-    }
-  },50);
+}
+
+var _allCampRows = []; // guarda todas as linhas renderizadas
+var _activeCampFilter = 'all';
+
+function filterCamps(status){
+  _activeCampFilter = status;
+  // atualiza botões
+  ['all','active','paused'].forEach(function(s){
+    var btn = document.getElementById('filt-'+s);
+    if(btn) btn.classList.toggle('camp-filt-active', s===status);
+  });
+  _applyCampView();
+}
+
+function sortCamps(val){
+  _applyCampView(val);
+}
+
+function _applyCampView(sortVal){
+  var tbody = document.getElementById('camps-tbody');
+  if(!tbody) return;
+  // pega todas as linhas originais
+  var rows = Array.from(tbody.querySelectorAll('tr[data-status]'));
+  if(!rows.length) return;
+
+  // filtro
+  var visible = rows.filter(function(r){
+    if(_activeCampFilter === 'all') return true;
+    return r.dataset.status === _activeCampFilter;
+  });
+
+  // sort
+  var sv = sortVal || (document.getElementById('camps-sort-sel') ? document.getElementById('camps-sort-sel').value : '');
+  if(sv){
+    visible.sort(function(a,b){
+      var av = parseFloat(a.dataset[sv.split('-')[0]])||0;
+      var bv = parseFloat(b.dataset[sv.split('-')[0]])||0;
+      return sv.endsWith('asc') ? av-bv : bv-av;
+    });
+  }
+
+  // re-renderiza
+  tbody.innerHTML = '';
+  if(visible.length === 0){
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:20px">Nenhuma campanha encontrada<\/td><\/tr>';
+  } else {
+    visible.forEach(function(r){ tbody.appendChild(r); });
+  }
+  var lbl = document.getElementById('camps-count-label');
+  if(lbl) lbl.textContent = visible.length+' campanha'+(visible.length!==1?'s':'')+' exibida'+(visible.length!==1?'s':'');
 }
 
 function promoTypeLabel(type){
