@@ -681,7 +681,7 @@ def get_campaign_metrics(advertiser_id, camp_id, token, date_from, date_to, base
     resp = requests.get(url, params={
         "date_from": date_from,
         "date_to": date_to,
-        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
+        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"
     }, headers={"Authorization": "Bearer " + token, "Api-Version": "2"})
     if not resp.ok:
         print("[METRICS][ERRO] " + url + " HTTP " + str(resp.status_code) + " " + resp.text[:200])
@@ -722,6 +722,8 @@ def get_ads(user_id):
         revenue = m.get("total_amount", m.get("direct_amount", m.get("revenue", 0)))
         clicks  = m.get("clicks", 0)
         imps    = m.get("prints", m.get("impressions", 0))
+        orders  = m.get("advertising_items_quantity", m.get("direct_items_quantity", 0))
+        cvr     = m.get("cvr", 0)
 
         roas = round(revenue / spend, 2) if spend > 0 else 0
         acos = round((spend / revenue) * 100, 1) if revenue > 0 else 0
@@ -747,7 +749,9 @@ def get_ads(user_id):
             "impressions": imps,
             "roas": roas,
             "acos": acos,
-            "roas_target": roas_target
+            "roas_target": roas_target,
+            "orders": orders,
+            "cvr": round(float(cvr), 2) if cvr else 0,
         })
 
     return jsonify({
@@ -1568,7 +1572,7 @@ def get_campaign_products(user_id, camp_id):
                     f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
                     params={
                         "date_from": date_from, "date_to": date_to,
-                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
+                        "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"
                     },
                     headers={"Authorization": "Bearer " + token, "Api-Version": "2"}, timeout=8
                 )
@@ -1584,7 +1588,10 @@ def get_campaign_products(user_id, camp_id):
         imps     = m.get("prints", m.get("impressions", 0))
         direct   = m.get("direct_amount", 0)
         indirect = m.get("indirect_amount", 0)
-        orders   = m.get("orders", m.get("units_sold", m.get("direct_orders", m.get("total_orders", 0))))
+        orders   = m.get("advertising_items_quantity", m.get("direct_items_quantity", 0))
+        direct_orders   = m.get("direct_items_quantity", 0)
+        indirect_orders = m.get("indirect_items_quantity", 0)
+        cvr      = m.get("cvr", 0)
 
         return {
             "item_id":   str(item_id),
@@ -1599,6 +1606,9 @@ def get_campaign_products(user_id, camp_id):
             "clicks":    clicks,
             "impressions": imps,
             "orders":    orders,
+            "direct_orders":   direct_orders,
+            "indirect_orders": indirect_orders,
+            "cvr":       round(cvr, 2) if cvr else 0,
             "roas":      round(revenue / spend, 2) if spend > 0 else 0,
             "acos":      round((spend / revenue) * 100, 1) if revenue > 0 else 0,
             "cpc":       round(spend / clicks, 2) if clicks > 0 else 0,
@@ -1703,7 +1713,7 @@ def get_campaign_detail(user_id, camp_id):
             params={
                 "date_from": date_from,
                 "date_to": date_to,
-                "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"
+                "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"
             },
             headers={"Authorization": "Bearer " + token, "Api-Version": "2"}, timeout=8
         )
@@ -1906,24 +1916,24 @@ def debug_item_metrics(user_id, camp_id, item_id):
     tests = [
         ("items_with_metrics_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items",
          {"campaign_id": camp_id, "item_id": item_id, "date_from": date_from, "date_to": date_to,
-          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "1"),
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "1"),
         ("items_with_metrics_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items",
          {"campaign_id": camp_id, "item_id": item_id, "date_from": date_from, "date_to": date_to,
-          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("mlb_campaign_item_v2", f"https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/{camp_id}",
          {"item_id": item_id, "date_from": date_from, "date_to": date_to,
-          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("advertiser_campaign_item_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/campaigns/{camp_id}",
          {"item_id": item_id, "date_from": date_from, "date_to": date_to,
-          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("item_summary_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items/{item_id}",
          {"date_from": date_from, "date_to": date_to}, "1"),
         ("item_summary_v2", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items/{item_id}",
          {"date_from": date_from, "date_to": date_to,
-          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("mlb_item_v2", f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
          {"date_from": date_from, "date_to": date_to,
-          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+          "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("items_no_filter_v1", f"https://api.mercadolibre.com/advertising/advertisers/{aid}/product_ads/items",
          {"item_id": item_id, "date_from": date_from, "date_to": date_to}, "1"),
     ]
@@ -1993,10 +2003,10 @@ def debug_campaign(user_id, camp_id):
 
     results = {}
     tests = [
-        ("MLB_v2_metrics", "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("MLB_v2_metrics", "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("MLB_v1", "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to}, "1"),
-        ("aid_v2", "https://api.mercadolibre.com/advertising/" + aid + "/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
-        ("aid_campaigns_v2", "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+        ("aid_v2", "https://api.mercadolibre.com/advertising/" + aid + "/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
+        ("aid_campaigns_v2", "https://api.mercadolibre.com/advertising/advertisers/" + aid + "/product_ads/campaigns/" + camp_id, {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("MLB_no_params", "https://api.mercadolibre.com/advertising/MLB/product_ads/campaigns/" + camp_id, {}, "2"),
     ]
     for name, url, params, version in tests:
@@ -2973,13 +2983,13 @@ def debug_item(user_id, item_id):
     # Testa várias combinações de métricas e versões para descobrir o que a API aceita
     tests = [
         ("v2_padrao",     f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
-         {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "2"),
+         {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "2"),
         ("v2_com_orders", f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
          {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,orders"}, "2"),
         ("v2_sem_metrics",f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
          {"date_from": date_from, "date_to": date_to}, "2"),
         ("v1_padrao",     f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
-         {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount"}, "1"),
+         {"date_from": date_from, "date_to": date_to, "metrics": "clicks,prints,cost,direct_amount,indirect_amount,total_amount,advertising_items_quantity,direct_items_quantity,indirect_items_quantity,cvr"}, "1"),
         ("v1_sem_metrics",f"https://api.mercadolibre.com/advertising/MLB/product_ads/items/{item_id}",
          {"date_from": date_from, "date_to": date_to}, "1"),
     ]
