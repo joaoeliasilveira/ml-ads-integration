@@ -1111,7 +1111,8 @@ function saveSellerGoals(){
   localStorage.setItem('seller_goals_'+uid, JSON.stringify({acosWarn,acosCrit,roasWarn,roasCrit}));
   document.getElementById('goals-modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
-  alertsLoaded = false; // força refresh dos alertas
+  alertsLoaded = false;
+  reloadCurrentTab();
 }
 
 // -- PAINEL DE PREFERENCIAS DE NOTIFICACOES --
@@ -1150,6 +1151,7 @@ function saveNotifPrefs(){
   };
   localStorage.setItem(key, JSON.stringify(prefs));
   alertsLoaded = false;
+  reloadCurrentTab();
 }
 
 function getFullStockThreshold(itemId){
@@ -1158,6 +1160,8 @@ function getFullStockThreshold(itemId){
 
 function saveFullStockThreshold(itemId, val){
   localStorage.setItem('fst_'+itemId, parseInt(val)||0);
+  alertsLoaded = false;
+  reloadCurrentTab();
 }
 
 function toggleNotifSection(key){
@@ -1232,6 +1236,8 @@ function saveGoalsInline(){
   var msg = document.getElementById('goals-saved-msg');
   msg.style.display = 'block';
   setTimeout(function(){ msg.style.display = 'none'; }, 2000);
+  // Re-renderiza o dashboard com as novas metas
+  reloadCurrentTab();
 }
 
 function exportSales(){
