@@ -1399,11 +1399,14 @@ function getPeriodDates(tab){
   }
   var days = parseInt(pv) || 30;
   var to = new Date(), from = new Date();
-  from.setDate(from.getDate() - days);
+  // Aba de publicidade: ML conta hoje + (days-1) dias anteriores
+  // Demais abas: comportamento original
+  var offset = (tab === 'campanhas') ? (days - 1) : days;
+  from.setDate(from.getDate() - offset);
   return {date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0]};
 }
 
-function fmtPeriodLabel(pv, customDates){
+function fmtPeriodLabel(pv, customDates, tab){
   var months=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   function fmt(d){ var p=d.split('-'); return p[2]+'/'+p[1]; }
   if(pv==='custom' && customDates && customDates.from)
@@ -1411,7 +1414,8 @@ function fmtPeriodLabel(pv, customDates){
   if(pv==='today'){ var t=new Date(); return t.getDate()+' '+months[t.getMonth()]+' '+t.getFullYear(); }
   var days=parseInt(pv)||30;
   var to=new Date(), from=new Date();
-  from.setDate(from.getDate()-days);
+  var offset = (tab === 'campanhas') ? (days - 1) : days;
+  from.setDate(from.getDate()-offset);
   function fmtD(d){ return d.getDate()+' '+months[d.getMonth()]; }
   return fmtD(from)+' a '+fmtD(to)+' '+to.getFullYear();
 }
@@ -1435,7 +1439,7 @@ function renderTabPeriodBar(tab, containerId){
   var dropId  = 'tpd-'+tab;
   var menuId  = 'tpm-'+tab;
   var triggId = 'tpt-'+tab;
-  var sub     = fmtPeriodLabel(pv, cd);
+  var sub     = fmtPeriodLabel(pv, cd, tab);
   var html =
     '<div class="tab-period-dropdown" id="'+dropId+'">'+
       '<button class="tab-period-trigger tpt-toggle-btn" id="'+triggId+'" data-tab="'+tab+'">'+
@@ -1449,7 +1453,7 @@ function renderTabPeriodBar(tab, containerId){
         '<div class="tpm-section-label">Período principal</div>'+
         opts.map(function(o){
           var sel = pv===o.v ? ' selected' : '';
-          var s   = o.v!=='custom' ? '<div class="tpm-sub">'+fmtPeriodLabel(o.v,{})+'</div>' : '';
+          var s   = o.v!=='custom' ? '<div class="tpm-sub">'+fmtPeriodLabel(o.v,{},tab)+'</div>' : '';
           return '<div class="tpm-option'+sel+'" data-tab="'+tab+'" data-val="'+o.v+'">'+
             '<div class="tpm-label">'+o.label+'</div>'+s+'</div>';
         }).join('')+
