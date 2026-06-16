@@ -1964,13 +1964,24 @@ function renderVendas(el, data, isToday){
 function renderCampanhas(el, ads, daily){
   var s = ads.summary;
   var camps = ads.campaigns || [];
-  var acosColor = s.acos<=15?'var(--green)':s.acos<=25?'var(--amber)':'var(--red)';
-  var roasColor = s.roas>=3?'var(--green)':'var(--red)';
   var hasDailyData = daily && daily.days && daily.days.length > 0;
   var ctr = s.impressions>0 ? ((s.clicks/s.impressions)*100).toFixed(2) : '0.00';
 
+  // Buscar metas salvas do seller atual
+  var goals = {};
+  try { goals = JSON.parse(localStorage.getItem('seller_goals_'+currentSellerId)||'{}'); } catch(e){}
+  var acosWarn = goals.acosWarn || 15;
+  var acosCrit = goals.acosCrit || 25;
+  var roasWarn = goals.roasWarn || 3;
+  var roasCrit = goals.roasCrit || 2;
+
+  // Cores do resumo usando metas do seller
+  var acosColor = s.acos<=acosWarn?'var(--green)':s.acos<=acosCrit?'var(--amber)':'var(--red)';
+  var roasColor = s.roas>=roasWarn?'var(--green)':s.roas>=roasCrit?'var(--amber)':'var(--red)';
+
   var campRows = camps.map(function(c){
-    var acosC = c.acos<=15?'badge-green':c.acos<=25?'badge-amber':'badge-red';
+    var acosC = c.acos<=acosWarn?'badge-green':c.acos<=acosCrit?'badge-amber':'badge-red';
+    var roasLineColor = c.roas>=roasWarn?'var(--green)':c.roas>=roasCrit?'var(--amber)':'var(--red)';
     var dotColor = (c.status==='active'||c.status==='enabled')?'var(--green)':c.status==='paused'?'var(--amber)':'var(--red)';
     var stLabel = (c.status==='active'||c.status==='enabled')?'Ativa':c.status==='paused'?'Pausada':'Parada';
     var stBadge = (c.status==='active'||c.status==='enabled')?'badge-green':c.status==='paused'?'badge-amber':'badge-red';
@@ -1990,7 +2001,7 @@ function renderCampanhas(el, ads, daily){
     return '<tr class="camp-row-clickable" onclick="openCampModal(\''+c.id+'\',\''+c.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')+'\',\''+c.status+'\')">'+
       '<td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:6px;vertical-align:middle"></span><span class="cell-name" title="'+c.name+'">'+c.name+'</span></td>'+
       '<td>'+fmtDec(c.spend)+'</td><td>'+fmtDec(c.revenue)+'</td>'+
-      '<td style="color:'+(c.roas>=3?'var(--green)':'var(--red)')+'">'+c.roas+'x</td>'+
+      '<td style="color:'+roasLineColor+'">'+c.roas+'x</td>'+
       roasObjCell+
       '<td><span class="badge '+acosC+'">'+c.acos+'%</span></td>'+
       '<td>'+fmtK(c.clicks)+'</td><td>'+fmtK(c.impressions)+'</td>'+
@@ -2004,8 +2015,8 @@ function renderCampanhas(el, ads, daily){
     '<div class="metrics-grid" style="grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:16px">'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Gasto<\/div><div class="metric-value" style="font-size:16px">'+fmt(s.spend)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Receita ADS<\/div><div class="metric-value" style="font-size:16px">'+fmt(s.revenue)+'<\/div><div class="metric-delta">no período<\/div><\/div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ROAS<\/div><div class="metric-value" style="font-size:16px;color:'+roasColor+'">'+s.roas+'x<\/div><div class="metric-delta '+(s.roas>=3?'delta-up':'delta-down')+'">'+(s.roas>=3?'Acima':'Abaixo')+' da meta (3x)<\/div><\/div>'+
-      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ACOS<\/div><div class="metric-value" style="font-size:16px;color:'+acosColor+'">'+s.acos+'%<\/div><div class="metric-delta '+(s.acos<=15?'delta-up':'delta-down')+'">'+(s.acos<=15?'Dentro':'Acima')+' da meta (15%)<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ROAS<\/div><div class="metric-value" style="font-size:16px;color:'+roasColor+'">'+s.roas+'x<\/div><div class="metric-delta '+(s.roas>=roasWarn?'delta-up':'delta-down')+'">'+(s.roas>=roasWarn?'Acima':'Abaixo')+' da meta ('+roasWarn+'x)<\/div><\/div>'+
+      '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">ACOS<\/div><div class="metric-value" style="font-size:16px;color:'+acosColor+'">'+s.acos+'%<\/div><div class="metric-delta '+(s.acos<=acosWarn?'delta-up':'delta-down')+'">'+(s.acos<=acosWarn?'Dentro':'Acima')+' da meta ('+acosWarn+'%)<\/div><\/div>'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Cliques<\/div><div class="metric-value" style="font-size:16px">'+fmtK(s.clicks)+'<\/div><div class="metric-delta">CTR: '+ctr+'%<\/div><\/div>'+
       '<div class="metric-card" style="padding:10px 12px"><div class="metric-label">Impressões<\/div><div class="metric-value" style="font-size:16px">'+fmtK(s.impressions)+'<\/div><div class="metric-delta">total do período<\/div><\/div>'+
     '<\/div>'+
