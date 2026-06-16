@@ -1396,7 +1396,7 @@ function getPeriodDates(tab){
   }
   var days = parseInt(pv) || 30;
   var to = new Date();
-  var from = new Date(); from.setDate(from.getDate() - (days - 1));
+  var from = new Date(); from.setDate(from.getDate() - days);
   return {date_from: from.toISOString().split('T')[0], date_to: to.toISOString().split('T')[0]};
 }
 
@@ -1408,7 +1408,7 @@ function fmtPeriodLabel(pv, customDates){
   if(pv==='today'){ var t=new Date(); return t.getDate()+' '+months[t.getMonth()]+' '+t.getFullYear(); }
   var days=parseInt(pv)||30;
   var to=new Date();
-  var from=new Date(); from.setDate(from.getDate()-(days-1));
+  var from=new Date(); from.setDate(from.getDate()-days);
   function fmtD(d){ return d.getDate()+' '+months[d.getMonth()]; }
   return fmtD(from)+' a '+fmtD(to)+' '+to.getFullYear();
 }
@@ -3061,4 +3061,4 @@ function closeCampModal() {
 </script>
 
 </body>
-</html>v
+</html>
