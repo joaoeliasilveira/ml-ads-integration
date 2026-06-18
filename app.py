@@ -725,6 +725,13 @@ def get_ads(user_id):
 
     date_from = request.args.get("date_from", "2026-05-01")
     date_to   = request.args.get("date_to",   "2026-05-26")
+
+    # Cache — evita refazer N chamadas à API a cada reload
+    ck = cache_key_ads(user_id, date_from, date_to)
+    cached = cache_get(ck)
+    if cached:
+        return jsonify(cached)
+
     campaigns, base_url, aid = get_campaigns(user_id, token)
 
     result = []
@@ -793,7 +800,7 @@ def get_ads(user_id):
             "cvr": round(float(cvr), 2) if cvr else 0,
         })
 
-    return jsonify({
+    response_data = {
         "seller_id": user_id,
         "nickname": seller["nickname"],
         "summary": {
@@ -805,7 +812,9 @@ def get_ads(user_id):
             "acos": round((total_spend / total_revenue) * 100, 1) if total_revenue > 0 else 0
         },
         "campaigns": result
-    })
+    }
+    cache_set(ck, response_data)
+    return jsonify(response_data)
 
 @app.route("/api/ads/<user_id>/daily")
 def get_ads_daily(user_id):
@@ -1251,7 +1260,7 @@ def get_sales(user_id):
                     any(k in str(sh).lower() for k in full_keywords) or
                     any(k in str(ff).lower() for k in full_keywords)
                 )
-                print(f"[FULL_DEBUG] {iid} lt={lt!r} ff={ff} sh_lt={sh.get('logistic_type')!r} is_full={is_full}")
+                print(f"[FULL_DEBUG] {iid} lt={lt!r} is_full={is_full}")
                 products_map[iid] = {
                     "item_id": iid,
                     "title":   body.get("title", ""),
@@ -3171,14 +3180,20 @@ def trigger_history_collect():
 
 
 # Inicia o scheduler para coleta diária às 06:00
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(collect_campaign_history, "cron", hour=6, minute=0, id="daily_history")
-    scheduler.start()
-    print("[SCHEDULER] Coleta diária de histórico agendada para 06:00")
-except Exception as e:
-    print("[SCHEDULER][AVISO] APScheduler não disponível:", e)
+# Só inicia no worker principal (evita duplicação com gunicorn multi-worker)
+import os as _os
+if _os.environ.get("WEB_CONCURRENCY","1") == "1" or _os.environ.get("SCHEDULER_ENABLED","1") == "1":
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        _scheduler = BackgroundScheduler(daemon=True)
+        _scheduler.add_job(collect_campaign_history, "cron", hour=6, minute=0, id="daily_history",
+                           misfire_grace_time=3600)
+        _scheduler.start()
+        print("[SCHEDULER] Coleta diária agendada para 06:00")
+    except ImportError:
+        print("[SCHEDULER] APScheduler não instalado — coleta manual via /api/admin/collect-history")
+    except Exception as e:
+        print("[SCHEDULER][AVISO]", e)
 
 
 if __name__ == "__main__":
