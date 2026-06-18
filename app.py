@@ -79,6 +79,30 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_api_cache_expires
         ON api_cache (expires_at)
     """)
+    # Tabela de histórico diário de métricas por campanha
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS campaign_metrics_history (
+            id            SERIAL PRIMARY KEY,
+            seller_id     TEXT NOT NULL,
+            campaign_id   TEXT NOT NULL,
+            campaign_name TEXT,
+            date          DATE NOT NULL,
+            spend         NUMERIC DEFAULT 0,
+            revenue       NUMERIC DEFAULT 0,
+            roas          NUMERIC DEFAULT 0,
+            acos          NUMERIC DEFAULT 0,
+            clicks        INTEGER DEFAULT 0,
+            impressions   INTEGER DEFAULT 0,
+            orders        INTEGER DEFAULT 0,
+            cvr           NUMERIC DEFAULT 0,
+            recorded_at   TIMESTAMP DEFAULT NOW(),
+            UNIQUE(seller_id, campaign_id, date)
+        )
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_camp_history_lookup
+        ON campaign_metrics_history (seller_id, campaign_id, date DESC)
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -3021,6 +3045,128 @@ def debug_item(user_id, item_id):
             results[name] = {"error": str(e)}
 
     return jsonify({"user_id": user_id, "item_id": item_id, "results": results})
+
+
+
+# ─── HISTÓRICO DE CAMPANHAS ───────────────────────────────────────────
+
+def collect_campaign_history():
+    """Coleta métricas do dia anterior para todas as campanhas de todos os sellers."""
+    print("[HISTORY] Iniciando coleta diária de histórico de campanhas...")
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("SELECT user_id, access_token, refresh_token, nickname FROM sellers")
+        sellers = cur.fetchall()
+        cur.close(); conn.close()
+    except Exception as e:
+        print("[HISTORY][ERRO] Falha ao buscar sellers:", e)
+        return
+
+    for seller in sellers:
+        user_id = seller["user_id"]
+        token   = seller["access_token"]
+        try:
+            token = refresh_token_if_needed(user_id, token, seller.get("refresh_token",""))
+        except: pass
+
+        try:
+            campaigns, base_url, aid = get_campaigns(user_id, token)
+        except Exception as e:
+            print(f"[HISTORY][ERRO] seller {user_id} campanhas:", e)
+            continue
+
+        for camp in campaigns:
+            camp_id   = str(camp.get("id",""))
+            camp_name = camp.get("name","")
+            try:
+                metrics = get_campaign_metrics(aid, camp_id, token, yesterday, yesterday, base_url or "")
+                if isinstance(metrics, dict) and "metrics" in metrics:
+                    m = metrics["metrics"]
+                elif isinstance(metrics, dict):
+                    m = metrics
+                else:
+                    continue
+
+                spend   = float(m.get("cost", 0))
+                revenue = float(m.get("total_amount", m.get("direct_amount", 0)))
+                clicks  = int(m.get("clicks", 0))
+                imps    = int(m.get("prints", m.get("impressions", 0)))
+                orders  = int(m.get("advertising_items_quantity", m.get("direct_items_quantity", 0)))
+                cvr     = float(m.get("cvr", 0))
+                roas    = round(revenue / spend, 2) if spend > 0 else 0
+                acos    = round((spend / revenue) * 100, 1) if revenue > 0 else 0
+
+                conn = get_db()
+                cur  = conn.cursor()
+                cur.execute("""
+                    INSERT INTO campaign_metrics_history
+                        (seller_id, campaign_id, campaign_name, date, spend, revenue, roas, acos, clicks, impressions, orders, cvr)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (seller_id, campaign_id, date) DO UPDATE SET
+                        spend=EXCLUDED.spend, revenue=EXCLUDED.revenue,
+                        roas=EXCLUDED.roas, acos=EXCLUDED.acos,
+                        clicks=EXCLUDED.clicks, impressions=EXCLUDED.impressions,
+                        orders=EXCLUDED.orders, cvr=EXCLUDED.cvr,
+                        recorded_at=NOW()
+                """, (user_id, camp_id, camp_name, yesterday,
+                      spend, revenue, roas, acos, clicks, imps, orders, cvr))
+                conn.commit()
+                cur.close(); conn.close()
+                print(f"[HISTORY] {seller.get('nickname',user_id)} / {camp_name} / {yesterday} salvo")
+            except Exception as e:
+                print(f"[HISTORY][ERRO] campanha {camp_id}:", e)
+
+    print("[HISTORY] Coleta concluída.")
+
+
+@app.route("/api/ads/<user_id>/campaign/<camp_id>/history")
+@login_required
+def get_campaign_history(user_id, camp_id):
+    ok, err = check_seller_access(user_id)
+    if not ok: return err
+    days = int(request.args.get("days", 30))
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute("""
+            SELECT date, spend, revenue, roas, acos, clicks, impressions, orders, cvr
+            FROM campaign_metrics_history
+            WHERE seller_id=%s AND campaign_id=%s
+              AND date >= CURRENT_DATE - INTERVAL '%s days'
+            ORDER BY date ASC
+        """, (user_id, camp_id, days))
+        rows = cur.fetchall()
+        cur.close(); conn.close()
+        history = [dict(r) for r in rows]
+        for h in history:
+            h["date"] = h["date"].strftime("%Y-%m-%d") if hasattr(h["date"], "strftime") else str(h["date"])
+            for k in ["spend","revenue","roas","acos","cvr"]:
+                h[k] = float(h[k]) if h[k] is not None else 0
+        return jsonify({"campaign_id": camp_id, "history": history})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/collect-history", methods=["POST"])
+@master_required
+def trigger_history_collect():
+    """Endpoint para disparar coleta manualmente via painel admin."""
+    import threading
+    threading.Thread(target=collect_campaign_history, daemon=True).start()
+    return jsonify({"status": "started"})
+
+
+# Inicia o scheduler para coleta diária às 06:00
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(collect_campaign_history, "cron", hour=6, minute=0, id="daily_history")
+    scheduler.start()
+    print("[SCHEDULER] Coleta diária de histórico agendada para 06:00")
+except Exception as e:
+    print("[SCHEDULER][AVISO] APScheduler não disponível:", e)
 
 
 if __name__ == "__main__":
