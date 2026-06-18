@@ -706,7 +706,7 @@ def get_ads(user_id):
     result = []
     total_spend = total_revenue = total_clicks = total_impressions = 0
 
-    for camp in campaigns[:10]:
+    def fetch_camp_metrics(camp):
         camp_id = camp.get("id")
         metrics = get_campaign_metrics(aid, camp_id, token, date_from, date_to, base_url or "")
 
@@ -717,6 +717,19 @@ def get_ads(user_id):
             m = metrics[0].get("metrics", metrics[0])
         else:
             m = metrics if isinstance(metrics, dict) else {}
+
+        return camp, camp_id, metrics, m
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futures = {ex.submit(fetch_camp_metrics, camp): camp for camp in campaigns}
+        camps_results = []
+        for future in as_completed(futures):
+            try:
+                camps_results.append(future.result())
+            except Exception as e:
+                print("[ADS][ERRO] campanha:", e)
+
+    for camp, camp_id, metrics, m in camps_results:
 
         spend   = m.get("cost", 0)
         revenue = m.get("total_amount", m.get("direct_amount", m.get("revenue", 0)))
@@ -732,7 +745,9 @@ def get_ads(user_id):
         total_clicks += clicks
         total_impressions += imps
         # roas_target vem do objeto da campanha (não das métricas)
-        roas_target = camp.get("roas_target", metrics.get("roas_target", None))
+        roas_target = camp.get("roas_target", None)
+        if roas_target is None and isinstance(metrics, dict):
+            roas_target = metrics.get("roas_target", None)
         if roas_target is not None:
             try:
                 roas_target = round(float(roas_target), 2)
@@ -785,7 +800,7 @@ def get_ads_daily(user_id):
     campaigns, base_url, aid = get_campaigns(user_id, token)
     daily_map = {}
 
-    for camp in campaigns[:10]:
+    for camp in campaigns:
         camp_id = camp.get("id")
         metrics = get_campaign_metrics(aid, camp_id, token, date_from, date_to, base_url or "")
         if isinstance(metrics, list):
