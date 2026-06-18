@@ -2932,6 +2932,7 @@ function openCampModal(campId, campName, campStatus) {
       _aiCampData._date_from = dates.date_from;
       _aiCampData._date_to   = dates.date_to;
       renderCampModal(d, campId, dates.date_from, dates.date_to);
+      loadCampHistory(currentSellerId, campId, d.roas_target || null);
     })
     .catch(function(){
       document.getElementById('camp-modal-body').innerHTML =
@@ -3081,7 +3082,11 @@ function renderCampProducts(products) {
         '🤖 Analisar Campanha com IA'+
       '</button>'+
     '</div>'+
-    '<div id="ai-analysis-result" style="margin-top:16px"></div>';
+    '<div id="ai-analysis-result" style="margin-top:16px"></div>'+
+    '<div style="margin-top:16px" id="camp-history-section">'+
+      '<div style="font-size:11px;font-weight:700;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📈 Histórico de Performance<\/div>'+
+      '<div id="camp-history-body"><div style="text-align:center;padding:20px;color:#6e6e88;font-size:12px">Carregando histórico...<\/div><\/div>'+
+    '<\/div>';
 }
 
 // Armazena dados da campanha para a análise IA
@@ -3122,6 +3127,133 @@ function closeCampModal() {
   var overlay = document.getElementById('camp-modal-overlay');
   if (overlay) overlay.remove();
   document.body.style.overflow = '';
+}
+
+async function loadCampHistory(userId, campId, roasTarget) {
+  var el = document.getElementById('camp-history-body');
+  if (!el) return;
+  try {
+    var r = await fetch('/api/ads/'+userId+'/campaign/'+campId+'/history?days=30');
+    var d = await r.json();
+    var history = d.history || [];
+
+    if (!history.length) {
+      el.innerHTML = '<div style="text-align:center;padding:20px;color:#6e6e88;font-size:12px">'+
+        'Nenhum dado histórico ainda.<br>'+
+        '<span style="font-size:11px;opacity:.7">O histórico é coletado diariamente a partir de hoje.</span>'+
+      '</div>';
+      return;
+    }
+
+    // Tendência: compara média dos últimos 7 dias vs primeiros 7 dias
+    var recent = history.slice(-7);
+    var older  = history.slice(0, 7);
+    var avgRoasRecent = recent.reduce(function(a,h){ return a + h.roas; }, 0) / recent.length;
+    var avgRoasOlder  = older.reduce(function(a,h){ return a + h.roas; }, 0) / older.length;
+    var trend = avgRoasOlder > 0 ? ((avgRoasRecent - avgRoasOlder) / avgRoasOlder * 100).toFixed(1) : null;
+    var trendColor = trend === null ? '#6e6e88' : parseFloat(trend) >= 0 ? '#2ecc9a' : '#ff5c7a';
+    var trendIcon  = trend === null ? '—' : parseFloat(trend) >= 0 ? '▲' : '▼';
+
+    var labels  = history.map(function(h){ var p=h.date.split('-'); return p[2]+'/'+p[1]; });
+    var roasArr = history.map(function(h){ return h.roas; });
+    var acosArr = history.map(function(h){ return h.acos; });
+
+    el.innerHTML =
+      '<div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">'+
+        '<div style="background:#26262f;border-radius:8px;padding:10px 14px;flex:1;min-width:120px">'+
+          '<div style="font-size:9px;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">ROAS Médio (período)<\/div>'+
+          '<div style="font-size:18px;font-weight:700;color:#2ecc9a">'+
+            (roasArr.reduce(function(a,v){return a+v;},0)/roasArr.length).toFixed(2)+'x'+
+          '<\/div>'+
+        '<\/div>'+
+        '<div style="background:#26262f;border-radius:8px;padding:10px 14px;flex:1;min-width:120px">'+
+          '<div style="font-size:9px;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tendência (7d vs 7d)<\/div>'+
+          '<div style="font-size:18px;font-weight:700;color:'+trendColor+'">'+
+            (trend !== null ? trendIcon+' '+Math.abs(trend)+'%' : '—')+
+          '<\/div>'+
+        '<\/div>'+
+        '<div style="background:#26262f;border-radius:8px;padding:10px 14px;flex:1;min-width:120px">'+
+          '<div style="font-size:9px;color:#6e6e88;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Dias com dados<\/div>'+
+          '<div style="font-size:18px;font-weight:700;color:#f0f0f5">'+history.length+'<\/div>'+
+        '<\/div>'+
+      '<\/div>'+
+      '<div style="position:relative;height:180px;background:#1a1a22;border-radius:10px;padding:12px">'+
+        '<canvas id="chart-camp-history"><\/canvas>'+
+      '<\/div>'+
+      '<div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:#6e6e88">'+
+        '<span><span style="display:inline-block;width:10px;height:2px;background:#2ecc9a;margin-right:4px;vertical-align:middle"><\/span>ROAS real<\/span>'+
+        (roasTarget ? '<span><span style="display:inline-block;width:10px;height:2px;background:rgba(46,204,154,.3);border-top:2px dashed #2ecc9a;margin-right:4px;vertical-align:middle"><\/span>Meta ('+roasTarget+'x)<\/span>' : '')+
+        '<span><span style="display:inline-block;width:10px;height:2px;background:#f5a623;margin-right:4px;vertical-align:middle"><\/span>ACOS<\/span>'+
+      '<\/div>';
+
+    setTimeout(function(){
+      var canvas = document.getElementById('chart-camp-history');
+      if (!canvas) return;
+      var datasets = [
+        {
+          label: 'ROAS',
+          data: roasArr,
+          borderColor: '#2ecc9a',
+          backgroundColor: 'rgba(46,204,154,0.08)',
+          borderWidth: 2, tension: 0.3, fill: true,
+          pointRadius: 3, pointHoverRadius: 5,
+          yAxisID: 'y'
+        },
+        {
+          label: 'ACOS %',
+          data: acosArr,
+          borderColor: '#f5a623',
+          backgroundColor: 'transparent',
+          borderWidth: 2, tension: 0.3, fill: false,
+          pointRadius: 3, pointHoverRadius: 5,
+          yAxisID: 'y2'
+        }
+      ];
+      if (roasTarget) {
+        datasets.push({
+          label: 'Meta ROAS',
+          data: roasArr.map(function(){ return roasTarget; }),
+          borderColor: 'rgba(46,204,154,0.4)',
+          borderWidth: 1.5, borderDash: [5,4],
+          pointRadius: 0, fill: false, yAxisID: 'y'
+        });
+      }
+      new Chart(canvas, {
+        type: 'line',
+        data: { labels: labels, datasets: datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: function(c){
+                if(c.dataset.label==='ROAS') return ' ROAS: '+c.raw+'x';
+                if(c.dataset.label==='ACOS %') return ' ACOS: '+c.raw+'%';
+                return ' Meta: '+c.raw+'x';
+              }
+            }}
+          },
+          scales: {
+            x: { ticks: { font:{size:9}, color:'#5a5a70', maxRotation:35 }, grid:{display:false} },
+            y: {
+              position:'left',
+              ticks: { font:{size:9}, color:'#2ecc9a', callback:function(v){return v+'x';} },
+              grid: { color:'rgba(255,255,255,0.04)' }
+            },
+            y2: {
+              position:'right',
+              ticks: { font:{size:9}, color:'#f5a623', callback:function(v){return v+'%';} },
+              grid: { display:false }
+            }
+          }
+        }
+      });
+    }, 50);
+  } catch(e) {
+    var el2 = document.getElementById('camp-history-body');
+    if (el2) el2.innerHTML = '<div style="color:#6e6e88;font-size:12px;padding:12px 0">Histórico não disponível ainda.</div>';
+  }
 }
 </script>
 
