@@ -3068,7 +3068,7 @@ def collect_campaign_history():
         user_id = seller["user_id"]
         token   = seller["access_token"]
         try:
-            token = refresh_token_if_needed(user_id, token, seller.get("refresh_token",""))
+            token = refresh_token_if_needed(user_id, token, seller.get("refresh_token",""), seller.get("updated_at", datetime.now(timezone.utc)))
         except: pass
 
         try:
