@@ -1228,7 +1228,7 @@ def get_sales(user_id):
             r2 = requests.get(
                 "https://api.mercadolibre.com/items",
                 params={"ids": ",".join(chunk),
-                        "attributes": "id,title,price,status,available_quantity,shipping,fulfillment,catalog_product_id"},
+                        "attributes": "id,title,price,status,available_quantity,shipping,fulfillment,catalog_product_id,logistic_type"},
                 headers={"Authorization": "Bearer " + token}, timeout=8
             )
             if not r2.ok: continue
@@ -1238,8 +1238,20 @@ def get_sales(user_id):
                 if not iid: continue
                 ff   = body.get("fulfillment") or {}
                 sh   = body.get("shipping") or {}
-                is_full = bool(ff.get("fulfillment_id") or ff.get("status") == "active" or
-                               sh.get("logistic_type") in ("fulfillment","meli_fulfillment"))
+                # logistic_type pode vir na raiz, dentro de shipping, ou dentro de fulfillment
+                lt   = (body.get("logistic_type") or
+                        sh.get("logistic_type") or
+                        ff.get("logistic_type") or "")
+                full_keywords = ("fulfillment", "meli_fulfillment")
+                is_full = bool(
+                    lt in full_keywords or
+                    ff.get("fulfillment_id") or
+                    ff.get("status") == "active" or
+                    sh.get("fulfillment") or
+                    any(k in str(sh).lower() for k in full_keywords) or
+                    any(k in str(ff).lower() for k in full_keywords)
+                )
+                print(f"[FULL_DEBUG] {iid} lt={lt!r} ff={ff} sh_lt={sh.get('logistic_type')!r} is_full={is_full}")
                 products_map[iid] = {
                     "item_id": iid,
                     "title":   body.get("title", ""),
