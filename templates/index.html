@@ -3051,7 +3051,7 @@ function renderCampProducts(products) {
       '<td style="padding:10px 8px;white-space:nowrap"><span style="font-size:11px;font-weight:700;color:'+acosC+'">'+p.acos+'%</span></td>'+
       '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmtK(p.impressions)+'</td>'+
       '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmtK(p.clicks)+'</td>'+
-      '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmt(p.cpc)+'</td>'+
+      '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+fmtDec(p.cpc)+'</td>'+
       '<td style="padding:10px 8px;font-size:12px;color:#d0d0e0;white-space:nowrap">'+p.orders+'</td>'+
     '</tr>';
   }).join('');
