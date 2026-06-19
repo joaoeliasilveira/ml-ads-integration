@@ -1357,10 +1357,7 @@ def get_promotions(user_id):
         try:
             d = r1.json()
             raw = d if isinstance(d, list) else d.get("results", d.get("promotions", []))
-            # Filtra apenas promos ativas
-            promotions = [p for p in raw if p.get("status") in ("started", "active", "candidate")]
-            if not promotions:
-                promotions = raw  # mostra todas se nenhuma ativa
+            promotions = raw  # todas as promoções, independente de status
         except Exception:
             pass
 
@@ -1380,11 +1377,12 @@ def get_promotions(user_id):
                 pass
 
     result = []
-    for p in promotions[:20]:
+    for p in promotions:  # sem limite
+        ptype = p.get("type", p.get("deal_type", p.get("promotion_type", "")))
         result.append({
             "id": str(p.get("id", p.get("deal_id", ""))),
             "name": p.get("name", p.get("description", p.get("deal_print_id", "Promocao"))),
-            "type": p.get("type", p.get("deal_type", p.get("promotion_type", ""))),
+            "type": ptype,
             "status": p.get("status", ""),
             "discount": p.get("value", p.get("discount_meli_amount", p.get("percent_off", 0))),
             "start_date": str(p.get("start_date", p.get("from_date", p.get("from", ""))))[:10],
