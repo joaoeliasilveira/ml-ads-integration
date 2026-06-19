@@ -2112,77 +2112,176 @@ function _applyCampView(sortVal){
 
 function promoTypeLabel(type){
   var map = {
-    'LIGHTNING':['⚡ Relâmpago','badge-red'],
-    'SMART':['🧠 Smart','badge-blue'],
-    'DEAL':['🏷 Deal','badge-amber'],
-    'SELLER_CAMPAIGN':['📣 Campanha','badge-green'],
-    'SELLER_COUPON_CAMPAIGN':['🎟 Cupom','badge-green'],
-    'PRICE_DISCOUNT':['💲 Desconto','badge-amber'],
+    'LIGHTNING':              ['⚡ Oferta Relâmpago','badge-red'],
+    'SMART':                  ['🧠 Oferta do Dia','badge-blue'],
+    'DEAL':                   ['🏷 Oferta Especial','badge-amber'],
+    'SELLER_CAMPAIGN':        ['📣 Campanha do Vendedor','badge-green'],
+    'SELLER_COUPON_CAMPAIGN': ['🎟 Cupom','badge-green'],
+    'PRICE_DISCOUNT':         ['💲 Desconto de Preço','badge-amber'],
+    'UNHEALTHY_STOCK':        ['📦 Liquidação de Estoque','badge-amber'],
+    'PRE_NEGOTIATED':         ['🤝 Pré-negociada','badge-blue'],
+    'REBATE':                 ['💰 Cashback','badge-green'],
+    'BUNDLE':                 ['🎁 Kit Combinado','badge-blue'],
+    'COUPON':                 ['🎟 Cupom','badge-green'],
+    'CROSS_SELLING':          ['🔄 Venda Cruzada','badge-blue'],
+    'MARKETPLACE_CAMPAIGN':   ['🛒 Campanha ML','badge-blue'],
   };
-  var info = map[type] || [type||'-','badge-gray'];
+  var info = map[type] || [type ? type.replace(/_/g,' ') : '-','badge-gray'];
   return '<span class="badge '+info[1]+'" style="font-size:10px">'+info[0]+'<\/span>';
 }
 
 function renderPromocoes(el, data){
   var promos = data.promotions || [];
-  var total = data.total || 0;
+  var total = promos.length;
+
+  // Contagem por tipo
   var byType = {};
   promos.forEach(function(p){ var t=p.type||'OUTROS'; byType[t]=(byType[t]||0)+1; });
+
+  // Cards de tipo
   var typeCards = Object.keys(byType).map(function(t){
-    return '<div class="metric-card"><div class="metric-label" style="margin-bottom:8px">'+promoTypeLabel(t)+'<\/div><div class="metric-value">'+byType[t]+'<\/div><div class="metric-delta">ativas<\/div><\/div>';
+    return '<div class="metric-card"><div class="metric-label" style="margin-bottom:8px">'+promoTypeLabel(t)+'<\/div><div class="metric-value">'+byType[t]+'<\/div><div class="metric-delta">campanhas<\/div><\/div>';
   }).join('');
 
-  var promoCards = promos.length === 0
-    ? '<div style="text-align:center;color:var(--text3);padding:40px"><div style="font-size:36px;margin-bottom:12px;opacity:0.3">🎯<\/div><div>Nenhuma promoção ativa<\/div><\/div>'
-    : promos.map(function(p, i){
-        var stBadge = p.status==='started'||p.status==='active' ? 'badge-green' : p.status==='paused' ? 'badge-amber' : 'badge-gray';
-        var stLabel = p.status==='started'||p.status==='active' ? 'Ativa' : p.status==='paused' ? 'Pausada' : 'Encerrada';
-        var fmtD = function(s){ if(!s) return '-'; var p=s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
-        var inicio = fmtD(p.start_date);
-        var fim    = fmtD(p.end_date);
-        var duracao = '-';
-        if(p.start_date && p.end_date){
-          var dias = Math.ceil((new Date(p.end_date) - new Date(p.start_date)) / (1000*60*60*24));
-          duracao = dias + ' dias';
-        }
-        var desconto = (p.discount && p.discount > 0) ? p.discount+'%' : '-';
-        var itens    = (p.items_count && p.items_count > 0) ? p.items_count : '-';
+  // Guarda promos globalmente para busca
+  window._promosData = promos;
 
-        return '<div class="promo-card" id="promo-card-'+i+'" data-promo-id="'+p.id+'" data-promo-type="'+p.type+'" data-start-date="'+(p.start_date||'')+'">'+ 
-          // Header clicável
-          '<div class="promo-card-header" onclick="togglePromoCard('+i+')">'+
-            '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'+
-              '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.name+'<\/div>'+
-            '<\/div>'+
-            '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+
-              promoTypeLabel(p.type)+
-              '<span class="badge '+stBadge+'">'+stLabel+'<\/span>'+
-              '<svg class="promo-chevron" id="promo-chev-'+i+'" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><\/svg>'+
-            '<\/div>'+
+  function buildPromoCards(list){
+    if(!list.length) return '<div style="text-align:center;color:var(--text3);padding:40px"><div style="font-size:36px;margin-bottom:12px;opacity:0.3">🎯<\/div><div>Nenhuma promoção encontrada<\/div><\/div>';
+    return list.map(function(p, i){
+      var stBadge = p.status==='started'||p.status==='active' ? 'badge-green' : p.status==='paused' ? 'badge-amber' : p.status==='candidate' ? 'badge-blue' : 'badge-gray';
+      var stLabel = p.status==='started'||p.status==='active' ? 'Ativa' : p.status==='paused' ? 'Pausada' : p.status==='candidate' ? 'Candidata' : p.status||'—';
+      var fmtD = function(s){ if(!s||s==='-') return '-'; var pts=s.split('-'); return pts.length===3?pts[2]+'/'+pts[1]+'/'+pts[0]:s; };
+      var duracao = '-';
+      if(p.start_date && p.end_date && p.end_date!=='-'){
+        var dias = Math.ceil((new Date(p.end_date)-new Date(p.start_date))/(1000*60*60*24));
+        if(dias>0) duracao = dias+' dias';
+      }
+      var idx = promos.indexOf(p);
+      return '<div class="promo-card" id="promo-card-'+idx+'" data-promo-id="'+p.id+'" data-promo-type="'+p.type+'" data-start-date="'+(p.start_date||'')+'">'+
+        '<div class="promo-card-header" onclick="togglePromoCard('+idx+')">'+
+          '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'+
+            '<div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+p.name+'<\/div>'+
           '<\/div>'+
-          // Body expansível — info + produtos
-          '<div class="promo-card-body" id="promo-body-'+i+'">'+
-            '<div class="promo-details-grid">'+
-              '<div class="promo-detail-item"><div class="promo-detail-label">Data de início<\/div><div class="promo-detail-value">'+inicio+'<\/div><\/div>'+
-              '<div class="promo-detail-item"><div class="promo-detail-label">Data de fim<\/div><div class="promo-detail-value">'+fim+'<\/div><\/div>'+
-              '<div class="promo-detail-item"><div class="promo-detail-label">Duração<\/div><div class="promo-detail-value">'+duracao+'<\/div><\/div>'+
-            '<\/div>'+
-            '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br)">'+
-              '<div id="promo-items-'+i+'" class="promo-items-container"><div style="display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px"><div class="spinner" style="width:16px;height:16px"><\/div>Carregando produtos...<\/div><\/div>'+
-            '<\/div>'+
+          '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+
+            promoTypeLabel(p.type)+
+            '<span class="badge '+stBadge+'">'+stLabel+'<\/span>'+
+            '<svg class="promo-chevron" id="promo-chev-'+idx+'" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><\/svg>'+
           '<\/div>'+
-        '<\/div>';
-      }).join('');
+        '<\/div>'+
+        '<div class="promo-card-body" id="promo-body-'+idx+'">'+
+          '<div class="promo-details-grid">'+
+            '<div class="promo-detail-item"><div class="promo-detail-label">Início<\/div><div class="promo-detail-value">'+fmtD(p.start_date)+'<\/div><\/div>'+
+            '<div class="promo-detail-item"><div class="promo-detail-label">Fim<\/div><div class="promo-detail-value">'+fmtD(p.end_date)+'<\/div><\/div>'+
+            '<div class="promo-detail-item"><div class="promo-detail-label">Duração<\/div><div class="promo-detail-value">'+duracao+'<\/div><\/div>'+
+          '<\/div>'+
+          '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br)">'+
+            '<div id="promo-items-'+idx+'" class="promo-items-container"><div style="display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px"><div class="spinner" style="width:16px;height:16px"><\/div>Carregando produtos...<\/div><\/div>'+
+          '<\/div>'+
+        '<\/div>'+
+      '<\/div>';
+    }).join('');
+  }
 
   el.innerHTML =
     '<div class="section-label">Resumo<\/div>'+
     '<div class="metrics-grid" style="grid-template-columns:repeat(auto-fit,minmax(155px,1fr));margin-bottom:20px">'+
-      '<div class="metric-card"><div class="metric-label">Total Ativas<\/div><div class="metric-value">'+total+'<\/div><div class="metric-delta">promoções no ar<\/div><\/div>'+
+      '<div class="metric-card"><div class="metric-label">Total de Campanhas<\/div><div class="metric-value">'+total+'<\/div><div class="metric-delta">na conta<\/div><\/div>'+
       typeCards+
     '<\/div>'+
-    '<div class="section-label">Promoções Ativas<\/div>'+
-    '<div style="display:flex;flex-direction:column;gap:8px">'+promoCards+'<\/div>';
+
+    // Busca por produto
+    '<div class="section-label">Buscar Produto nas Promoções<\/div>'+
+    '<div class="card" style="margin-bottom:16px">'+
+      '<div style="font-size:13px;color:var(--mu);margin-bottom:12px">Pesquise por MLB, SKU ou título para ver em quais campanhas o produto aparece (ativo ou candidato).<\/div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<input id="promo-prod-search" type="text" placeholder="Ex: MLB4211382519 ou Kit Bermuda..." '+
+          'onkeydown="if(event.key===\'Enter\')searchProductInPromos()" '+
+          'style="flex:1;min-width:220px;padding:9px 14px;background:var(--s2);border:1.5px solid var(--br);border-radius:var(--radius-sm);color:var(--tx);font-family:Inter,sans-serif;font-size:13px;outline:none">'+
+        '<button onclick="searchProductInPromos()" class="btn-apply" style="padding:9px 20px;font-size:13px">Buscar<\/button>'+
+      '<\/div>'+
+      '<div id="promo-prod-result" style="margin-top:12px"><\/div>'+
+    '<\/div>'+
+
+    '<div class="section-label">Todas as Campanhas<\/div>'+
+    '<div id="promo-cards-list" style="display:flex;flex-direction:column;gap:8px">'+buildPromoCards(promos)+'<\/div>';
 }
+
+function searchProductInPromos(){
+  var q = (document.getElementById('promo-prod-search').value || '').trim().toLowerCase();
+  var resultEl = document.getElementById('promo-prod-result');
+  if(!q || !resultEl) return;
+  resultEl.innerHTML = '<div style="color:var(--mu);font-size:12px;display:flex;align-items:center;gap:8px"><div class="spinner" style="width:14px;height:14px"><\/div>Buscando...</div>';
+
+  // Busca via API por items dentro de cada promoção
+  var userId = currentSellerId;
+  var promos  = window._promosData || [];
+  var matches = [];
+  var pending = promos.length;
+  if(!pending){
+    resultEl.innerHTML = '<div style="color:var(--text3);font-size:12px">Nenhuma promoção carregada.</div>';
+    return;
+  }
+
+  promos.forEach(function(p, idx){
+    var url = '/api/promo-items/'+userId+'/'+p.id+'?type='+p.type+'&start_date='+(p.start_date||'');
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var items = d.items || [];
+        var found = items.filter(function(it){
+          return (it.item_id||'').toLowerCase().includes(q) ||
+                 (it.title||'').toLowerCase().includes(q) ||
+                 (it.sku||'').toLowerCase().includes(q);
+        });
+        if(found.length) matches.push({promo: p, items: found});
+      })
+      .catch(function(){})
+      .finally(function(){
+        pending--;
+        if(pending === 0) renderPromoSearchResult(matches, q);
+      });
+  });
+}
+
+function renderPromoSearchResult(matches, q){
+  var el = document.getElementById('promo-prod-result');
+  if(!el) return;
+  if(!matches.length){
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum produto encontrado com "<b>'+q+'</b>" nas campanhas desta conta.</div>';
+    return;
+  }
+  var html = '<div style="font-size:12px;font-weight:600;color:var(--tl);margin-bottom:10px">'+
+    matches.length+' campanha(s) com esse produto:</div>';
+  html += matches.map(function(m){
+    var stBadge = m.promo.status==='started'||m.promo.status==='active' ? 'badge-green' : m.promo.status==='paused' ? 'badge-amber' : 'badge-gray';
+    var stLabel = m.promo.status==='started'||m.promo.status==='active' ? 'Ativa' : m.promo.status==='paused' ? 'Pausada' : m.promo.status||'—';
+    var itemRows = m.items.map(function(it){
+      var isBadge = (it.status==='active'||it.status==='started') ? 'badge-green' : it.status==='candidate' ? 'badge-blue' : 'badge-amber';
+      var isLabel = (it.status==='active'||it.status==='started') ? 'Ativo' : it.status==='candidate' ? 'Candidato' : it.status||'—';
+      var disc = it.original_price>0 ? Math.round((1-it.price/it.original_price)*100)+'%' : '-';
+      return '<tr>'+
+        '<td style="padding:6px 8px;font-size:11px;color:var(--tx)">'+it.item_id+'<\/td>'+
+        '<td style="padding:6px 8px;font-size:11px;color:var(--tx);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+it.title+'<\/td>'+
+        '<td style="padding:6px 8px"><span class="badge '+isBadge+'">'+isLabel+'<\/span><\/td>'+
+        '<td style="padding:6px 8px;font-size:11px;color:var(--green);font-weight:600">'+disc+'<\/td>'+
+      '<\/tr>';
+    }).join('');
+    return '<div style="background:var(--s2);border:1.5px solid var(--br);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'+
+        '<span style="font-size:13px;font-weight:600;color:var(--tx)">'+m.promo.name+'<\/span>'+
+        promoTypeLabel(m.promo.type)+
+        '<span class="badge '+stBadge+'">'+stLabel+'<\/span>'+
+      '<\/div>'+
+      '<div style="overflow-x:auto"><table class="data-table">'+
+        '<thead><tr><th>MLB<\/th><th>Produto<\/th><th>Status<\/th><th>Desconto<\/th><\/tr><\/thead>'+
+        '<tbody>'+itemRows+'<\/tbody>'+
+      '<\/table><\/div>'+
+    '<\/div>';
+  }).join('');
+  el.innerHTML = html;
+}
+
 
 function togglePromoCard(i){
   var body  = document.getElementById('promo-body-'+i);
